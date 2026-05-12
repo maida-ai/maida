@@ -1,6 +1,6 @@
 """AgentDbg: local-first agent debugging (trace, record_llm_call, record_tool_call, record_state)."""
 
-from maida.exceptions import AgentDbgGuardrailExceeded, AgentDbgLoopAbort
+from maida.exceptions import GuardrailExceeded, LoopAbort
 from maida.tracing import (
     has_active_run,
     record_llm_call,
@@ -17,8 +17,8 @@ except ImportError:
     __version__ = "0.0.0dev+default"
 
 __all__ = [
-    "AgentDbgGuardrailExceeded",
-    "AgentDbgLoopAbort",
+    "GuardrailExceeded",
+    "LoopAbort",
     "trace",
     "traced_run",
     "has_active_run",

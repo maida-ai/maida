@@ -83,31 +83,36 @@ class LoopAbort(GuardrailExceeded):
 # Backward compatibility (deprecated names; warn on direct use only)
 
 
-def _make_depricated_class(name: str, bases: tuple[type, ...]) -> type:
-    @deprecated(
-        f"'{name}'is deprecated and will be removed in a future version. "
-        f"Use '{bases[0].__name__}' instead.",
-        stacklevel=4,
+def _make_deprecated_exception(
+    old_name: str,
+    new_cls: type[BaseException],
+) -> type[BaseException]:
+    message = (
+        f"'{old_name}' is deprecated and will be removed in a future version. "
+        f"Use '{new_cls.__name__}' instead."
     )
-    class DeprecatedClass(bases[0], *bases[1:]):
-        f"""Deprecated class for :class:`{name}`."""
+
+    @deprecated(message, stacklevel=2)
+    class DeprecatedException(new_cls):
         pass
 
-    return DeprecatedClass
+    DeprecatedException.__name__ = old_name
+    DeprecatedException.__qualname__ = old_name
+    DeprecatedException.__module__ = __name__
+
+    return DeprecatedException
 
 
-_AgentDbgAbortSignal = _make_depricated_class(
-    "_AgentDbgAbortSignal", (_MaidaAbortSignal,)
+_AgentDbgAbortSignal = _make_deprecated_exception(
+    "_AgentDbgAbortSignal", _MaidaAbortSignal
 )
 
 
-AgentDbgGuardrailExceeded = _make_depricated_class(
-    "AgentDbgGuardrailExceeded", (GuardrailExceeded,)
+AgentDbgGuardrailExceeded = _make_deprecated_exception(
+    "AgentDbgGuardrailExceeded", GuardrailExceeded
 )
 
 
 # Multiple inheritance keeps legacy isinstance(exc, AgentDbgGuardrailExceeded) true
 # for loop aborts (lifecycle records guardrail fields on that branch only).
-AgentDbgLoopAbort = _make_depricated_class(
-    "AgentDbgLoopAbort", (LoopAbort, AgentDbgGuardrailExceeded)
-)
+AgentDbgLoopAbort = _make_deprecated_exception("AgentDbgLoopAbort", LoopAbort)

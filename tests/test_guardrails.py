@@ -10,7 +10,7 @@ import pytest
 from maida import record_llm_call, record_tool_call, record_state, trace, traced_run
 from maida.config import load_config
 from maida.events import EventType
-from maida.exceptions import AgentDbgGuardrailExceeded, AgentDbgLoopAbort
+from maida.exceptions import GuardrailExceeded, LoopAbort
 from maida.storage import load_events, load_run_meta
 from tests.conftest import get_latest_run_id
 
@@ -30,7 +30,7 @@ def _run_loop_pattern():
 
 def test_stop_on_loop_enabled_and_threshold_crossed_aborts(temp_data_dir):
     """When stop_on_loop=True and loop detection fires with repetitions >= threshold, abort."""
-    with pytest.raises(AgentDbgLoopAbort):
+    with pytest.raises(LoopAbort):
         _run_loop_pattern()
 
     config = load_config()
@@ -110,7 +110,7 @@ def test_max_llm_calls_triggers_at_n_plus_one(temp_data_dir):
         record_llm_call("m", prompt="p", response="r")
         record_llm_call("m", prompt="p", response="r")
 
-    with pytest.raises(AgentDbgGuardrailExceeded) as exc_info:
+    with pytest.raises(GuardrailExceeded) as exc_info:
         run_three_llm()
 
     assert exc_info.value.guardrail == "max_llm_calls"
@@ -158,7 +158,7 @@ def test_max_tool_calls_triggers_at_n_plus_one(temp_data_dir):
         record_tool_call("t", args={}, result=None)
         record_tool_call("t", args={}, result=None)
 
-    with pytest.raises(AgentDbgGuardrailExceeded) as exc_info:
+    with pytest.raises(GuardrailExceeded) as exc_info:
         run_three_tool()
 
     assert exc_info.value.guardrail == "max_tool_calls"
@@ -182,7 +182,7 @@ def test_max_events_triggers_at_threshold(temp_data_dir):
         record_llm_call("m", prompt="p", response="r")
         record_tool_call("t", args={}, result=None)
 
-    with pytest.raises(AgentDbgGuardrailExceeded) as exc_info:
+    with pytest.raises(GuardrailExceeded) as exc_info:
         run_many_events()
 
     assert exc_info.value.guardrail == "max_events"
@@ -206,7 +206,7 @@ def test_max_duration_s_triggers_after_timeout(temp_data_dir, monkeypatch):
     monkeypatch.setattr(storage_mod, "utc_now_iso_ms_z", lambda: start_ts)
     monkeypatch.setattr(guardrails_mod, "utc_now_iso_ms_z", lambda: end_ts)
 
-    with pytest.raises(AgentDbgGuardrailExceeded) as exc_info:
+    with pytest.raises(GuardrailExceeded) as exc_info:
         with traced_run(max_duration_s=60):
             record_llm_call("m", prompt="p", response="r")
 
@@ -227,7 +227,7 @@ def test_guardrail_abort_records_error_and_run_end(temp_data_dir):
     def run_one_llm():
         record_llm_call("m", prompt="p", response="r")
 
-    with pytest.raises(AgentDbgGuardrailExceeded):
+    with pytest.raises(GuardrailExceeded):
         run_one_llm()
 
     config = load_config()
@@ -254,7 +254,7 @@ def test_guardrail_exception_re_raised(temp_data_dir):
     caught = None
     try:
         run_one()
-    except AgentDbgGuardrailExceeded as e:
+    except GuardrailExceeded as e:
         caught = e
 
     assert caught is not None
@@ -304,7 +304,7 @@ def test_precedence_function_arg_over_env(temp_data_dir, monkeypatch):
         record_llm_call("m", prompt="p", response="r")
         record_llm_call("m", prompt="p", response="r")
 
-    with pytest.raises(AgentDbgGuardrailExceeded) as exc_info:
+    with pytest.raises(GuardrailExceeded) as exc_info:
         run_three()
 
     assert exc_info.value.threshold == 2
@@ -317,7 +317,7 @@ def test_precedence_function_arg_over_env(temp_data_dir, monkeypatch):
 
 def test_traced_run_with_guardrails(temp_data_dir):
     """traced_run(max_llm_calls=N) enforces limit."""
-    with pytest.raises(AgentDbgGuardrailExceeded):
+    with pytest.raises(GuardrailExceeded):
         with traced_run(max_llm_calls=1):
             record_llm_call("a", prompt="p", response="r")
             record_llm_call("b", prompt="p", response="r")
@@ -334,16 +334,16 @@ def test_traced_run_with_guardrails(temp_data_dir):
 
 
 def test_loop_abort_is_subclass_of_guardrail_exceeded():
-    """AgentDbgLoopAbort is a subclass of AgentDbgGuardrailExceeded."""
-    exc = AgentDbgLoopAbort(threshold=3, actual=4, message="loop detected")
-    assert isinstance(exc, AgentDbgGuardrailExceeded)
+    """LoopAbort is a subclass of GuardrailExceeded."""
+    exc = LoopAbort(threshold=3, actual=4, message="loop detected")
+    assert isinstance(exc, GuardrailExceeded)
     assert exc.guardrail == "stop_on_loop"
     assert exc.threshold == 3
     assert exc.actual == 4
 
 
 def test_loop_abort_caught_by_parent_class(temp_data_dir):
-    """AgentDbgLoopAbort can be caught using the parent AgentDbgGuardrailExceeded type."""
+    """LoopAbort can be caught using the parent GuardrailExceeded type."""
 
     @trace(stop_on_loop=True, stop_on_loop_min_repetitions=3)
     def run_loop():
@@ -354,11 +354,11 @@ def test_loop_abort_caught_by_parent_class(temp_data_dir):
     caught = None
     try:
         run_loop()
-    except AgentDbgGuardrailExceeded as e:
+    except GuardrailExceeded as e:
         caught = e
 
     assert caught is not None
-    assert isinstance(caught, AgentDbgLoopAbort)
+    assert isinstance(caught, LoopAbort)
     assert caught.guardrail == "stop_on_loop"
 
 
@@ -401,7 +401,7 @@ def test_max_duration_s_zero_triggers_immediately(temp_data_dir, monkeypatch):
     monkeypatch.setattr(storage_mod, "utc_now_iso_ms_z", lambda: ts)
     monkeypatch.setattr(guardrails_mod, "utc_now_iso_ms_z", lambda: ts)
 
-    with pytest.raises(AgentDbgGuardrailExceeded) as exc_info:
+    with pytest.raises(GuardrailExceeded) as exc_info:
         with traced_run(max_duration_s=0.0):
             record_llm_call("m", prompt="p", response="r")
 
@@ -447,7 +447,7 @@ def test_loop_warning_dedup_no_guardrail_emits_one_per_pattern(temp_data_dir):
 
 def test_loop_warning_dedup_with_stop_on_loop_emits_minimal_warnings(temp_data_dir):
     """With stop_on_loop=True, the first qualifying LOOP_WARNING triggers
-    AgentDbgLoopAbort.  Even if the caller catches the exception and keeps
+    LoopAbort.  Even if the caller catches the exception and keeps
     emitting events (simulating the OpenAI Agents SDK behaviour), subsequent
     detections of already-emitted patterns must NOT produce extra LOOP_WARNINGs."""
 
@@ -460,11 +460,11 @@ def test_loop_warning_dedup_with_stop_on_loop_emits_minimal_warnings(temp_data_d
         for _ in range(6):
             try:
                 record_llm_call("m", prompt="p", response="r")
-            except AgentDbgLoopAbort:
+            except LoopAbort:
                 pass
             try:
                 record_tool_call("t", args={}, result=None)
-            except AgentDbgLoopAbort:
+            except LoopAbort:
                 pass
 
     run_loop_swallowing_abort()
@@ -487,7 +487,7 @@ def test_loop_warning_dedup_with_stop_on_loop_emits_minimal_warnings(temp_data_d
 
 
 def test_stop_on_loop_re_raises_after_swallowed_abort(temp_data_dir):
-    """When stop_on_loop=True and the framework swallows AgentDbgLoopAbort,
+    """When stop_on_loop=True and the framework swallows LoopAbort,
     subsequent detections of the same pattern must keep raising the abort
     (without emitting duplicate LOOP_WARNING events)."""
 
@@ -503,17 +503,17 @@ def test_stop_on_loop_re_raises_after_swallowed_abort(temp_data_dir):
         for _ in range(6):
             try:
                 record_llm_call("m", prompt="p", response="r")
-            except AgentDbgLoopAbort:
+            except LoopAbort:
                 abort_count += 1
             try:
                 record_tool_call("t", args={}, result=None)
-            except AgentDbgLoopAbort:
+            except LoopAbort:
                 abort_count += 1
 
     run_loop_counting_aborts()
 
     assert abort_count > 1, (
-        f"expected multiple AgentDbgLoopAbort raises when framework keeps "
+        f"expected multiple LoopAbort raises when framework keeps "
         f"swallowing, got {abort_count}"
     )
 
@@ -546,7 +546,7 @@ def test_nested_traced_run_applies_guardrail_params(temp_data_dir):
                 record_tool_call("foo", args={}, result=None)
                 record_llm_call("gpt", prompt="p", response="r")
 
-    with pytest.raises(AgentDbgLoopAbort):
+    with pytest.raises(LoopAbort):
         run_outer()
 
     config = load_config()

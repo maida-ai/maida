@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from maida.events import utc_now_iso_ms_z
-from maida.exceptions import AgentDbgGuardrailExceeded, AgentDbgLoopAbort
+from maida.exceptions import GuardrailExceeded, LoopAbort
 
 
 @dataclass
@@ -133,8 +133,8 @@ def check_after_event(
     now_iso: str | None = None,
 ) -> None:
     """
-    Check guardrail limits after an event was recorded. Raise AgentDbgGuardrailExceeded
-    (or AgentDbgLoopAbort for stop_on_loop) when a threshold is exceeded.
+    Check guardrail limits after an event was recorded. Raise GuardrailExceeded
+    (or LoopAbort for stop_on_loop) when a threshold is exceeded.
 
     Call after appending the event and incrementing counts/total_events so that
     max_llm_calls=50 aborts on the 51st LLM call (count > 50).
@@ -156,7 +156,7 @@ def check_after_event(
                 f"guardrail stop_on_loop: repetitions {repetitions} >= "
                 f"stop_on_loop_min_repetitions {params.stop_on_loop_min_repetitions}"
             )
-            raise AgentDbgLoopAbort(
+            raise LoopAbort(
                 threshold=params.stop_on_loop_min_repetitions,
                 actual=repetitions,
                 message=msg,
@@ -166,7 +166,7 @@ def check_after_event(
     if params.max_llm_calls is not None:
         llm = counts.get("llm_calls", 0)
         if llm > params.max_llm_calls:
-            raise AgentDbgGuardrailExceeded(
+            raise GuardrailExceeded(
                 guardrail="max_llm_calls",
                 threshold=params.max_llm_calls,
                 actual=llm,
@@ -177,7 +177,7 @@ def check_after_event(
     if params.max_tool_calls is not None:
         tool = counts.get("tool_calls", 0)
         if tool > params.max_tool_calls:
-            raise AgentDbgGuardrailExceeded(
+            raise GuardrailExceeded(
                 guardrail="max_tool_calls",
                 threshold=params.max_tool_calls,
                 actual=tool,
@@ -187,7 +187,7 @@ def check_after_event(
     # max_events: abort when total events exceeds limit
     if params.max_events is not None:
         if total_events > params.max_events:
-            raise AgentDbgGuardrailExceeded(
+            raise GuardrailExceeded(
                 guardrail="max_events",
                 threshold=params.max_events,
                 actual=total_events,
@@ -204,7 +204,7 @@ def check_after_event(
         except (ValueError, TypeError):
             elapsed_s = 0.0
         if elapsed_s >= params.max_duration_s:
-            raise AgentDbgGuardrailExceeded(
+            raise GuardrailExceeded(
                 guardrail="max_duration_s",
                 threshold=params.max_duration_s,
                 actual=elapsed_s,

@@ -112,6 +112,6 @@ def test_guardrail_exceeded_is_deprecated():
 def test_loop_abort_is_deprecated():
     """Lifecycle/integrations import AgentDbgLoopAbort"""
     assert issubclass(AgentDbgLoopAbort, LoopAbort)
-    assert issubclass(AgentDbgLoopAbort, AgentDbgGuardrailExceeded)
+    assert issubclass(AgentDbgLoopAbort, GuardrailExceeded)
     with pytest.warns(DeprecationWarning):
         AgentDbgLoopAbort(1, 2, "m")

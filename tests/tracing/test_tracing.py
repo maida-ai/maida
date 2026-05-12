@@ -532,7 +532,7 @@ def test_trace_async_with_guardrails(temp_data_dir):
     """Guardrails work correctly on @trace-decorated async functions."""
     import asyncio
 
-    from maida.exceptions import AgentDbgLoopAbort
+    from maida.exceptions import LoopAbort
 
     @trace(name="async-guardrail", stop_on_loop=True, stop_on_loop_min_repetitions=3)
     async def async_loop():
@@ -540,7 +540,7 @@ def test_trace_async_with_guardrails(temp_data_dir):
             record_llm_call("m", prompt="p", response="r")
             record_tool_call("t", args={}, result="ok")
 
-    with pytest.raises(AgentDbgLoopAbort):
+    with pytest.raises(LoopAbort):
         asyncio.run(async_loop())
 
     config = load_config()

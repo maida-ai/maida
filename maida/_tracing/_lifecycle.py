@@ -14,7 +14,7 @@ from typing import Any, Callable, Generator, ParamSpec, TypeVar
 from maida.config import load_config
 from maida.constants import default_counts
 from maida.events import EventType, new_event
-from maida.exceptions import AgentDbgGuardrailExceeded, _AgentDbgAbortSignal
+from maida.exceptions import GuardrailExceeded, _MaidaAbortSignal
 from maida.guardrails import GuardrailParams, merge_guardrail_params
 from maida.storage import append_event, create_run, finalize_run
 
@@ -49,7 +49,7 @@ def _error_payload(exc: BaseException) -> dict[str, Any]:
     }
 
 
-def _guardrail_error_payload(exc: AgentDbgGuardrailExceeded) -> dict[str, Any]:
+def _guardrail_error_payload(exc: GuardrailExceeded) -> dict[str, Any]:
     """Build ERROR payload for guardrail abort (includes guardrail, threshold, actual)."""
     return {
         "error_type": type(exc).__name__,
@@ -127,7 +127,7 @@ def _run_context(
         _append_event_and_check_guardrails(run_id, ev, config, counts)
         _invoke_run_enter()
         yield
-    except _AgentDbgAbortSignal as signal:
+    except _MaidaAbortSignal as signal:
         exc_info = sys.exc_info()
         cause = signal.cause
         err_payload = _redact_and_truncate(_guardrail_error_payload(cause), config)
@@ -136,7 +136,7 @@ def _run_context(
         counts["errors"] = counts.get("errors", 0) + 1
         _finish_run("error")
         raise cause from signal
-    except AgentDbgGuardrailExceeded as e:
+    except GuardrailExceeded as e:
         exc_info = sys.exc_info()
         err_payload = _redact_and_truncate(_guardrail_error_payload(e), config)
         err_ev = new_event(EventType.ERROR, run_id, type(e).__name__, err_payload)
