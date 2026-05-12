@@ -132,9 +132,14 @@ def test_no_new_tools_passes_when_subset(temp_data_dir):
     run_events = [(EventType.TOOL_CALL, "search", {})]
     run_id = _make_run(config, events=run_events, name="check")
 
-    policy = AssertionPolicy(no_new_tools=True)
+    # Passing a baseline auto-enables a duration sub-check (default tolerance
+    # 50%). On fast CI runners the baseline duration can be 1-2 ms, so the
+    # implicit limit collapses to ~1.5 ms and trivial jitter on the check run
+    # flakes the report. This test asserts no_new_tools semantics only, so
+    # neutralize the duration sub-check with a huge tolerance.
+    policy = AssertionPolicy(no_new_tools=True, duration_tolerance=10000.0)
     report = run_assertions(run_id, policy, baseline=bl, config=config)
-    assert report.passed is True, f"===> {report=}"
+    assert report.passed is True
 
 
 def test_no_new_tools_fails_on_new_tool(temp_data_dir):
