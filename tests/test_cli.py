@@ -361,7 +361,22 @@ def test_assert_with_baseline(empty_data_dir):
         events=[(EventType.TOOL_CALL, "t", {}) for _ in range(5)],
     )
     result = runner.invoke(
-        app, ["assert", check_run, "--baseline", str(bl_path), "--max-steps", "100"]
+        app,
+        [
+            "assert",
+            check_run,
+            "--baseline",
+            str(bl_path),
+            "--max-steps",
+            "100",
+            # Baseline auto-enables a duration check (default tolerance 50%).
+            # In-process _make_run timing has tens-of-ms jitter on Windows
+            # (fsync variability), which is unrelated to this test's intent
+            # of verifying baseline-comparison plumbing. Use a generous
+            # tolerance so duration jitter cannot flake the check.
+            "--duration-tolerance",
+            "100",
+        ],
     )
     assert result.exit_code == 0
 
