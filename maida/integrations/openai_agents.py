@@ -39,11 +39,11 @@ except ImportError as e:
         "Install with `pip install maida[openai]`."
     ) from e
 
-_PROCESSOR_ATTR = "_agentdbg_openai_agents_processor"
+_PROCESSOR_ATTR = "_maida_openai_agents_processor"
 
 
-def _span_error_to_agentdbg_error(span_error: Any) -> dict[str, Any] | str | None:
-    """Normalize the SDK span error shape to AgentDbg's error payload contract."""
+def _span_error_to_maida_error(span_error: Any) -> dict[str, Any] | str | None:
+    """Normalize the SDK span error shape to Maida's error payload contract."""
     if span_error is None:
         return None
     if isinstance(span_error, dict):
@@ -92,7 +92,7 @@ def _base_meta(span: Any, span_type: str) -> dict[str, Any]:
 
 
 class AgentDbgOpenAIAgentsTracingProcessor(TracingProcessor):
-    """Translate completed OpenAI Agents spans into AgentDbg recorders.
+    """Translate completed OpenAI Agents spans into Maida recorders.
 
     When a guardrail fires, the processor raises ``_MaidaAbortSignal``
     (a ``BaseException``) so it bypasses the SDK's ``except Exception``
@@ -142,7 +142,7 @@ class AgentDbgOpenAIAgentsTracingProcessor(TracingProcessor):
         span_data = getattr(span, "span_data", None)
         span_error = getattr(span, "error", None)
         status = _status_from_span_error(span_error)
-        error = _span_error_to_agentdbg_error(span_error)
+        error = _span_error_to_maida_error(span_error)
 
         try:
             if isinstance(span_data, GenerationSpanData):

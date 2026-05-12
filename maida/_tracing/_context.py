@@ -19,24 +19,20 @@ from maida.storage import append_event, create_run, finalize_run
 from maida._tracing._redact import _redact_and_truncate, _redact_argv
 
 
-_run_id_var: ContextVar[str | None] = ContextVar("agentdbg_run_id", default=None)
-_counts_var: ContextVar[dict | None] = ContextVar("agentdbg_counts", default=None)
-_config_var: ContextVar[MaidaConfig | None] = ContextVar(
-    "agentdbg_config", default=None
-)
+_run_id_var: ContextVar[str | None] = ContextVar("maida_run_id", default=None)
+_counts_var: ContextVar[dict | None] = ContextVar("maida_counts", default=None)
+_config_var: ContextVar[MaidaConfig | None] = ContextVar("maida_config", default=None)
 _event_window_var: ContextVar[list[dict] | None] = ContextVar(
-    "agentdbg_event_window", default=None
+    "maida_event_window", default=None
 )
 _loop_emitted_var: ContextVar[set[str] | None] = ContextVar(
-    "agentdbg_loop_emitted", default=None
+    "maida_loop_emitted", default=None
 )
 _guardrail_params_var: ContextVar[GuardrailParams | None] = ContextVar(
-    "agentdbg_guardrail_params", default=None
+    "maida_guardrail_params", default=None
 )
-_started_at_var: ContextVar[str | None] = ContextVar(
-    "agentdbg_started_at", default=None
-)
-_event_count_var: ContextVar[int] = ContextVar("agentdbg_event_count", default=0)
+_started_at_var: ContextVar[str | None] = ContextVar("maida_started_at", default=None)
+_event_count_var: ContextVar[int] = ContextVar("maida_event_count", default=0)
 
 # Implicit run: stored so atexit can finalize (RUN_END + run.json status).
 _implicit_run_id: str | None = None
