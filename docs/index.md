@@ -1,10 +1,10 @@
 # Maida
 
-**Maida** is a pre-merge behavioral regression gate for AI agents. It captures structured traces (LLM calls, tool calls, state, errors), and gates the changes that don't conform a pre-existing policy.
+**Maida** is a behavioral regression gating layer for AI agents. It captures structured traces (LLM calls, tool calls, state, errors), turns known-good behavior into baselines, and checks future runs against policy.
 
-**What it is:** A developer tool to instrument your agent, run it, and see a full event timeline locally. No cloud, no accounts.
+**What it is:** A local-first SDK and CLI for collecting behavioral evidence, comparing runs, and failing changes that drift beyond accepted thresholds. The current workflow is optimized for pre-merge CI, but the trace and policy primitives are the same foundation for broader reliability workflows.
 
-**What it is not:** It is not observability or production monitoring. It does not do deterministic replay (planned for a later version), and it does not lock you into any framework.
+**What it is not:** It is not a hosted observability product or a framework lock-in layer. The local viewer helps inspect evidence, but the core product is behavioral regression gating.
 
 ---
 
@@ -38,6 +38,8 @@ maida view
 
 A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.maida/runs/<run_id>/`.
 
+From there, capture a baseline with `maida baseline` and gate future runs with `maida assert`.
+
 ---
 
 ## Demos and examples
@@ -50,7 +52,7 @@ A browser tab opens showing every event in the run - tool calls, LLM calls, timi
 | **LangChain customer support** (advanced) | `examples/langchain/` | Set API keys, then follow `_customer_support/README.md` |
 | **Demos** (short scripts) | `examples/demo/` | `python examples/demo/pure_python.py` or `python examples/demo/langchain.py` |
 
-After any run, open the timeline with `maida view`.
+After any run, inspect evidence with `maida view`, capture baselines with `maida baseline`, and check regressions with `maida assert`.
 
 ---
 

@@ -53,18 +53,18 @@ if __name__ == "__main__":
     run_agent()
 ```
 
-**3. Run the script, then open the UI:**
+**3. Run the script, then inspect the captured evidence:**
 
 ```bash
 python your_script.py
 maida view
 ```
 
-The viewer starts a local server (default `127.0.0.1:8712`) and opens the latest run in your browser.
+The viewer starts a local server (default `127.0.0.1:8712`) and opens the latest run in your browser. Use this trace as the evidence source for baselines, assertions, and diffs.
 
 ---
 
-## Add guardrails while you debug
+## Add guardrails while you iterate
 
 If you are iterating on an agent loop, add guardrails early so a bad prompt or tool policy does not spiral into dozens of repeated calls.
 
@@ -83,7 +83,7 @@ def run_agent():
     ...
 ```
 
-Useful defaults for local debugging:
+Useful defaults for local iteration:
 
 - `stop_on_loop=True` for ReAct-style loops
 - `max_llm_calls` when you want a token-budget ceiling
@@ -130,7 +130,7 @@ Config can also be set in `~/.maida/config.yaml` or `.maida/config.yaml` in the 
 | `MAIDA_REDACT_KEYS` | `api_key,token,authorization,cookie,secret,password` | Comma-separated keys (case-insensitive substring match) |
 | `MAIDA_MAX_FIELD_BYTES` | `20000` | Max size for string/field before truncation |
 
-Example: disable redaction (e.g. for local debugging):
+Example: disable redaction for trusted local inspection:
 
 ```bash
 export MAIDA_REDACT=0

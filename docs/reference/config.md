@@ -211,4 +211,4 @@ guardrails:
 
 - **Redaction is on by default** so that common secret keys are not written to disk.
 - **Data directory** defaults to `~/.maida` so traces stay on the machine.
-- No cloud or network is used for trace storage. Override only what you need (e.g. `MAIDA_DATA_DIR` for project-local storage, or `MAIDA_REDACT=0` for local debugging with full payloads).
+- No cloud or network is used for trace storage. Override only what you need (e.g. `MAIDA_DATA_DIR` for project-local storage, or `MAIDA_REDACT=0` for trusted local inspection with full payloads).

@@ -75,7 +75,7 @@ from maida import traced_run
 
 
 with traced_run(
-    name="react_debug",
+    name="react_guarded",
     stop_on_loop=True,
     max_llm_calls=8,
     max_tool_calls=12,

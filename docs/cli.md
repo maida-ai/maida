@@ -146,7 +146,7 @@ maida assert RUN_ID [options]
 |---|---|---|
 | `RUN_ID` | *(required)* | Run ID or prefix to check |
 | `--baseline`, `-b` | - | Baseline JSON file to compare against |
-| `--policy` | `.maidamaida/policy.yaml` (auto-detected) | Policy YAML file with assertion thresholds |
+| `--policy` | `.maida/policy.yaml` (auto-detected) | Policy YAML file with assertion thresholds |
 | `--max-steps` | - | Max total events allowed |
 | `--step-tolerance` | `0.5` | Fractional tolerance for step count |
 | `--max-tool-calls` | - | Max tool calls allowed |

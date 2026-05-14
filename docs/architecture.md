@@ -1,6 +1,6 @@
 # Architecture
 
-How Maida works: event schema, storage, viewer API, UI, and loop detection. For the full public contract (envelope, event types, payload schemas, run.json), see the [Trace format](reference/trace-format.md) reference.
+How Maida works: event schema, storage, viewer API, UI, guardrails, and loop detection. These pieces provide the behavioral evidence used by baselines, assertions, diffs, and downstream reliability workflows. For the full public contract (envelope, event types, payload schemas, run.json), see the [Trace format](reference/trace-format.md) reference.
 
 ---
 
@@ -77,7 +77,7 @@ Default bind: `127.0.0.1:8712`. The UI fetches runs and events from these endpoi
 
 ## Guardrails
 
-Guardrails are opt-in limits that stop a run before it burns more time, tokens, or tool calls than you intended. They are designed for local debugging, not policy enforcement.
+Guardrails are opt-in limits that stop a run before it burns more time, tokens, or tool calls than you intended. They are runtime safety limits and evidence capture tools; post-run policy enforcement belongs to `maida assert`.
 
 **Available guardrails:** `stop_on_loop`, `stop_on_loop_min_repetitions`, `max_llm_calls`, `max_tool_calls`, `max_events`, `max_duration_s`. All default to disabled.
 

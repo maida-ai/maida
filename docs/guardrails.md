@@ -2,12 +2,14 @@
 
 Guardrails are Maida's opt-in way to stop a run before it burns more time, tokens, or tool calls than you intended.
 
-They are designed for local debugging loops, not policy enforcement:
+They are runtime safety limits and evidence capture tools, not the post-run policy gate:
 
 - Use existing v0.1 event types only
 - Record normal trace evidence before aborting
 - Raise a dedicated exception so your code knows the run was stopped on purpose
 - Keep default behavior unchanged unless you enable a guardrail
+
+Use `maida assert` for behavioral policy enforcement against a completed run.
 
 ---
 
@@ -128,7 +130,7 @@ from maida import GuardrailExceeded, record_llm_call, record_tool_call, traced_r
 
 try:
     with traced_run(
-        name="react_debug",
+        name="react_guarded",
         max_llm_calls=8,
         max_tool_calls=12,
         max_events=40,
@@ -229,11 +231,11 @@ This gives you full evidence of the step that actually tripped the limit.
 
 ## Choosing sensible defaults
 
-Some practical starting points for local development:
+Some practical starting points for local development and CI fixtures:
 
 - `stop_on_loop=True` for ReAct-style or planner/executor loops
 - `max_llm_calls=10` to `30` for prompt iteration
-- `max_tool_calls=10` to `25` for tool-heavy debugging
+- `max_tool_calls=10` to `25` for tool-heavy workflows
 - `max_events=50` to `200` when you want a hard ceiling on trace size
 - `max_duration_s=15` to `60` for runs that should finish quickly
 

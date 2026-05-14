@@ -1,19 +1,19 @@
 # Regression testing
 
-Maida ships three CLI commands that turn traced runs into lightweight regression tests: **baseline**, **assert**, and **diff**. Together they let you capture a known-good run, check future runs against it, and drill into what changed when something breaks.
+Maida ships three CLI commands that turn traced runs into behavioral regression gates: **baseline**, **assert**, and **diff**. Together they let you capture a known-good run, check future runs against it, and drill into what changed when something breaks.
 
 ---
 
 ## Why
 
-Agent behavior is non-deterministic. A prompt tweak, model upgrade, or tool change can silently increase token usage, add unexpected tool calls, or introduce loops. `maida assert` gives you a one-line check — locally or in CI — that catches these regressions before they reach production.
+Agent behavior is non-deterministic. A prompt tweak, model upgrade, or tool change can silently increase token usage, add unexpected tool calls, or introduce loops. `maida assert` gives you a one-line check - locally or in CI - that catches these regressions before they ship or become incidents.
 
 ---
 
 ## Workflow overview
 
 ```
-1. Run your agent              maida view
+1. Run your agent              python your_agent.py
 2. Capture a baseline          maida baseline <run_id>
 3. Run the agent again         python your_agent.py
 4. Assert against baseline     maida assert <new_run_id> --baseline .maida/baselines/my_agent.json

@@ -4,9 +4,7 @@
 
 ### Highlights
 
-- **CLI renamed** - `agentdbg` to `maida`
 - **Project renamed** - CLI changed from `agentdbg` to `maida`; repo changed from `RefineHQ-AI` to `Maida-AI`
-- **CI Gate Live** - The CI gate is live in github.com/Maida-AI/maida-assert
 - **Assertions** - `maida assert`, `maida baseline`, `maida diff` let you catch regressions before they reach production.
 
 ## v0.2
