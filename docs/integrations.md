@@ -137,7 +137,7 @@ If `crewai` is not installed, importing the integration raises a clear `ImportEr
 
 ```python
 import maida
-from maida.integrations import crewai as adbg_crewai  # registers hooks
+from maida.integrations import crewai as maida_crewai  # registers hooks
 
 @maida.trace
 def run_crew():

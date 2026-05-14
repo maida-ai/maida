@@ -11,11 +11,6 @@ _README.md
 !schemas/*.json
 !schemas/*.jsonl
 
-# Instruction sets for AI to follow -- these constantly change
-ai/
-.cursor/
-.cursorignore
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
