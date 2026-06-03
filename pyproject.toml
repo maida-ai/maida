@@ -1,7 +1,7 @@
 [project]
 name = "maida-ai"
 dynamic = ["version"]
-description = "Don't let broken changes merge."
+description = "Don't let broken agent changes merge."
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "Apache-2.0"
 license-files = [ "LICENSE" ]
@@ -20,7 +20,7 @@ classifiers = [
   "Development Status :: 3 - Alpha",
 
   "Intended Audience :: Developers",
-  "Topic :: Software Development :: Debuggers",
+  "Topic :: Software Development :: Quality Assurance",
 
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/Maida-AI/maida"
+Repository = "https://github.com/maida-ai/maida"
 
 [project.scripts]
 maida = "maida.cli:main"

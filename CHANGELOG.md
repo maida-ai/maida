@@ -4,8 +4,8 @@
 
 ### Highlights
 
-- **Project renamed** - CLI changed from `agentdbg` to `maida`; repo changed from `RefineHQ-AI` to `Maida-AI`
-- **Assertions** - `maida assert`, `maida baseline`, `maida diff` let you catch regressions before they reach production.
+- **Project renamed** - CLI changed from `agentdbg` to `maida`; repo changed from `RefineHQ-AI` to `maida-ai`.
+- **Assertions** - `maida assert`, `maida baseline`, `maida diff` let you catch structural regressions before they merge.
 
 ## v0.2
 

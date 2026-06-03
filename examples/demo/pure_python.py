@@ -31,7 +31,7 @@ def _ensure_demo_defaults() -> None:
 @trace(name="pure-python demo")
 def run_demo() -> None:
     record_state(
-        state={"phase": "start", "goal": "show agent timeline debugging"},
+        state={"phase": "start", "goal": "show behavioral trace evidence"},
         meta={"demo": "pure-python"},
     )
 

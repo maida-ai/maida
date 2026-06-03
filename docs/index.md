@@ -1,10 +1,10 @@
 # Maida
 
-**Maida** is a behavioral regression gating layer for AI agents. It captures structured traces (LLM calls, tool calls, state, errors), turns known-good behavior into baselines, and checks future runs against policy.
+**Maida** is a pre-merge behavioral regression gate for AI agents. It captures structured traces (LLM calls, tool calls, state, errors), turns known-good behavior into checked-in baselines, and blocks changes when policy says structural behavior regressed.
 
-**What it is:** A local-first SDK and CLI for collecting behavioral evidence, comparing runs, and failing changes that drift beyond accepted thresholds. The current workflow is optimized for pre-merge CI, but the trace and policy primitives are the same foundation for broader reliability workflows.
+**What it is:** A local-first SDK and CLI for collecting behavioral evidence, comparing runs, and failing CI checks when agent behavior drifts beyond accepted thresholds. The current workflow is optimized for pre-merge CI, but the trace and policy primitives are the same foundation for broader reliability workflows.
 
-**What it is not:** It is not a hosted observability product or a framework lock-in layer. The local viewer helps inspect evidence, but the core product is behavioral regression gating.
+**What it is not:** It is not a hosted telemetry product, a generic output eval platform, or a framework lock-in layer. The local viewer helps inspect evidence, but the core product is behavioral regression gating.
 
 ---
 

@@ -31,7 +31,7 @@ def run_agent():
             output=[
                 {
                     "role": "assistant",
-                    "content": "Maida is a local-first timeline debugger for AI agents.",
+                    "content": "Maida is a local-first behavioral regression gate for AI agents.",
                 }
             ],
             model="gpt-4o-mini",

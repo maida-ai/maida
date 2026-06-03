@@ -1,31 +1,36 @@
 # Maida
 
-**The step-through debugger for AI agents.**
+**Don't let broken agent changes merge.**
 
-![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/agent_dbg)
 [![PyPI version](https://img.shields.io/pypi/v/maida-ai.svg)](https://pypi.org/project/maida-ai/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/maida-ai)
 
+Maida is a local-first, CI-first behavioral regression gate for AI agents. It captures structured traces, turns known-good runs into checked-in baselines, and fails changes when structural behavior regresses: more steps, unexpected tool calls, loops, latency spikes, or cost blowups.
 
+Add `@trace`, capture a baseline, then gate future runs:
 
+```bash
+python my_agent.py
+maida list --json
+maida baseline <RUN_ID> --out baselines/my_agent.json
+maida assert <NEW_RUN_ID> --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
+```
 
-Maida captures a structured trace of every agent run - LLM calls, tool calls, errors, state updates, loop warnings - and gives you a clean local timeline to see exactly what happened.
-
-Add `@trace`, run your agent, then run:
+For local inspection, use:
 
 ```
 maida view
 ```
 
-In under 10 minutes, you can inspect a full execution timeline with inputs, outputs, status, and failure evidence - all on your machine.
+The viewer shows the execution timeline behind a pass/fail decision, but the core workflow is baseline, policy, and CI gate.
 
 **No cloud. No accounts. No telemetry. Everything stays on your machine.**
 
-**Built-in run guardrails:** stop runaway debug sessions when an agent starts looping or exceeds your limits for LLM calls, tool calls, total events, or duration.
+**Built-in run guardrails:** stop runaway agent runs when a prompt, model, or tool change starts looping or exceeds your limits for LLM calls, tool calls, total events, or duration.
 
-![Dashboard Brag](docs/assets/guardrails.gif)
+![Guardrails demo](docs/assets/guardrails.gif)
 
-## Get running in 5 minutes
+## Get a local run in 5 minutes
 
 Three commands. No config files, no API keys, no sign-up. Install: `pip install maida-ai`. Then:
 
@@ -57,7 +62,7 @@ A browser tab opens at `http://127.0.0.1:8712` showing the full run timeline - e
 
 ![Pure Pythonic Agent Timeline UI](docs/assets/timeline-pure-python.gif)
 
-That's it. You're debugging.
+That trace is the evidence source for baselines, diffs, and CI assertions.
 
 
 ## Instrument your own agent
@@ -87,7 +92,7 @@ def run_agent():
 run_agent()
 ```
 
-Then `maida view` to see the timeline.
+Then use `maida baseline`, `maida assert`, or `maida view` depending on whether you want to gate, compare, or inspect the run.
 
 ### What gets captured
 
@@ -169,16 +174,18 @@ Each run produces `run.json` (metadata, status, counts) and `events.jsonl` (full
 
 ## What Maida is
 
-- **Local-first**: traces stored as JSONL on disk. No cloud, no accounts, no telemetry.
-- **Framework-agnostic**: works with any Python code
-- **Redacted by default**: secrets scrubbed before writing to disk
-- **Active prevention**: stop-on-loop guardrails kill runaway agents before they burn your budget
-- A development-time debugger for the "why did it do that?" moment
+- **A behavioral regression gate**: compare agent runs against checked-in baselines and policy.
+- **CI-first**: `maida assert` returns stable exit codes and markdown/JSON output for pull request checks.
+- **Local-first**: traces are JSONL on disk. No cloud, no accounts, no telemetry by default.
+- **Framework-agnostic**: works with any Python code and optional framework adapters.
+- **Redacted by default**: secrets are scrubbed before writing to disk.
+- **Inspection-friendly**: the local timeline helps explain why a gate passed or failed.
 
 ## What Maida is NOT
 
 - Not a hosted service or cloud platform
-- Not a production observability tool (no dashboards, alerts, or monitoring)
+- Not a production telemetry or alerting platform
+- Not a generic output eval or scoring framework
 - Not tied to a single framework
 
 
@@ -233,7 +240,7 @@ maida diff <RUN_A> --baseline .maida/baselines/my_agent.json
 
 ## Regression testing
 
-Baselines, assertions, and diffs let you catch agent regressions — locally or in CI. The workflow:
+Baselines, assertions, and diffs let you catch agent regressions locally or in CI. The workflow:
 
 1. **Baseline** a known-good run (`maida baseline`)
 2. **Assert** future runs against it (`maida assert --baseline ...`)
@@ -383,13 +390,13 @@ More framework adapters coming soon (Agno, and others).
 
 ## Tutorials
 
-Step-by-step Jupyter notebooks live in a separate repository: [Maida-AI/maida-tutorials](https://github.com/Maida-AI/maida-tutorials). Covers LangChain, OpenAI Agents SDK, and guardrails — all runnable without API keys.
+Step-by-step Jupyter notebooks live in a separate repository: [maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials). Covers LangChain, OpenAI Agents SDK, and guardrails - all runnable without API keys.
 
 
 ## Development
 
 ```bash
-git clone https://github.com/Maida-AI/maida.git
+git clone https://github.com/maida-ai/maida.git
 cd maida
 uv venv && uv sync && uv pip install -e .
 ```

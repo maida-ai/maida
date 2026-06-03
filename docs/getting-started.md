@@ -14,7 +14,7 @@ pip install maida-ai
 
 ```bash
 git clone https://github.com/maida-ai/maida.git
-cd maida/maida
+cd maida
 uv sync
 ```
 
@@ -22,7 +22,7 @@ uv sync
 
 ```bash
 git clone https://github.com/maida-ai/maida.git
-cd maida/maida
+cd maida
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
