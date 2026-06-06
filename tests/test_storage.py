@@ -11,6 +11,7 @@ import pytest
 from maida.config import load_config
 from maida.events import EventType, new_event
 from maida.storage import (
+    _validate_trace_id,
     append_event,
     create_run,
     finalize_run,
@@ -19,6 +20,11 @@ from maida.storage import (
     list_runs,
     resolve_run_id,
 )
+
+
+def test_validate_trace_id_normalizes_uppercase(temp_data_dir):
+    """Uppercase trace IDs normalize to lowercase for filesystem lookup."""
+    assert _validate_trace_id("A" * 32) == "a" * 32
 
 
 def test_create_run_writes_run_json_with_status_running(temp_data_dir):
@@ -59,6 +65,23 @@ def test_finalize_run_sets_status_ok_ended_at_duration_ms(temp_data_dir):
     assert run_meta.get("status") == "ok"
     assert run_meta.get("ended_at") is not None
     assert run_meta.get("duration_ms") is not None
+
+
+def test_load_run_meta_accepts_uppercase_trace_id(temp_data_dir):
+    config = load_config()
+    trace_id = "a" * 32
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": "upper",
+        "started_at": "2026-01-01T12:00:00.000Z",
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    assert load_run_meta(trace_id.upper(), config) == meta
 
 
 # ---------------------------------------------------------------------------
