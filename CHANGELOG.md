@@ -6,6 +6,7 @@
 
 - **Project renamed** - CLI changed from `agentdbg` to `maida`; repo changed from `RefineHQ-AI` to `maida-ai`.
 - **Assertions** - `maida assert`, `maida baseline`, `maida diff` let you catch structural regressions before they merge.
+- **OpenTelemetry** - Internal telemetry migrated from custom JSONL to OpenTelemetry spans. Trace format spec bumped to `"0.2"`. Local storage uses `spans.jsonl` + `meta.json` per OTel trace ID. Optional OTLP export via `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
 ## v0.2
 
