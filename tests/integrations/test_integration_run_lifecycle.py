@@ -14,8 +14,8 @@ from maida._integration_utils import (
     register_run_exit,
 )
 from maida.config import load_config
-from maida.events import EventType
-from maida.storage import load_events
+from maida.events import EventType, spans_to_events
+from maida.storage import load_spans
 from tests.conftest import get_latest_run_id
 
 
@@ -109,7 +109,7 @@ def test_run_exit_callback_event_before_run_end_and_exc_when_raises(temp_data_di
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_end_indices = [
         i
         for i, e in enumerate(events)

@@ -13,7 +13,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
@@ -29,7 +29,7 @@ from maida.config import load_config
 _MAIDA_TRACER_NAME = "maida"
 _MAIDA_TRACER_VERSION = "0.1.0"
 
-_tracer_provider: TracerProvider | None = None
+_tracer_provider: Any | None = None
 _tracer: trace.Tracer | None = None
 _lock = threading.Lock()
 
@@ -183,9 +183,43 @@ class MaidaLocalSpanExporter(SpanExporter):
 
                 if not span.parent:
                     self._update_meta(run_dir, span_dict, span)
+                else:
+                    self._ensure_running_meta(run_dir, span_dict)
             return SpanExportResult.SUCCESS
         except Exception:
             return SpanExportResult.FAILURE
+
+    def _write_meta(self, meta_path: Path, meta: dict[str, Any]) -> None:
+        tmp = meta_path.with_name(f".{meta_path.name}.{os.getpid()}.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, meta_path)
+
+    def _ensure_running_meta(self, run_dir: Path, span_dict: dict) -> None:
+        meta_path = run_dir / "meta.json"
+        with self._lock:
+            if meta_path.is_file():
+                return
+            self._write_meta(
+                meta_path,
+                {
+                    "trace_id": span_dict["trace_id"],
+                    "run_name": None,
+                    "started_at": span_dict.get("start_time"),
+                    "ended_at": None,
+                    "duration_ms": None,
+                    "status": "running",
+                    "counts": {
+                        "llm_calls": 0,
+                        "tool_calls": 0,
+                        "errors": 0,
+                        "loop_warnings": 0,
+                    },
+                },
+            )
 
     def _update_meta(
         self, run_dir: Path, span_dict: dict, raw_span: ReadableSpan
@@ -212,8 +246,7 @@ class MaidaLocalSpanExporter(SpanExporter):
             },
         }
         with self._lock:
-            with open(meta_path, "w", encoding="utf-8") as f:
-                json.dump(meta, f, ensure_ascii=False, indent=2)
+            self._write_meta(meta_path, meta)
 
     def shutdown(self) -> None:
         pass
@@ -227,7 +260,13 @@ def _setup_otel() -> None:
     with _lock:
         if _tracer_provider is not None:
             return
-        provider = TracerProvider()
+        current_provider = trace.get_tracer_provider()
+        if hasattr(current_provider, "add_span_processor"):
+            provider = current_provider
+        else:
+            provider = TracerProvider()
+            trace.set_tracer_provider(provider)
+
         local_exporter = MaidaLocalSpanExporter()
         provider.add_span_processor(SimpleSpanProcessor(local_exporter))
 
@@ -243,9 +282,11 @@ def _setup_otel() -> None:
             except Exception:
                 pass
 
-        trace.set_tracer_provider(provider)
         _tracer_provider = provider
-        _tracer = trace.get_tracer(_MAIDA_TRACER_NAME, _MAIDA_TRACER_VERSION)
+        _tracer = cast(
+            trace.Tracer,
+            provider.get_tracer(_MAIDA_TRACER_NAME, _MAIDA_TRACER_VERSION),
+        )
 
 
 def _get_tracer() -> trace.Tracer:

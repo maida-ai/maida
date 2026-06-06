@@ -1,25 +1,33 @@
 """
-Storage tests: create_run, append_event/load_events, finalize_run.
+Storage tests: list_runs, load_run_meta, load_spans, resolve_trace_id, rename_run, delete_run.
 Uses temp dir via MAIDA_DATA_DIR; env restored by fixture.
 """
 
 import json
-from unittest.mock import patch
 
 import pytest
 
 from maida.config import load_config
-from maida.events import EventType, new_event
+from maida.events import EventType, spans_to_events
 from maida.storage import (
     _validate_trace_id,
-    append_event,
-    create_run,
-    finalize_run,
-    load_events,
-    load_run_meta,
+    delete_run,
     list_runs,
-    resolve_run_id,
+    load_run_meta,
+    load_spans,
+    rename_run,
+    resolve_trace_id,
 )
+
+
+# ---------------------------------------------------------------------------
+# _validate_trace_id
+# ---------------------------------------------------------------------------
+
+
+def test_validate_trace_id_accepts_32_hex_chars(temp_data_dir):
+    tid = "a" * 32
+    assert _validate_trace_id(tid) == tid
 
 
 def test_validate_trace_id_normalizes_uppercase(temp_data_dir):
@@ -27,44 +35,37 @@ def test_validate_trace_id_normalizes_uppercase(temp_data_dir):
     assert _validate_trace_id("A" * 32) == "a" * 32
 
 
-def test_create_run_writes_run_json_with_status_running(temp_data_dir):
-    """create_run writes run.json with status 'running'."""
+def test_validate_trace_id_rejects_short(temp_data_dir):
+    with pytest.raises(ValueError, match="invalid trace_id"):
+        _validate_trace_id("abc")
+
+
+def test_validate_trace_id_rejects_path_traversal(temp_data_dir):
+    for bad in ["../" + "a" * 29, "a" * 16 + "/b" * 15, "a" * 16 + "\\b" * 15]:
+        with pytest.raises(ValueError, match="invalid trace_id"):
+            _validate_trace_id(bad)
+
+
+# ---------------------------------------------------------------------------
+# load_run_meta
+# ---------------------------------------------------------------------------
+
+
+def test_load_run_meta_returns_meta(temp_data_dir):
     config = load_config()
-    meta = create_run("test_run", config)
-    run_id = meta["run_id"]
-    path = meta["paths"]["run_json"]
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    assert data.get("status") == "running"
-    assert data.get("run_id") == run_id
-
-
-def test_append_event_writes_events_jsonl_load_events_reads_back(temp_data_dir):
-    """append_event writes to events.jsonl and load_events reads it back."""
-    config = load_config()
-    meta = create_run("test_run", config)
-    run_id = meta["run_id"]
-    ev = new_event(
-        EventType.TOOL_CALL, run_id, "tool1", {"tool_name": "tool1", "args": {}}
-    )
-    append_event(run_id, ev, config)
-    loaded = load_events(run_id, config)
-    assert len(loaded) == 1
-    assert loaded[0].get("event_type") == EventType.TOOL_CALL.value
-    assert loaded[0].get("payload", {}).get("tool_name") == "tool1"
-
-
-def test_finalize_run_sets_status_ok_ended_at_duration_ms(temp_data_dir):
-    """finalize_run sets status 'ok' and sets ended_at and duration_ms not None."""
-    config = load_config()
-    meta = create_run("test_run", config)
-    run_id = meta["run_id"]
-    counts = {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0}
-    finalize_run(run_id, "ok", counts, config)
-    run_meta = load_run_meta(run_id, config)
-    assert run_meta.get("status") == "ok"
-    assert run_meta.get("ended_at") is not None
-    assert run_meta.get("duration_ms") is not None
+    runs_base = config.data_dir / "runs"
+    trace_id = "b" * 32
+    run_dir = runs_base / trace_id
+    run_dir.mkdir(parents=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": "test_run",
+        "started_at": "2026-01-01T12:00:00.000Z",
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    assert load_run_meta(trace_id, config) == meta
 
 
 def test_load_run_meta_accepts_uppercase_trace_id(temp_data_dir):
@@ -84,99 +85,135 @@ def test_load_run_meta_accepts_uppercase_trace_id(temp_data_dir):
     assert load_run_meta(trace_id.upper(), config) == meta
 
 
+def test_load_run_meta_missing_raises(temp_data_dir):
+    config = load_config()
+    with pytest.raises(FileNotFoundError, match="No run found"):
+        load_run_meta("c" * 32, config)
+
+
 # ---------------------------------------------------------------------------
-# resolve_run_id prefix matching
+# load_spans
 # ---------------------------------------------------------------------------
 
 
-def _write_run_json(run_dir, run_id: str, run_name: str, started_at: str) -> None:
-    """Write a minimal valid run.json into run_dir."""
+def _write_spans(run_dir, trace_id, spans):
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "run.json").write_text(
-        json.dumps(
-            {
-                "spec_version": "0.1",
-                "run_id": run_id,
-                "run_name": run_name,
-                "started_at": started_at,
-                "ended_at": None,
-                "duration_ms": None,
-                "status": "running",
-                "counts": {
-                    "llm_calls": 0,
-                    "tool_calls": 0,
-                    "errors": 0,
-                    "loop_warnings": 0,
-                },
-                "last_event_ts": None,
-            }
-        ),
-        encoding="utf-8",
+    lines = [json.dumps(s) for s in spans]
+    (run_dir / "spans.jsonl").write_text("\n".join(lines), encoding="utf-8")
+
+
+def test_load_spans_returns_spans(temp_data_dir):
+    config = load_config()
+    trace_id = "d" * 32
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {"trace_id": trace_id, "run_name": "s", "status": "ok", "counts": {}}
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    spans = [
+        {"trace_id": trace_id, "span_id": "e" * 16, "name": "span1"},
+        {"trace_id": trace_id, "span_id": "f" * 16, "name": "span2"},
+    ]
+    _write_spans(run_dir, trace_id, spans)
+    loaded = load_spans(trace_id, config)
+    assert len(loaded) == 2
+    assert loaded[0]["name"] == "span1"
+
+
+def test_load_spans_skips_invalid_json_lines(temp_data_dir):
+    config = load_config()
+    trace_id = "d" * 32
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {"trace_id": trace_id, "status": "ok", "counts": {}}
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    valid1 = json.dumps({"trace_id": trace_id, "name": "valid1"})
+    valid2 = json.dumps({"trace_id": trace_id, "name": "valid2"})
+    (run_dir / "spans.jsonl").write_text(
+        valid1 + "\nnot valid json\n" + valid2 + "\n{broken\n", encoding="utf-8"
     )
+    loaded = load_spans(trace_id, config)
+    assert len(loaded) == 2
+    assert loaded[0]["name"] == "valid1"
+    assert loaded[1]["name"] == "valid2"
 
 
-def test_resolve_run_id_exact_match_returns_run_id(temp_data_dir):
-    """resolve_run_id with full run_id returns that run_id."""
+def test_load_spans_missing_file_returns_empty(temp_data_dir):
+    config = load_config()
+    trace_id = "d" * 32
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {"trace_id": trace_id, "status": "ok", "counts": {}}
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    assert load_spans(trace_id, config) == []
+
+
+# ---------------------------------------------------------------------------
+# resolve_trace_id prefix matching
+# ---------------------------------------------------------------------------
+
+
+def _write_meta(run_dir, trace_id, run_name, started_at):
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": run_name,
+        "started_at": started_at,
+        "ended_at": None,
+        "duration_ms": None,
+        "status": "running",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+
+def test_resolve_trace_id_exact_match(temp_data_dir):
     config = load_config()
     runs_base = config.data_dir / "runs"
-    runs_base.mkdir(parents=True, exist_ok=True)
-    run_id = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
-    _write_run_json(runs_base / run_id, run_id, "exact", "2026-01-01T12:00:00.000Z")
-    assert resolve_run_id(run_id, config) == run_id
+    trace_id = "a" * 32
+    _write_meta(runs_base / trace_id, trace_id, "exact", "2026-01-01T12:00:00.000Z")
+    assert resolve_trace_id(trace_id, config) == trace_id
 
 
-def test_resolve_run_id_prefix_single_match_returns_full_run_id(temp_data_dir):
-    """resolve_run_id with prefix matching exactly one run returns that run_id."""
+def test_resolve_trace_id_prefix_single_match(temp_data_dir):
     config = load_config()
     runs_base = config.data_dir / "runs"
-    runs_base.mkdir(parents=True, exist_ok=True)
-    run_id = "b1ffcd00-0a1c-4ef8-bb6d-6bb9bd380a11"
-    _write_run_json(runs_base / run_id, run_id, "single", "2026-01-01T12:00:00.000Z")
-    assert resolve_run_id("b1ffcd00", config) == run_id
+    trace_id = "e" * 32
+    _write_meta(runs_base / trace_id, trace_id, "single", "2026-01-01T12:00:00.000Z")
+    assert resolve_trace_id(trace_id[:8], config) == trace_id
 
 
-def test_resolve_run_id_prefix_multiple_matches_returns_most_recent_by_started_at(
-    temp_data_dir,
-):
-    """resolve_run_id with prefix matching multiple runs returns the most recent by started_at."""
+def test_resolve_trace_id_prefix_multiple_returns_most_recent(temp_data_dir):
     config = load_config()
     runs_base = config.data_dir / "runs"
-    runs_base.mkdir(parents=True, exist_ok=True)
-    older_id = "c2aade11-1b2d-4ef8-bb6d-6bb9bd380a11"
-    newer_id = "c2aade11-2c3e-4ef8-8b6d-6bb9bd380a22"
-    _write_run_json(runs_base / older_id, older_id, "old", "2026-01-01T10:00:00.000Z")
-    _write_run_json(runs_base / newer_id, newer_id, "new", "2026-01-01T14:00:00.000Z")
-    assert resolve_run_id("c2aade11", config) == newer_id
+    older_id = "c2aade11" + "b" * 24
+    newer_id = "c2aade11" + "c" * 24
+    _write_meta(runs_base / older_id, older_id, "old", "2026-01-01T10:00:00.000Z")
+    _write_meta(runs_base / newer_id, newer_id, "new", "2026-01-01T14:00:00.000Z")
+    assert resolve_trace_id("c2aade11", config) == newer_id
 
 
-def test_resolve_run_id_no_match_raises_file_not_found(temp_data_dir):
-    """resolve_run_id with no matching run raises FileNotFoundError."""
+def test_resolve_trace_id_no_match_raises(temp_data_dir):
     config = load_config()
     runs_base = config.data_dir / "runs"
-    runs_base.mkdir(parents=True, exist_ok=True)
-    run_id = "d3bbef22-2c3e-7hi1-ee9g-9ee2eg613d44"
-    _write_run_json(runs_base / run_id, run_id, "only", "2026-01-01T12:00:00.000Z")
+    trace_id = "a" * 32
+    _write_meta(runs_base / trace_id, trace_id, "only", "2026-01-01T12:00:00.000Z")
     with pytest.raises(FileNotFoundError, match="No run found matching"):
-        resolve_run_id("nonexistent", config)
+        resolve_trace_id("nonexistent", config)
 
 
-def test_resolve_run_id_rejects_path_traversal(temp_data_dir):
-    """resolve_run_id rejects prefix containing .. or path separators."""
+def test_resolve_trace_id_rejects_path_traversal(temp_data_dir):
     config = load_config()
-    runs_base = config.data_dir / "runs"
-    runs_base.mkdir(parents=True, exist_ok=True)
     for bad in ["../foo", "a/b", "a\\b"]:
-        with pytest.raises(FileNotFoundError, match="Run ID is required"):
-            resolve_run_id(bad, config)
+        with pytest.raises(FileNotFoundError, match="Trace ID is required"):
+            resolve_trace_id(bad, config)
 
 
-def test_resolve_run_id_empty_prefix_raises(temp_data_dir):
-    """resolve_run_id with empty or whitespace prefix raises FileNotFoundError."""
+def test_resolve_trace_id_empty_prefix_raises(temp_data_dir):
     config = load_config()
-    with pytest.raises(FileNotFoundError, match="Run ID is required"):
-        resolve_run_id("", config)
-    with pytest.raises(FileNotFoundError, match="Run ID is required"):
-        resolve_run_id("   ", config)
+    with pytest.raises(FileNotFoundError, match="Trace ID is required"):
+        resolve_trace_id("", config)
+    with pytest.raises(FileNotFoundError, match="Trace ID is required"):
+        resolve_trace_id("   ", config)
 
 
 # ---------------------------------------------------------------------------
@@ -185,74 +222,123 @@ def test_resolve_run_id_empty_prefix_raises(temp_data_dir):
 
 
 def test_list_runs_returns_runs_ordered_by_started_at_descending(temp_data_dir):
-    """list_runs returns runs ordered by started_at descending (most recent first)."""
     config = load_config()
     runs_base = config.data_dir / "runs"
     runs_base.mkdir(parents=True, exist_ok=True)
     ids_and_times = [
-        ("e4ccff33-3d4f-4ef8-bb6d-6bb9bd380a11", "2026-01-01T08:00:00.000Z"),
-        ("e4ccff33-4e5f-4ef8-8b6d-7cc0ce491b22", "2026-01-01T16:00:00.000Z"),
-        ("e4ccff33-5f6a-4ef8-9b6d-8dd1df502c33", "2026-01-01T12:00:00.000Z"),
+        ("e4ccff33" + "a" * 24, "2026-01-01T08:00:00.000Z"),
+        ("e4ccff33" + "b" * 24, "2026-01-01T16:00:00.000Z"),
+        ("e4ccff33" + "c" * 24, "2026-01-01T12:00:00.000Z"),
     ]
-    for run_id, started_at in ids_and_times:
-        _write_run_json(runs_base / run_id, run_id, "run", started_at)
+    for trace_id, started_at in ids_and_times:
+        _write_meta(runs_base / trace_id, trace_id, "run", started_at)
     listed = list_runs(limit=10, config=config)
     assert len(listed) == 3
-    assert [r["run_id"] for r in listed] == [
-        "e4ccff33-4e5f-4ef8-8b6d-7cc0ce491b22",
-        "e4ccff33-5f6a-4ef8-9b6d-8dd1df502c33",
-        "e4ccff33-3d4f-4ef8-bb6d-6bb9bd380a11",
+    assert [r["trace_id"] for r in listed] == [
+        "e4ccff33" + "b" * 24,
+        "e4ccff33" + "c" * 24,
+        "e4ccff33" + "a" * 24,
     ]
 
 
 # ---------------------------------------------------------------------------
-# load_events corrupt JSONL
+# rename_run / delete_run
 # ---------------------------------------------------------------------------
 
 
-def test_load_events_skips_invalid_json_lines(temp_data_dir):
-    """load_events skips corrupt/invalid JSON lines and returns only valid events."""
+def test_rename_run_updates_meta(temp_data_dir):
     config = load_config()
-    meta = create_run("corrupt_test", config)
-    run_id = meta["run_id"]
-    events_path = config.data_dir / "runs" / run_id / "events.jsonl"
-    valid1 = json.dumps({"event_type": "RUN_START", "run_id": run_id, "payload": {}})
-    valid2 = json.dumps({"event_type": "RUN_END", "run_id": run_id, "payload": {}})
-    events_path.write_text(
-        valid1 + "\nnot valid json\n" + valid2 + "\n{broken\n", encoding="utf-8"
-    )
-    loaded = load_events(run_id, config)
-    assert len(loaded) == 2
-    assert loaded[0].get("event_type") == "RUN_START"
-    assert loaded[1].get("event_type") == "RUN_END"
+    runs_base = config.data_dir / "runs"
+    trace_id = "a" * 32
+    _write_meta(runs_base / trace_id, trace_id, "before", "2026-01-01T12:00:00.000Z")
+    renamed = rename_run(trace_id, "after", config)
+    assert renamed["run_name"] == "after"
+    assert load_run_meta(trace_id, config)["run_name"] == "after"
 
 
-def test_load_events_logs_warning_for_corrupt_jsonl_lines(temp_data_dir):
-    """load_events logs a warning for each skipped corrupt JSONL line."""
+def test_rename_run_empty_name_raises(temp_data_dir):
     config = load_config()
-    meta = create_run("corrupt_warn_test", config)
-    run_id = meta["run_id"]
-    events_path = config.data_dir / "runs" / run_id / "events.jsonl"
-    # Line 1: valid, line 2: invalid, line 3: invalid
-    events_path.write_text(
-        '{"event_type": "RUN_START"}\nnot json\n{unclosed\n',
-        encoding="utf-8",
-    )
-    with patch("maida.storage.logger") as mock_logger:
-        loaded = load_events(run_id, config)
-    assert len(loaded) == 1
-    assert loaded[0].get("event_type") == "RUN_START"
-    assert mock_logger.warning.call_count == 2
-    # First corrupt line at line_no 2
-    call1 = mock_logger.warning.call_args_list[0]
-    assert (
-        call1[0][0] == "load_events: skipping corrupt JSONL line run_id=%s line=%s: %s"
-    )
-    assert call1[0][1] == run_id
-    assert call1[0][2] == 2
-    assert isinstance(call1[0][3], json.JSONDecodeError)
-    # Second corrupt line at line_no 3
-    call2 = mock_logger.warning.call_args_list[1]
-    assert call2[0][1] == run_id
-    assert call2[0][2] == 3
-    assert isinstance(call2[0][3], json.JSONDecodeError)
+    runs_base = config.data_dir / "runs"
+    trace_id = "a" * 32
+    _write_meta(runs_base / trace_id, trace_id, "test", "2026-01-01T12:00:00.000Z")
+    with pytest.raises(ValueError, match="run_name must be non-empty"):
+        rename_run(trace_id, "", config)
+
+
+def test_delete_run_removes_directory(temp_data_dir):
+    config = load_config()
+    runs_base = config.data_dir / "runs"
+    trace_id = "a" * 32
+    run_dir = runs_base / trace_id
+    _write_meta(run_dir, trace_id, "delete_me", "2026-01-01T12:00:00.000Z")
+    assert run_dir.is_dir()
+    delete_run(trace_id, config)
+    assert not run_dir.exists()
+
+
+def test_delete_run_missing_raises(temp_data_dir):
+    config = load_config()
+    with pytest.raises(FileNotFoundError, match="No run found"):
+        delete_run("a" * 32, config)
+
+
+# ---------------------------------------------------------------------------
+# spans_to_events integration
+# ---------------------------------------------------------------------------
+
+
+def test_spans_to_events_produces_expected_event_types(temp_data_dir):
+    """A root span + child tool span produces RUN_START, TOOL_CALL, RUN_END."""
+    config = load_config()
+    trace_id = "a" * 32
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": "events_test",
+        "status": "ok",
+        "counts": {},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    root_span_id = "1" * 16
+    child_span_id = "2" * 16
+    spans = [
+        {
+            "trace_id": trace_id,
+            "span_id": root_span_id,
+            "parent_span_id": None,
+            "name": "events_test",
+            "start_time": "2026-01-01T12:00:00.000Z",
+            "end_time": "2026-01-01T12:00:01.000Z",
+            "duration_ms": 1000,
+            "attributes": {"maida.run_name": "events_test"},
+            "events": [],
+            "status_code": "OK",
+        },
+        {
+            "trace_id": trace_id,
+            "span_id": child_span_id,
+            "parent_span_id": root_span_id,
+            "name": "my_tool",
+            "start_time": "2026-01-01T12:00:00.500Z",
+            "end_time": "2026-01-01T12:00:00.600Z",
+            "duration_ms": 100,
+            "attributes": {"maida.tool_name": "my_tool", "maida.status": "ok"},
+            "events": [],
+            "status_code": "OK",
+        },
+    ]
+    _write_spans(run_dir, trace_id, spans)
+
+    loaded_spans = load_spans(trace_id, config)
+    events = spans_to_events(loaded_spans)
+    event_types = [e["event_type"] for e in events]
+
+    assert EventType.RUN_START.value in event_types
+    assert EventType.TOOL_CALL.value in event_types
+    assert EventType.RUN_END.value in event_types
+
+    tool_events = [e for e in events if e["event_type"] == EventType.TOOL_CALL.value]
+    assert len(tool_events) == 1
+    assert tool_events[0]["payload"]["tool_name"] == "my_tool"

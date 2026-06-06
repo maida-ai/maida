@@ -9,6 +9,16 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def reset_otel():
+    """Reset OTel singleton state before each test so MaidaLocalSpanExporter
+    picks up the correct MAIDA_DATA_DIR for this test's temp dir."""
+    from maida._tracing._otel import _shutdown_otel
+
+    _shutdown_otel()
+    yield
+
+
 @pytest.fixture
 def temp_data_dir():
     """Create a temporary directory and set MAIDA_DATA_DIR to it for the test."""
@@ -37,4 +47,4 @@ def get_latest_run_id(config):
 
     runs = list_runs(limit=1, config=config)
     assert runs, "expected at least one run"
-    return runs[0]["run_id"]
+    return runs[0].get("run_id") or runs[0].get("trace_id")

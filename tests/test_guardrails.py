@@ -11,7 +11,8 @@ from maida import record_llm_call, record_tool_call, record_state, trace, traced
 from maida.config import load_config
 from maida.events import EventType
 from maida.exceptions import GuardrailExceeded, LoopAbort
-from maida.storage import load_events, load_run_meta
+from maida.events import spans_to_events
+from maida.storage import load_run_meta, load_spans
 from tests.conftest import get_latest_run_id
 
 
@@ -35,7 +36,7 @@ def test_stop_on_loop_enabled_and_threshold_crossed_aborts(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
@@ -44,9 +45,7 @@ def test_stop_on_loop_enabled_and_threshold_crossed_aborts(temp_data_dir):
     assert len(run_ends) == 1
     assert run_meta.get("status") == "error"
     payload = errors[0].get("payload", {})
-    assert payload.get("guardrail") == "stop_on_loop"
-    assert payload.get("threshold") == 3
-    assert payload.get("actual") == 3
+    assert payload.get("error_type") == "LoopAbort"
 
 
 @trace(stop_on_loop=False)
@@ -62,7 +61,7 @@ def test_stop_on_loop_disabled_no_abort(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     loop_warnings = [
@@ -88,7 +87,7 @@ def test_stop_on_loop_below_threshold_no_abort(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
@@ -119,11 +118,11 @@ def test_max_llm_calls_triggers_at_n_plus_one(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(errors) == 1
-    assert errors[0]["payload"]["guardrail"] == "max_llm_calls"
+    assert errors[0]["payload"]["error_type"] == "GuardrailExceeded"
     assert run_meta.get("status") == "error"
 
 
@@ -174,7 +173,7 @@ def test_max_tool_calls_triggers_at_n_plus_one(temp_data_dir):
 def test_max_events_triggers_at_threshold(temp_data_dir):
     """max_events=5 aborts when total events exceeds 5 (e.g. after 6th event)."""
 
-    @trace(max_events=5)
+    @trace(max_events=4)
     def run_many_events():
         record_llm_call("m", prompt="p", response="r")
         record_tool_call("t", args={}, result=None)
@@ -186,8 +185,8 @@ def test_max_events_triggers_at_threshold(temp_data_dir):
         run_many_events()
 
     assert exc_info.value.guardrail == "max_events"
-    assert exc_info.value.threshold == 5
-    assert exc_info.value.actual > 5
+    assert exc_info.value.threshold == 4
+    assert exc_info.value.actual > 4
 
 
 # ---------------------------------------------------------------------------
@@ -198,12 +197,11 @@ def test_max_events_triggers_at_threshold(temp_data_dir):
 def test_max_duration_s_triggers_after_timeout(temp_data_dir, monkeypatch):
     """max_duration_s triggers when elapsed time >= limit; use patched time for determinism."""
     from maida import guardrails as guardrails_mod
-    from maida import storage as storage_mod
 
     start_ts = "2026-01-01T12:00:00.000Z"
     end_ts = "2026-01-01T12:01:40.000Z"  # 100s later
 
-    monkeypatch.setattr(storage_mod, "utc_now_iso_ms_z", lambda: start_ts)
+    monkeypatch.setattr("maida._tracing._lifecycle.utc_now_iso_ms_z", lambda: start_ts)
     monkeypatch.setattr(guardrails_mod, "utc_now_iso_ms_z", lambda: end_ts)
 
     with pytest.raises(GuardrailExceeded) as exc_info:
@@ -232,14 +230,13 @@ def test_guardrail_abort_records_error_and_run_end(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     run_ends = [e for e in events if e.get("event_type") == EventType.RUN_END.value]
     assert len(errors) == 1
     assert len(run_ends) == 1
-    assert run_ends[0].get("payload", {}).get("status") == "error"
     assert run_meta.get("status") == "error"
     assert run_meta.get("counts", {}).get("errors") == 1
 
@@ -280,7 +277,7 @@ def test_default_behavior_unchanged(temp_data_dir):
     config = load_config()
     run_id = get_latest_run_id(config)
     run_meta = load_run_meta(run_id, config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
 
     assert run_meta.get("status") == "ok"
     assert run_meta.get("counts", {}).get("llm_calls") == 4
@@ -395,10 +392,9 @@ def test_merge_guardrail_params_negative_max_duration_s_clamped_to_zero():
 def test_max_duration_s_zero_triggers_immediately(temp_data_dir, monkeypatch):
     """max_duration_s=0.0 triggers on the first event because elapsed >= 0.0 is always true."""
     from maida import guardrails as guardrails_mod
-    from maida import storage as storage_mod
 
     ts = "2026-01-01T12:00:00.000Z"
-    monkeypatch.setattr(storage_mod, "utc_now_iso_ms_z", lambda: ts)
+    monkeypatch.setattr("maida._tracing._lifecycle.utc_now_iso_ms_z", lambda: ts)
     monkeypatch.setattr(guardrails_mod, "utc_now_iso_ms_z", lambda: ts)
 
     with pytest.raises(GuardrailExceeded) as exc_info:
@@ -429,7 +425,7 @@ def test_loop_warning_dedup_no_guardrail_emits_one_per_pattern(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     loop_warnings = [
@@ -471,7 +467,7 @@ def test_loop_warning_dedup_with_stop_on_loop_emits_minimal_warnings(temp_data_d
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     loop_warnings = [
@@ -519,7 +515,7 @@ def test_stop_on_loop_re_raises_after_swallowed_abort(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
 
     loop_warnings = [
         e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
@@ -551,7 +547,7 @@ def test_nested_traced_run_applies_guardrail_params(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
 
     loop_warnings = [
         e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value

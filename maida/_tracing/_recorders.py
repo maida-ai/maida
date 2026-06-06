@@ -329,9 +329,15 @@ def record_state(
     run_id, counts, config, window, emitted = ctx
 
     tracer = _get_tracer()
+    attrs = {}
+    if meta:
+        _, meta_redacted = _apply_redaction_truncation({}, meta, config)
+        attrs[MAIDA_META] = json.dumps(meta_redacted, ensure_ascii=False, default=str)
+
     span = tracer.start_span(
         name="state",
         kind=SpanKind.INTERNAL,
+        attributes=attrs,
     )
 
     event_attrs = {}
@@ -343,9 +349,6 @@ def record_state(
     if diff is not None:
         diff_redacted = _redact_and_truncate(diff, config)
         event_attrs["diff"] = json.dumps(diff_redacted, ensure_ascii=False, default=str)
-    if meta:
-        _, meta_redacted = _apply_redaction_truncation({}, meta, config)
-        event_attrs["meta"] = json.dumps(meta_redacted, ensure_ascii=False, default=str)
 
     if event_attrs:
         span.add_event("state", event_attrs)
