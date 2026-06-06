@@ -42,6 +42,7 @@ GEN_AI_REQUEST_TEMPERATURE = "gen_ai.request.temperature"
 GEN_AI_RESPONSE_FINISH_REASONS = "gen_ai.response.finish_reasons"
 GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
 GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
+GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"
 GEN_AI_RESPONSE_ID = "gen_ai.response.id"
 
 # Maida-specific attribute names

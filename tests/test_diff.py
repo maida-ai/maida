@@ -1,5 +1,7 @@
 """Tests for maida.diff: structural run comparison."""
 
+import json
+
 import pytest
 
 from maida.baseline import create_baseline
@@ -27,6 +29,34 @@ def _make_run(config, *, name="test_run", events=None, status="ok"):
             counts["loop_warnings"] += 1
     finalize_run(run_id, status, counts, config)
     return run_id
+
+
+def _write_trace_run(config, trace_id, run_name):
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": run_name,
+        "started_at": "2026-01-01T00:00:00.000Z",
+        "ended_at": "2026-01-01T00:00:01.000Z",
+        "duration_ms": 1000,
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    root_span = {
+        "trace_id": trace_id,
+        "span_id": "0" * 16,
+        "parent_span_id": None,
+        "name": run_name,
+        "start_time": "2026-01-01T00:00:00.000Z",
+        "end_time": "2026-01-01T00:00:01.000Z",
+        "duration_ms": 1000,
+        "attributes": {"maida.run_name": run_name},
+        "events": [],
+        "status_code": "OK",
+    }
+    (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +173,19 @@ def test_diff_against_baseline(temp_data_dir):
     d = compute_diff(run_id, baseline=bl, config=config)
     assert "new_api" in d.new_tools
     assert d.run_b_id == bl_rid
+
+
+def test_diff_returns_resolved_left_trace_id(temp_data_dir):
+    config = load_config()
+    run_a = "a0eebc99" + "a" * 24
+    run_b = "b0eebc99" + "b" * 24
+    _write_trace_run(config, run_a, "run_a")
+    _write_trace_run(config, run_b, "run_b")
+
+    d = compute_diff(run_a[:8], run_b_id=run_b[:8], config=config)
+
+    assert d.run_a_id == run_a
+    assert d.run_b_id == run_b
 
 
 # ---------------------------------------------------------------------------

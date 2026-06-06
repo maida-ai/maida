@@ -4,6 +4,7 @@ import json
 
 from maida.assertions import (
     AssertionPolicy,
+    _check_threshold,
     format_report_json,
     format_report_markdown,
     format_report_text,
@@ -113,6 +114,36 @@ def test_step_tolerance_fails_above_50_percent(temp_data_dir):
     report = run_assertions(run_id, policy, baseline=bl, config=config)
     step_result = next(r for r in report.results if r.check_name == "step_count")
     assert step_result.passed is False
+
+
+def test_zero_baseline_with_standalone_cap_uses_cap_as_limit():
+    result = _check_threshold(
+        actual=1,
+        baseline_value=0,
+        tolerance=0.5,
+        standalone_max=10,
+        check_name="step_count",
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is True
+    assert result.expected == "10"
+
+
+def test_zero_baseline_without_standalone_cap_allows_no_growth():
+    result = _check_threshold(
+        actual=1,
+        baseline_value=0,
+        tolerance=0.5,
+        standalone_max=None,
+        check_name="step_count",
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is False
+    assert result.expected == "0"
 
 
 # ---------------------------------------------------------------------------

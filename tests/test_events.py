@@ -133,6 +133,22 @@ def test_derive_payload_llm_call():
     assert payload["usage"]["total_tokens"] == 30
 
 
+def test_derive_payload_llm_call_preserves_total_tokens_without_parts():
+    span = _child_span(
+        name="gpt-4",
+        attributes={
+            "gen_ai.system": "openai",
+            "gen_ai.usage.total_tokens": 42,
+        },
+    )
+
+    payload = derive_event_payload(span)
+
+    assert payload["usage"]["prompt_tokens"] is None
+    assert payload["usage"]["completion_tokens"] is None
+    assert payload["usage"]["total_tokens"] == 42
+
+
 def test_derive_payload_tool_call():
     span = _child_span(
         name="get_weather",

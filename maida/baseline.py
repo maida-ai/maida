@@ -2,6 +2,9 @@
 
 A baseline captures the structural behavior of a completed run (tool path,
 event sequence, token usage, etc.) for later comparison by ``assertions.py``.
+
+Updated for OTel-based storage: reads span dicts and converts to event-like
+dicts using events.span_to_event_dict().
 """
 
 import json
@@ -9,26 +12,32 @@ from collections import Counter
 from pathlib import Path
 
 from maida.config import MaidaConfig
-from maida.events import EventType, utc_now_iso_ms_z
-from maida.storage import load_events, load_run_meta
+from maida.events import EventType, spans_to_events, utc_now_iso_ms_z
+from maida.storage import load_run_meta, load_spans, resolve_trace_id
 
-_BASELINE_SCHEMA_VERSION = "0.1"
+_BASELINE_SCHEMA_VERSION = "0.2"
 
 
 def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
-    """Extract structural metrics from run metadata and events.
+    """Extract structural metrics from run metadata and event-like dicts.
 
     Shared by ``create_baseline`` and ``run_assertions`` so both operate on
     identical metric derivation logic.
     """
     counts = meta.get("counts") or {}
-    tool_names_ordered: set[str] = []
+    tool_names_ordered: list[str] = []
     tool_counter: Counter[str] = Counter()
     llm_models: set[str] = set()
     event_type_seq: list[str] = []
     total_tokens = 0
     guardrail_events: list[dict] = []
 
+    _action_events = [
+        e
+        for e in events
+        if e.get("event_type")
+        not in (EventType.RUN_START.value, EventType.RUN_END.value)
+    ]
     for ev in events:
         et = ev.get("event_type", "")
         event_type_seq.append(et)
@@ -53,11 +62,13 @@ def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
             payload = ev.get("payload") or {}
             if "guardrail" in payload:
                 guardrail_events.append(ev)
+            elif payload.get("error_type") in ("GuardrailExceeded", "LoopAbort"):
+                guardrail_events.append(ev)
 
     return {
         "summary": {
             "status": meta.get("status", ""),
-            "total_events": len(events),
+            "total_events": len(_action_events),
             "llm_calls": counts.get("llm_calls", 0),
             "tool_calls": counts.get("tool_calls", 0),
             "errors": counts.get("errors", 0),
@@ -74,15 +85,22 @@ def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
     }
 
 
-def create_baseline(run_id: str, config: MaidaConfig) -> dict:
-    """Load a completed run and return a baseline snapshot dict."""
-    meta = load_run_meta(run_id, config)
-    events = load_events(run_id, config)
+def create_baseline(trace_id: str, config: MaidaConfig) -> dict:
+    """Load a completed run and return a baseline snapshot dict.
+
+    Args:
+        trace_id: The OTel trace ID (or prefix) for the run.
+        config: MaidaConfig instance.
+    """
+    full_id = resolve_trace_id(trace_id, config)
+    meta = load_run_meta(full_id, config)
+    spans = load_spans(full_id, config)
+    events = spans_to_events(spans)
     metrics = extract_run_metrics(meta, events)
     return {
         "schema_version": _BASELINE_SCHEMA_VERSION,
         "created_at": utc_now_iso_ms_z(),
-        "source_run_id": run_id,
+        "source_run_id": full_id,
         "source_run_name": meta.get("run_name"),
         **metrics,
     }
