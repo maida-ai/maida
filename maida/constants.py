@@ -5,8 +5,8 @@ from pathlib import Path
 REDACTED_MARKER = "__REDACTED__"
 TRUNCATED_MARKER = "__TRUNCATED__"
 
-# SPEC version: bumped to 0.2 in the storage/API change commit.
-SPEC_VERSION = "0.1"
+# SPEC version for the OTel-based trace format (major bump from 0.1).
+SPEC_VERSION = "0.2"
 
 # Recursion limit and depth of redaction/truncation
 DEPTH_LIMIT = 10
