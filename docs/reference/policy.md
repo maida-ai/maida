@@ -78,6 +78,10 @@ For each numeric metric (steps, tool calls, tokens, duration), the check depends
 
 The check **passes** when `actual <= limit`.
 
+When a baseline value is zero and a matching `max_*` cap is set, Maida uses
+the cap as the effective limit. Without a cap, a zero baseline allows no growth
+for that metric.
+
 **Example:** A baseline recorded 40 tool calls. With `tool_call_tolerance: 0.25` and `max_tool_calls: 60`:
 
 - Baseline limit: `40 * 1.25 = 50`

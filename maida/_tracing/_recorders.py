@@ -32,6 +32,7 @@ from maida._tracing._otel import (
     GEN_AI_SYSTEM,
     GEN_AI_USAGE_INPUT_TOKENS,
     GEN_AI_USAGE_OUTPUT_TOKENS,
+    GEN_AI_USAGE_TOTAL_TOKENS,
     MAIDA_ERROR_MESSAGE,
     MAIDA_ERROR_TYPE,
     MAIDA_EVENT_TYPE,
@@ -88,6 +89,8 @@ def _record_llm_call_otel(
             attrs[GEN_AI_USAGE_INPUT_TOKENS] = normalized["prompt_tokens"]
         if normalized.get("completion_tokens") is not None:
             attrs[GEN_AI_USAGE_OUTPUT_TOKENS] = normalized["completion_tokens"]
+        if normalized.get("total_tokens") is not None:
+            attrs[GEN_AI_USAGE_TOTAL_TOKENS] = normalized["total_tokens"]
 
     if error_obj:
         attrs[MAIDA_ERROR_TYPE] = error_obj.get("error_type", "Error")

@@ -11,7 +11,8 @@ from typing import Any
 
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig
-from maida.storage import load_events, load_run_meta
+from maida.events import spans_to_events
+from maida.storage import load_run_meta, load_spans, resolve_trace_id
 
 
 kDefaultTolerance = 0.5  # 50% global default
@@ -85,10 +86,13 @@ def _check_threshold(
     Returns an ``AssertionResult`` if any check was enabled, else ``None``.
     """
     if baseline_value is not None and standalone_max is not None:
-        limit = min(
-            baseline_value * (1 + tolerance),
-            float(standalone_max),
-        )
+        if baseline_value > 0:
+            limit = min(
+                baseline_value * (1 + tolerance),
+                float(standalone_max),
+            )
+        else:
+            limit = float(standalone_max)
         passed = actual <= limit
         return AssertionResult(
             check_name=check_name,
@@ -102,7 +106,10 @@ def _check_threshold(
         )
 
     if baseline_value is not None:
-        limit = baseline_value * (1 + tolerance)
+        if baseline_value > 0:
+            limit = baseline_value * (1 + tolerance)
+        else:
+            limit = float(standalone_max) if standalone_max is not None else 0.0
         passed = actual <= limit
         return AssertionResult(
             check_name=check_name,
@@ -129,7 +136,7 @@ def _check_threshold(
 
 
 def run_assertions(
-    run_id: str,
+    trace_id: str,
     policy: AssertionPolicy,
     baseline: dict | None = None,
     config: MaidaConfig | None = None,
@@ -137,7 +144,7 @@ def run_assertions(
     """Run all enabled assertion checks against a completed run.
 
     Args:
-        run_id: The run to check.
+        trace_id: The OTel trace ID (or prefix) for the run.
         policy: The assertion policy with thresholds.
         baseline: Optional baseline dict to compare against.
         config: MaidaConfig (loaded via ``load_config`` if ``None``).
@@ -150,14 +157,16 @@ def run_assertions(
 
         config = load_config()
 
-    meta = load_run_meta(run_id, config)
-    events = load_events(run_id, config)
+    full_id = resolve_trace_id(trace_id, config)
+    meta = load_run_meta(full_id, config)
+    spans = load_spans(full_id, config)
+    events = spans_to_events(spans)
     metrics = extract_run_metrics(meta, events)
     summary = metrics["summary"]
     b_summary = (baseline or {}).get("summary")
 
     report = AssertionReport(
-        run_id=run_id,
+        run_id=full_id,
         baseline_run_id=(baseline or {}).get("source_run_id"),
     )
 

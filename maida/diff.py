@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig
-from maida.storage import load_events, load_run_meta
+from maida.events import spans_to_events
+from maida.storage import load_run_meta, load_spans, resolve_trace_id
 
 
 @dataclass
@@ -53,18 +54,22 @@ def compute_diff(
 
         config = load_config()
 
-    meta_a = load_run_meta(run_a_id, config)
-    events_a = load_events(run_a_id, config)
+    full_a = resolve_trace_id(run_a_id, config)
+    meta_a = load_run_meta(full_a, config)
+    spans_a = load_spans(full_a, config)
+    events_a = spans_to_events(spans_a)
     metrics_a = extract_run_metrics(meta_a, events_a)
 
     if baseline is not None:
         metrics_b = _metrics_from_baseline(baseline)
         b_id = baseline.get("source_run_id", "baseline")
     elif run_b_id is not None:
-        meta_b = load_run_meta(run_b_id, config)
-        events_b = load_events(run_b_id, config)
+        full_b = resolve_trace_id(run_b_id, config)
+        meta_b = load_run_meta(full_b, config)
+        spans_b = load_spans(full_b, config)
+        events_b = spans_to_events(spans_b)
         metrics_b = extract_run_metrics(meta_b, events_b)
-        b_id = run_b_id
+        b_id = full_b
     else:
         raise ValueError("Either run_b_id or baseline must be provided")
 
@@ -102,7 +107,7 @@ def compute_diff(
     }
 
     return RunDiff(
-        run_a_id=run_a_id,
+        run_a_id=full_a,
         run_b_id=b_id,
         summary_diff=summary_diff,
         tool_path_diff=tool_path_diff,

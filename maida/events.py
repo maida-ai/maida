@@ -156,20 +156,21 @@ def derive_event_payload(span: dict) -> dict[str, Any]:
                 "message": attrs.get(MAIDA_ERROR_MESSAGE, ""),
                 "stack": attrs.get(MAIDA_ERROR_STACK),
             }
+        prompt_tokens = attrs.get("gen_ai.usage.input_tokens")
+        completion_tokens = attrs.get("gen_ai.usage.output_tokens")
+        total_tokens = attrs.get("gen_ai.usage.total_tokens")
+        if total_tokens is None and (
+            prompt_tokens is not None or completion_tokens is not None
+        ):
+            total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
         return {
             "model": span.get("name", ""),
             "prompt": prompt,
             "response": response,
             "usage": {
-                "prompt_tokens": attrs.get("gen_ai.usage.input_tokens"),
-                "completion_tokens": attrs.get("gen_ai.usage.output_tokens"),
-                "total_tokens": (
-                    (attrs.get("gen_ai.usage.input_tokens") or 0)
-                    + (attrs.get("gen_ai.usage.output_tokens") or 0)
-                    if attrs.get("gen_ai.usage.input_tokens") is not None
-                    or attrs.get("gen_ai.usage.output_tokens") is not None
-                    else None
-                ),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
             },
             "provider": attrs.get("gen_ai.system", "unknown"),
             "temperature": attrs.get("gen_ai.request.temperature"),
