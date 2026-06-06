@@ -1,25 +1,29 @@
 """
-Run lifecycle: _run_context context manager, trace decorator, traced_run.
-Depends: maida.config, maida.events, maida.exceptions, maida.guardrails, maida.storage, _redact, _context.
+Run lifecycle: @trace decorator and traced_run context manager.
+
+Both create OTel root spans (representing a whole run) when no run is active,
+or reuse the existing run (via context vars) when nested.
+
+Uses context vars for Maida-specific run state and OTel spans for telemetry export.
 """
 
 import asyncio
+import os
 import sys
 import traceback
-from types import TracebackType
 from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, Generator, ParamSpec, TypeVar
 
+from opentelemetry import trace as otel_trace
+from opentelemetry.trace import SpanKind, Status, StatusCode
+
 from maida.config import load_config
 from maida.constants import default_counts
-from maida.events import EventType, new_event
 from maida.exceptions import GuardrailExceeded, _MaidaAbortSignal
 from maida.guardrails import GuardrailParams, merge_guardrail_params
-from maida.storage import append_event, create_run, finalize_run
-
+from maida.events import utc_now_iso_ms_z
 from maida._tracing._context import (
-    _append_event_and_check_guardrails,
     _config_var,
     _counts_var,
     _event_count_var,
@@ -27,38 +31,30 @@ from maida._tracing._context import (
     _guardrail_params_var,
     _loop_emitted_var,
     _resolve_run_name,
-    _run_end_payload,
     _run_id_var,
-    _run_start_payload_for_event,
     _started_at_var,
 )
-from maida._tracing._redact import _redact_and_truncate
+from maida._tracing._otel import (
+    _get_tracer,
+    _setup_otel,
+    MAIDA_ARGV,
+    MAIDA_CWD,
+    MAIDA_ERROR_COUNT,
+    MAIDA_ERROR_MESSAGE,
+    MAIDA_ERROR_STACK,
+    MAIDA_ERROR_TYPE,
+    MAIDA_LLM_COUNT,
+    MAIDA_LOOP_WARNING_COUNT,
+    MAIDA_PLATFORM,
+    MAIDA_PYTHON_VERSION,
+    MAIDA_RUN_NAME,
+    MAIDA_TOOL_COUNT,
+)
+from maida._tracing._redact import _redact_and_truncate, _redact_argv
 from maida._integration_utils import _invoke_run_enter, _invoke_run_exit
-
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
-
-def _error_payload(exc: BaseException) -> dict[str, Any]:
-    """Build ERROR payload."""
-    return {
-        "error_type": type(exc).__name__,
-        "message": str(exc),
-        "stack": traceback.format_exc(),
-    }
-
-
-def _guardrail_error_payload(exc: GuardrailExceeded) -> dict[str, Any]:
-    """Build ERROR payload for guardrail abort (includes guardrail, threshold, actual)."""
-    return {
-        "error_type": type(exc).__name__,
-        "message": exc.message,
-        "stack": traceback.format_exc(),
-        "guardrail": exc.guardrail,
-        "threshold": exc.threshold,
-        "actual": exc.actual,
-    }
 
 
 @contextmanager
@@ -69,17 +65,12 @@ def _run_context(
 ) -> Generator[None, None, None]:
     """
     Context manager that factors the common run lifecycle.
-    If a run is already active, yields without creating a new run.
-    Otherwise: load config, create run, set context vars, emit RUN_START,
-    then on success emit RUN_END "ok" and finalize; on exception emit ERROR,
-    RUN_END "error", finalize, and reraise. Reset context vars in finally.
+
+    Creates an OTel root span (the "run") on outermost entry, sets span attributes
+    for run metadata, and records errors via span status + events on the root span.
     """
     existing_run_id = _run_id_var.get()
     if existing_run_id is not None:
-        # Nested context: reuse the existing run.  If the caller supplied
-        # guardrail_params (e.g. traced_run(stop_on_loop=True) inside @trace),
-        # apply them for the duration of this block so they aren't silently
-        # discarded.
         if guardrail_params is not None:
             token_nested = _guardrail_params_var.set(guardrail_params)
             try:
@@ -90,12 +81,29 @@ def _run_context(
             yield
         return
 
+    _setup_otel()
     config = load_config()
     params = guardrail_params if guardrail_params is not None else config.guardrails
     run_name = _resolve_run_name(name, func)
-    meta = create_run(run_name, config)
-    run_id = meta["run_id"]
-    started_at = meta["started_at"]
+    tracer = _get_tracer()
+    started_at = utc_now_iso_ms_z()
+
+    argv_redacted = _redact_argv(list(sys.argv), config)
+
+    root_span = tracer.start_span(
+        name=run_name or "run",
+        kind=SpanKind.INTERNAL,
+        attributes={
+            MAIDA_RUN_NAME: run_name,
+            MAIDA_PYTHON_VERSION: f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            MAIDA_PLATFORM: sys.platform,
+            MAIDA_CWD: os.getcwd(),
+            MAIDA_ARGV: argv_redacted,
+            MAIDA_LLM_COUNT: 0,
+            MAIDA_TOOL_COUNT: 0,
+        },
+    )
+    run_id = format(root_span.get_span_context().trace_id, "032x")
     counts = default_counts()
 
     token_run = _run_id_var.set(run_id)
@@ -106,54 +114,86 @@ def _run_context(
     token_guardrail = _guardrail_params_var.set(params)
     token_started_at = _started_at_var.set(started_at)
     token_event_count = _event_count_var.set(0)
-    exc_info: tuple[
-        type[BaseException] | None, BaseException | None, TracebackType | None
-    ] = (
+
+    exc_info: tuple[type[BaseException] | None, BaseException | None, Any] = (
         None,
         None,
         None,
     )
 
+    token_otel_span = otel_trace.use_span(root_span, end_on_exit=False)
+
     def _finish_run(status: str) -> None:
         _invoke_run_exit(run_id, *exc_info)
-        payload_end = _run_end_payload(status, counts, started_at)
-        ev_end = new_event(EventType.RUN_END, run_id, "run_end", payload_end)
-        append_event(run_id, ev_end, config)
-        finalize_run(run_id, status, counts, config)
+        attrs = {
+            MAIDA_LLM_COUNT: counts.get("llm_calls", 0),
+            MAIDA_TOOL_COUNT: counts.get("tool_calls", 0),
+            MAIDA_ERROR_COUNT: counts.get("errors", 0),
+            MAIDA_LOOP_WARNING_COUNT: counts.get("loop_warnings", 0),
+        }
+        root_span.set_attributes(attrs)
+        if status == "ok":
+            root_span.set_status(Status(StatusCode.OK))
+        else:
+            root_span.set_status(Status(StatusCode.ERROR, status))
+        root_span.end()
 
     try:
-        payload = _run_start_payload_for_event(run_name, config)
-        ev = new_event(EventType.RUN_START, run_id, run_name, payload)
-        _append_event_and_check_guardrails(run_id, ev, config, counts)
         _invoke_run_enter()
-        yield
-    except _MaidaAbortSignal as signal:
-        exc_info = sys.exc_info()
-        cause = signal.cause
-        err_payload = _redact_and_truncate(_guardrail_error_payload(cause), config)
-        err_ev = new_event(EventType.ERROR, run_id, type(cause).__name__, err_payload)
-        append_event(run_id, err_ev, config)
-        counts["errors"] = counts.get("errors", 0) + 1
-        _finish_run("error")
-        raise cause from signal
-    except GuardrailExceeded as e:
-        exc_info = sys.exc_info()
-        err_payload = _redact_and_truncate(_guardrail_error_payload(e), config)
-        err_ev = new_event(EventType.ERROR, run_id, type(e).__name__, err_payload)
-        append_event(run_id, err_ev, config)
-        counts["errors"] = counts.get("errors", 0) + 1
-        _finish_run("error")
-        raise
-    except Exception as e:
-        exc_info = sys.exc_info()
-        err_payload = _redact_and_truncate(_error_payload(e), config)
-        err_ev = new_event(EventType.ERROR, run_id, type(e).__name__, err_payload)
-        _append_event_and_check_guardrails(run_id, err_ev, config, counts)
-        counts["errors"] = counts.get("errors", 0) + 1
-        _finish_run("error")
-        raise
-    else:
-        _finish_run("ok")
+        with token_otel_span:
+            try:
+                yield
+            except _MaidaAbortSignal as signal:
+                exc_info = sys.exc_info()
+                cause = signal.cause
+                err_attrs = _redact_and_truncate(
+                    {
+                        MAIDA_ERROR_TYPE: type(cause).__name__,
+                        MAIDA_ERROR_MESSAGE: str(cause),
+                        MAIDA_ERROR_STACK: traceback.format_exc(),
+                    },
+                    config,
+                )
+                root_span.add_event("exception", err_attrs)
+                counts["errors"] = counts.get("errors", 0) + 1
+                _finish_run("error")
+                raise cause from signal
+            except GuardrailExceeded as e:
+                exc_info = sys.exc_info()
+                err_attrs = _redact_and_truncate(
+                    {
+                        MAIDA_ERROR_TYPE: type(e).__name__,
+                        MAIDA_ERROR_MESSAGE: e.message,
+                        MAIDA_ERROR_STACK: traceback.format_exc(),
+                    },
+                    config,
+                )
+                root_span.add_event("exception", err_attrs)
+                counts["errors"] = counts.get("errors", 0) + 1
+                _finish_run("error")
+                raise
+            except Exception as e:
+                exc_info = sys.exc_info()
+                err_attrs = _redact_and_truncate(
+                    {
+                        MAIDA_ERROR_TYPE: type(e).__name__,
+                        MAIDA_ERROR_MESSAGE: str(e),
+                        MAIDA_ERROR_STACK: traceback.format_exc(),
+                    },
+                    config,
+                )
+                root_span.add_event("exception", err_attrs)
+                counts["errors"] = counts.get("errors", 0) + 1
+                _finish_run("error")
+                raise
+            except BaseException:
+                # Catches SystemExit and KeyboardInterrupt so the OTel span
+                # is ended and counts are saved before re-raising. No ERROR
+                # event is added since these aren't application errors.
+                _finish_run("error")
+                raise
+            else:
+                _finish_run("ok")
     finally:
         _run_id_var.reset(token_run)
         _counts_var.reset(token_counts)
@@ -176,14 +216,10 @@ def trace(
     max_events: int | None = None,
     max_duration_s: float | None = None,
 ) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
-    """
-    Decorator that starts a new run (RUN_START / RUN_END, ERROR on exception)
-    when no run is active; otherwise runs the function in the existing run without
-    creating a new run or emitting extra run events.
+    """Decorator that starts a new OTel trace run when no run is active.
 
     Usage: @trace, @trace(), @trace("run name"), @trace(name="run name").
-    Run name precedence: MAIDA_RUN_NAME env, then explicit name, then default (entrypoint - timestamp).
-    Guardrail kwargs (stop_on_loop, max_llm_calls, etc.) override config; see SPEC §13.
+    Guardrail kwargs override config; see SPEC.
     """
 
     def decorator(func: Callable[P, R], explicit: str | None = None) -> Callable[P, R]:
@@ -212,7 +248,7 @@ def trace(
                 with _run_context(name=_name, func=func, guardrail_params=params):
                     return await func(*args, **kwargs)
 
-            return async_inner  # type: ignore[return-value]
+            return async_inner
 
         @wraps(func)
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -222,11 +258,10 @@ def trace(
         return inner
 
     if f is not None and not callable(f):
-        # @trace("name") -> f is the name string
-        return lambda func: decorator(func, explicit=str(f))  # type: ignore[return-value]
+        return lambda func: decorator(func, explicit=str(f))
     if f is None:
-        return decorator  # type: ignore[return-value]
-    return decorator(f)  # type: ignore[return-value]
+        return decorator
+    return decorator(f)
 
 
 @contextmanager
@@ -240,12 +275,7 @@ def traced_run(
     max_events: int | None = None,
     max_duration_s: float | None = None,
 ) -> Generator[None, None, None]:
-    """
-    Context manager that starts a new run (RUN_START / RUN_END / ERROR on exception)
-    when no run is active; otherwise runs the block in the existing run without
-    creating a new run. Run name precedence: MAIDA_RUN_NAME env, then name, then default.
-    Guardrail kwargs override config; see SPEC §13.
-    """
+    """Context manager that starts a new OTel trace run when no run is active."""
     config = load_config()
     kw: dict[str, Any] = {}
     if stop_on_loop is not None:
