@@ -1,44 +1,45 @@
 # Trace format (public contract)
 
-This page describes the **public trace format** for Maida (`spec_version: "0.1"`). Traces are stored locally as **JSONL events** plus a **run metadata file** (`run.json`). The format is a public contract: consumers can rely on it for tooling and integrations.
+This page describes the **public trace format** for Maida (`spec_version: "0.2"`). Traces use **OpenTelemetry spans** as the internal representation and are stored locally as **JSONL span records** plus a **run metadata file** (`meta.json`). The format is a public contract: consumers can rely on it for tooling and integrations.
 
-**Versioning:** The trace format is versioned independently from the package version via `spec_version` (currently `"0.1"`). All Maida releases (v0.1.x, v0.2.x, etc.) that use `spec_version "0.1"` share the same trace format. Additive changes (new optional fields, new event types) may be introduced without a spec version bump. Breaking changes will result in a new `spec_version`.
+**Versioning:** The trace format is versioned independently from the package version via `spec_version` (currently `"0.2"`). All Maida releases that use `spec_version "0.2"` share the same trace format. Additive changes (new optional fields, new event types) may be introduced without a spec version bump. Breaking changes will result in a new `spec_version`.
 
 ---
 
 ## Overview
 
-- **Per run:** One directory `runs/<run_id>/` containing:
-  - **events.jsonl** - append-only; one JSON object per line (one event per line).
-  - **run.json** - run metadata; written at run start and updated at run end.
-- **Ordering:** Events in `events.jsonl` are in write order; when timestamps tie, this order is authoritative.
-- **Flushing:** Events are flushed after every write so that crashes do not lose the last event.
+- **Per run:** One directory `runs/<trace_id_hex>/` containing:
+  - **spans.jsonl** - append-only; one JSON object per line (one OTel span per line).
+  - **meta.json** - run metadata; written at run end (overwritten on finalize).
+- **Ordering:** Spans in `spans.jsonl` are in export order; `start_time` provides logical ordering.
+- **Span hierarchy:** Root span (no `parent_span_id`) represents the run itself; child spans represent LLM calls, tool calls, etc.
 
-**Redaction and truncation:** All payloads (and meta) written to disk pass through redaction and truncation before being written. This includes **ERROR** payloads and **RUN_START.argv** (option values matching redact keys are redacted). See the configuration reference for `redact`, `redact_keys`, and `max_field_bytes`.
+**Redaction and truncation:** All span attributes and event payloads written to disk pass through redaction and truncation before being written. See the configuration reference for `redact`, `redact_keys`, and `max_field_bytes`.
 
 ---
 
-## Event envelope (all events)
+## Span envelope (all spans)
 
-Every event is a single JSON object with these **required top-level fields**:
+Every OTel span is serialized as a single JSON object with these fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `spec_version` | string | Schema version, e.g. `"0.1"` |
-| `event_id` | string | UUIDv4, unique per event |
-| `run_id` | string | UUIDv4, run this event belongs to |
-| `parent_id` | string \| null | UUIDv4 of parent event, or `null` |
-| `event_type` | string | One of the event types below |
-| `ts` | string | UTC ISO8601 with milliseconds and trailing `Z`, e.g. `2026-02-15T20:31:05.123Z` |
-| `duration_ms` | integer \| null | Duration in milliseconds if applicable |
-| `name` | string | Label (e.g. tool name, model name, run name) |
-| `payload` | object | Event-type-specific data (see below) |
-| `meta` | object | Freeform metadata (tags, user-defined) |
+| `trace_id` | string | 32-hex-character OTel trace ID |
+| `span_id` | string | 16-hex-character OTel span ID |
+| `parent_span_id` | string \| null | 16-hex-character parent span ID, or `null` for root |
+| `name` | string | Span name (e.g. model name, tool name, run name) |
+| `kind` | string | `INTERNAL`, `CLIENT`, `SERVER`, `PRODUCER`, `CONSUMER` |
+| `start_time` | string | UTC ISO8601 with microsecond precision and trailing `Z` |
+| `end_time` | string \| null | UTC ISO8601 with microsecond precision and trailing `Z` |
+| `duration_ms` | integer \| null | Duration in milliseconds |
+| `attributes` | object | Key-value pairs (string, bool, int, float values) |
+| `events` | array | In-span events (name, timestamp, attributes) |
+| `status_code` | string | `OK`, `ERROR`, or `UNSET` |
+| `status_description` | string | Error description when status is `ERROR` |
 
-### Timestamp and ID rules
+### Derived event view
 
-- **Timestamps:** `ts` MUST be UTC ISO8601 with millisecond precision and trailing `Z`.
-- **IDs:** `run_id` and `event_id` MUST be UUIDv4 strings (canonical form with hyphens).
+Consumers that need the v0.1-style event list can use `spans_to_events()` which projects the span tree into a flat event list with `event_type`, `ts`, `payload`, etc. This projection preserves the event shape documented below.
 
 ---
 
@@ -77,13 +78,7 @@ Every event is a single JSON object with these **required top-level fields**:
 
 ```json
 {
-  "status": "ok | error",
-  "summary": {
-    "llm_calls": 3,
-    "tool_calls": 5,
-    "errors": 0,
-    "duration_ms": 1234
-  }
+  "status": "ok | error"
 }
 ```
 
@@ -109,7 +104,7 @@ Every event is a single JSON object with these **required top-level fields**:
 
 - `usage` fields may be `null` if unknown.
 - `prompt` and `response` may be redacted or truncated by config.
-- When `status` is `"error"`, `error` is an object with `error_type`, `message`, optional `details`, optional `stack` (same shape as ERROR event payload).
+- When `status` is `"error"`, `error` is an object with `error_type`, `message`, and optional `stack` (same shape as ERROR event payload).
 
 ### TOOL_CALL
 
@@ -123,7 +118,7 @@ Every event is a single JSON object with these **required top-level fields**:
 }
 ```
 
-- When `status` is `"error"`, `error` is an object with `error_type`, `message`, optional `details`, optional `stack` (same shape as ERROR event payload).
+- When `status` is `"error"`, `error` is an object with `error_type`, `message`, and optional `stack` (same shape as ERROR event payload).
 
 ### STATE_UPDATE
 
@@ -144,13 +139,12 @@ Error payloads use a consistent shape (same for standalone ERROR events and nest
 {
   "error_type": "ExceptionClassName",
   "message": "string",
-  "stack": "string | null",
-  "details": "optional, any"
+  "stack": "string | null"
 }
 ```
 
 - Use **`error_type`** (not `type`) for the exception class name.
-- Guardrail aborts also use `ERROR`. In that case the payload includes the normal fields above plus guardrail-specific fields such as `guardrail`, `threshold`, and `actual` so consumers can tell the run was intentionally stopped by a configured limit.
+- Guardrail aborts also use `ERROR`; consumers should use `error_type` values such as `GuardrailExceeded` or `LoopAbort` to distinguish intentional guardrail stops.
 
 ### LOOP_WARNING
 
@@ -168,23 +162,21 @@ Error payloads use a consistent shape (same for standalone ERROR events and nest
 
 ---
 
-## run.json schema
+## meta.json schema
 
-Each run has a `run.json` file in its directory. It is created at run start and updated at run end.
+Each run has a `meta.json` file in its directory. It is written when the root span ends.
 
 **Required fields:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `spec_version` | string | `"0.1"` |
-| `run_id` | string | UUIDv4 |
+| `trace_id` | string | 32-hex-character OTel trace ID |
 | `run_name` | string \| null | Optional run label |
-| `started_at` | string | UTC ISO8601 with ms and `Z` |
-| `ended_at` | string \| null | Set when run finishes; `null` while running |
-| `duration_ms` | integer \| null | Total run duration in ms; `null` while running |
-| `status` | string | `"running"` \| `"ok"` \| `"error"` |
+| `started_at` | string | UTC ISO8601 with µs and `Z` |
+| `ended_at` | string \| null | Set when run finishes |
+| `duration_ms` | integer \| null | Total run duration in ms |
+| `status` | string | `"ok"` \| `"error"` |
 | `counts` | object | See below |
-| `last_event_ts` | string \| null | Timestamp of last event; set at finalize |
 
 **counts** object:
 
@@ -199,11 +191,20 @@ Each run has a `run.json` file in its directory. It is created at run start and 
 
 ### Lifecycle semantics
 
-- **On run start:** `run.json` is written with `status: "running"`, `ended_at: null`, `duration_ms: null` (or 0), and zero counts.
-- **On run end:** `run.json` is updated with `status: "ok"` or `"error"`, `ended_at`, `duration_ms`, final `counts`, and `last_event_ts`.
+- **On run start:** No file is written until the root span ends.
+- **On run end:** `meta.json` is written with final `status`, `ended_at`, `duration_ms`, and `counts`.
 
 ---
 
 ## Versioning note
 
-The trace format is a **public contract** versioned independently from the Maida package version. All releases using `spec_version "0.1"` share this format. Additive changes (e.g. new optional fields, new event types) are allowed without a spec version bump. Breaking changes (removing fields, changing types or semantics) will be accompanied by a new `spec_version`. The markdown reference on this page is **canonical**; JSON schemas in the repo root `schemas/` folder (`run.schema.json`, `event.schema.json`) are best-effort for tooling.
+The trace format is a **public contract** versioned independently from the Maida package version. All releases using `spec_version "0.2"` share this format. Additive changes (e.g. new optional fields, new event types) are allowed without a spec version bump. Breaking changes (removing fields, changing types or semantics) will be accompanied by a new `spec_version`. The markdown reference on this page is **canonical**; JSON schemas in the repo root `schemas/` folder are best-effort for tooling.
+
+### Changes from v0.1
+
+- Storage files renamed: `run.json` → `meta.json`, `events.jsonl` → `spans.jsonl`
+- Run directory keyed by OTel `trace_id` (32 hex chars) instead of UUIDv4 `run_id`
+- Internal representation uses OTel span model with `trace_id`, `span_id`, `parent_span_id` hierarchy
+- LLM calls use GenAI semantic convention attribute names (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.*`)
+- Consumer-facing event view preserved via `spans_to_events()` projection
+- `spec_version` bumped to `"0.2"`
