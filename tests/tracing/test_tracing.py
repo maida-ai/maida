@@ -551,3 +551,42 @@ def test_trace_async_with_guardrails(temp_data_dir):
         e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
     ]
     assert len(loop_warnings) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Run ID correlation: _invoke_run_exit receives OTel trace_id, matching
+# the directory name used by MaidaLocalSpanExporter.
+# ---------------------------------------------------------------------------
+
+
+def test_run_exit_callback_receives_trace_id_matching_storage_dir(temp_data_dir):
+    """_invoke_run_exit passes the OTel trace_id as run_id; the storage
+    directory created by MaidaLocalSpanExporter uses the same trace_id."""
+    from pathlib import Path
+
+    from maida._integration_utils import (
+        _clear_test_run_lifecycle_registry,
+        register_run_exit,
+    )
+
+    seen = []
+
+    register_run_exit(lambda run_id, *_: seen.append(run_id))
+    try:
+        with traced_run(name="correlation-test"):
+            pass
+
+        assert len(seen) == 1, "expected exactly one run_exit callback invocation"
+        callback_rid = seen[0]
+
+        runs_dir = Path(temp_data_dir) / "runs"
+        dir_names = [p.name for p in runs_dir.iterdir() if p.is_dir()]
+        assert len(dir_names) == 1, "expected exactly one run directory"
+        storage_trace_id = dir_names[0]
+
+        assert callback_rid == storage_trace_id, (
+            f"run_exit callback received '{callback_rid}' but storage "
+            f"directory is '{storage_trace_id}'"
+        )
+    finally:
+        _clear_test_run_lifecycle_registry()
