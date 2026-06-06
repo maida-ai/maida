@@ -262,15 +262,15 @@ async function loadRuns() {
       });
       runListEl.appendChild(frag);
       const urlRunId = getRunIdFromUrl();
-      let toSelect = runs[0].run_id;
+      let toSelect = runs[0].trace_id;
       if (urlRunId) {
-        const exact = runs.find((r) => r.run_id === urlRunId);
-        const byPrefix = runs.find((r) => r.run_id && r.run_id.startsWith(urlRunId));
-        if (exact) toSelect = exact.run_id;
-        else if (byPrefix) toSelect = byPrefix.run_id;
+        const exact = runs.find((r) => r.trace_id === urlRunId);
+        const byPrefix = runs.find((r) => r.trace_id && r.trace_id.startsWith(urlRunId));
+        if (exact) toSelect = exact.trace_id;
+        else if (byPrefix) toSelect = byPrefix.trace_id;
         else {
           showRunNotFoundBanner();
-          selectRun(runs[0].run_id, { fromFallback: true });
+          selectRun(runs[0].trace_id, { fromFallback: true });
           return;
         }
       }
@@ -322,11 +322,11 @@ function formatRunItemMetaHtml(run) {
 function buildRunItemEl(run) {
   const div = document.createElement('div');
   div.className = 'run-item' + (run.status === 'running' ? ' running' : '');
-  div.dataset.runId = run.run_id;
-  const name = run.run_name || run.run_id?.slice(0, 8) || '—';
+  div.dataset.runId = run.trace_id;
+  const name = run.run_name || run.trace_id?.slice(0, 8) || '—';
   const nameHtml = run.status === 'running' ? '<span class="live-dot" aria-hidden="true"></span><span class="run-name">' + escapeHtml(name) + '</span>' : '<span class="run-name">' + escapeHtml(name) + '</span>';
   div.innerHTML = nameHtml + '<br><span class="run-meta">' + formatRunItemMetaHtml(run) + '</span>';
-  div.addEventListener('click', () => selectRun(run.run_id));
+  div.addEventListener('click', () => selectRun(run.trace_id));
   return div;
 }
 
@@ -369,8 +369,8 @@ function renderRunSummary(run, events) {
   const errors = counts.errors != null ? counts.errors : 0;
   const loopWarnings = counts.loop_warnings != null ? counts.loop_warnings : 0;
   const status = effectiveRunUiStatus(run);
-  const runName = run.run_name || (run.run_id || currentRunId || '').slice(0, 8);
-  const shortId = (run.run_id || currentRunId || '').slice(0, 8);
+  const runName = run.run_name || (run.trace_id || currentRunId || '').slice(0, 8);
+  const shortId = (run.trace_id || currentRunId || '').slice(0, 8);
 
   // Status strip: badge, run name, started_at, duration, short id + copy
   runSummaryStatusEl.textContent = '';
@@ -621,7 +621,7 @@ async function loadEvents(runId, signal) {
   timelineEventsEl.innerHTML = '<div class="empty">Loading…</div>';
   timelineToolbarEl.style.display = 'none';
   try {
-    const r = await fetch('/api/runs/' + encodeURIComponent(runId) + '/events', { signal });
+    const r = await fetch('/api/runs/' + encodeURIComponent(runId) + '/spans', { signal });
     if (r.status === 404) {
       showRunNotFoundBanner();
       if (fetchAbort) {
@@ -629,7 +629,7 @@ async function loadEvents(runId, signal) {
         fetchAbort = null;
       }
       if (lastRuns.length > 0) {
-        selectRun(lastRuns[0].run_id, { fromFallback: true });
+        selectRun(lastRuns[0].trace_id, { fromFallback: true });
         return;
       }
       const listRes = await fetch('/api/runs', { signal });
@@ -638,7 +638,7 @@ async function loadEvents(runId, signal) {
         const runs = listData.runs || [];
         lastRuns = runs;
         if (runs.length > 0) {
-          selectRun(runs[0].run_id, { fromFallback: true });
+          selectRun(runs[0].trace_id, { fromFallback: true });
           return;
         }
       }
@@ -702,8 +702,8 @@ function mergeRunListIntoSidebar(runs) {
   if (!runs || runs.length === 0) return;
   for (let i = 0; i < runs.length; i++) {
     const run = runs[i];
-    const existing = runListEl.querySelector('.run-item[data-run-id="' + run.run_id + '"]');
-    const name = run.run_name || run.run_id?.slice(0, 8) || '—';
+    const existing = runListEl.querySelector('.run-item[data-run-id="' + run.trace_id + '"]');
+    const name = run.run_name || run.trace_id?.slice(0, 8) || '—';
     if (existing) {
       const nameEl = existing.querySelector('.run-name');
       const metaEl = existing.querySelector('.run-meta');
@@ -724,7 +724,7 @@ function mergeRunListIntoSidebar(runs) {
     } else {
       const newEl = buildRunItemEl(run);
       const prevRun = runs[i - 1];
-      const prevEl = prevRun ? runListEl.querySelector('.run-item[data-run-id="' + prevRun.run_id + '"]') : null;
+      const prevEl = prevRun ? runListEl.querySelector('.run-item[data-run-id="' + prevRun.trace_id + '"]') : null;
       runListEl.insertBefore(newEl, prevEl ? prevEl.nextSibling : runListEl.firstChild);
     }
   }
@@ -738,7 +738,7 @@ async function pollRunList() {
     const data = await r.json();
     const runs = data.runs || [];
     mergeRunListIntoSidebar(runs);
-    const runIds = new Set(runs.map((x) => x.run_id));
+    const runIds = new Set(runs.map((x) => x.trace_id));
     const items = Array.from(runListEl.querySelectorAll('.run-item'));
     let currentRunWasRemoved = false;
     for (const el of items) {
@@ -763,9 +763,9 @@ async function pollRunList() {
       timelineErrorEl.style.display = 'none';
       hideRunNotFoundBanner();
       updateCopyButtonsState();
-      if (runs.length > 0) selectRun(runs[0].run_id, { fromFallback: true });
+      if (runs.length > 0) selectRun(runs[0].trace_id, { fromFallback: true });
     } else {
-      const cur = runs.find((x) => x.run_id === currentRunId);
+      const cur = runs.find((x) => x.trace_id === currentRunId);
       if (cur) currentRunMeta = cur;
       if (currentRunMeta && currentRunMeta.status !== 'running') clearEventPollInterval();
       else if (currentRunMeta && currentRunMeta.status === 'running' && document.visibilityState === 'visible') startEventPolling();
@@ -780,14 +780,14 @@ async function pollEventsForCurrentRun() {
   try {
     const [metaRes, eventsRes] = await Promise.all([
       fetch('/api/runs/' + encodeURIComponent(currentRunId), { signal }),
-      fetch('/api/runs/' + encodeURIComponent(currentRunId) + '/events', { signal }),
+      fetch('/api/runs/' + encodeURIComponent(currentRunId) + '/spans', { signal }),
     ]);
     if (signal?.aborted) return;
     if (!metaRes.ok || !eventsRes.ok) return;
     const run = await metaRes.json();
     const eventsData = await eventsRes.json();
     if (signal?.aborted) return;
-    if (currentRunId !== (run.run_id || currentRunId)) return;
+    if (currentRunId !== (run.trace_id || currentRunId)) return;
     currentRunMeta = run;
     currentEvents = eventsData.events || [];
     renderRunSummary(currentRunMeta, currentEvents);

@@ -125,6 +125,35 @@ def test_export_success_path_writes_run_and_events(empty_data_dir):
     assert data["events"][0].get("event_type") == EventType.TOOL_CALL.value
 
 
+def _write_trace_run(temp_data_dir, trace_id, run_name):
+    config = load_config()
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": run_name,
+        "started_at": "2026-01-01T00:00:00.000Z",
+        "ended_at": "2026-01-01T00:00:01.000Z",
+        "duration_ms": 1000,
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    root_span = {
+        "trace_id": trace_id,
+        "span_id": "0" * 16,
+        "parent_span_id": None,
+        "name": run_name,
+        "start_time": "2026-01-01T00:00:00.000Z",
+        "end_time": "2026-01-01T00:00:01.000Z",
+        "duration_ms": 1000,
+        "attributes": {"maida.run_name": run_name},
+        "events": [],
+        "status_code": "OK",
+    }
+    (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
+
+
 def test_list_json_outputs_valid_json_spec_version_and_runs(empty_data_dir):
     """maida list --json outputs valid JSON with keys spec_version and runs."""
     result = runner.invoke(app, ["list", "--json"])
@@ -156,6 +185,34 @@ def test_list_with_actual_runs_shows_runs(empty_data_dir):
     assert len(data["runs"]) >= 1
     assert data["runs"][0]["run_id"] == run_id
     assert data["runs"][0]["run_name"] == "list_me_run"
+
+
+def test_list_with_trace_id_run_shows_short_trace_id(empty_data_dir):
+    trace_id = "a0eebc99" + "a" * 24
+    _write_trace_run(empty_data_dir, trace_id, "trace_list")
+
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
+    assert trace_id[:8] in result.output
+    assert "trace_list" in result.output
+
+    result_json = runner.invoke(app, ["list", "--json"])
+    assert result_json.exit_code == 0
+    data = json.loads(result_json.output)
+    assert data["runs"][0]["trace_id"] == trace_id
+
+
+def test_view_defaults_to_latest_trace_id(monkeypatch, empty_data_dir):
+    trace_id = "b0eebc99" + "b" * 24
+    _write_trace_run(empty_data_dir, trace_id, "trace_view")
+    monkeypatch.setattr("uvicorn.run", lambda **kwargs: None)
+
+    result = runner.invoke(app, ["view", "--no-browser", "--json", "--port", "0"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["run_id"] == trace_id
+    assert f"run_id={trace_id}" in data["url"]
 
 
 # ---------------------------------------------------------------------------

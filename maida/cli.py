@@ -20,6 +20,7 @@ import maida.storage as storage
 from maida.config import load_config
 from maida.constants import SPEC_VERSION
 from maida.server import create_app
+from maida.events import spans_to_events
 from maida import __version__
 
 from maida.constants import LOCAL_DIR_NAME
@@ -75,7 +76,7 @@ def _run_table_rows(runs: list[dict]) -> list[list[str]]:
     """Build rows for text table: run_id (short), run_name, started_at, duration_ms, llm_calls, tool_calls, status."""
     rows = []
     for r in runs:
-        run_id = (r.get("run_id") or "")[:8]
+        run_id = (r.get("trace_id") or r.get("run_id") or "")[:8]
         run_name = r.get("run_name") or ""
         started_at = r.get("started_at") or ""
         duration_ms = r.get("duration_ms")
@@ -144,7 +145,7 @@ def list_cmd(
 
 @app.command("export")
 def export_cmd(
-    run_id: str = typer.Argument(..., help="Run ID or prefix to export"),
+    run_id: str = typer.Argument(..., help="Run ID or trace ID prefix to export"),
     out: Path = typer.Option(
         ..., "--out", "-o", path_type=Path, help="Output JSON file path"
     ),
@@ -153,14 +154,15 @@ def export_cmd(
     try:
         config = load_config()
         try:
-            run_id = storage.resolve_run_id(run_id, config)
+            trace_id = storage.resolve_trace_id(run_id, config)
         except FileNotFoundError:
             raise Exit(EXIT_NOT_FOUND)
         try:
-            run_meta = storage.load_run_meta(run_id, config)
+            run_meta = storage.load_run_meta(trace_id, config)
         except (ValueError, FileNotFoundError):
             raise Exit(EXIT_NOT_FOUND)
-        events = storage.load_events(run_id, config)
+        spans = storage.load_spans(trace_id, config)
+        events = spans_to_events(spans)
         payload = {"spec_version": SPEC_VERSION, "run": run_meta, "events": events}
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:
@@ -190,10 +192,10 @@ def view_cmd(
             if not runs:
                 run_id = ""
             else:
-                run_id = runs[0].get("run_id") or ""
+                run_id = runs[0].get("trace_id") or runs[0].get("run_id") or ""
         if run_id:
             try:
-                run_id = storage.resolve_run_id(run_id, config)
+                run_id = storage.resolve_trace_id(run_id, config)
             except FileNotFoundError as e:
                 if not json_out:
                     typer.echo(f"Run not found: {e}", err=True)
@@ -266,7 +268,7 @@ def baseline_cmd(
     try:
         config = load_config()
         try:
-            run_id = storage.resolve_run_id(run_id, config)
+            run_id = storage.resolve_trace_id(run_id, config)
         except FileNotFoundError:
             typer.echo(f"Run not found: {run_id}", err=True)
             raise Exit(EXIT_NOT_FOUND)
@@ -346,7 +348,7 @@ def assert_cmd(
     try:
         config = load_config()
         try:
-            run_id = storage.resolve_run_id(run_id, config)
+            run_id = storage.resolve_trace_id(run_id, config)
         except FileNotFoundError:
             typer.echo(f"Run not found: {run_id}", err=True)
             raise Exit(EXIT_NOT_FOUND)
@@ -426,7 +428,7 @@ def diff_cmd(
     try:
         config = load_config()
         try:
-            run_a = storage.resolve_run_id(run_a, config)
+            run_a = storage.resolve_trace_id(run_a, config)
         except FileNotFoundError:
             typer.echo(f"Run not found: {run_a}", err=True)
             raise Exit(EXIT_NOT_FOUND)
@@ -441,7 +443,7 @@ def diff_cmd(
                 raise Exit(EXIT_NOT_FOUND)
         elif run_b is not None:
             try:
-                resolved_b = storage.resolve_run_id(run_b, config)
+                resolved_b = storage.resolve_trace_id(run_b, config)
             except FileNotFoundError:
                 typer.echo(f"Run not found: {run_b}", err=True)
                 raise Exit(EXIT_NOT_FOUND)
