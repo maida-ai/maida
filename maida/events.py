@@ -113,6 +113,9 @@ def derive_span_type(span: dict) -> str:
     if name == "state":
         return EventType.STATE_UPDATE.value
 
+    if name == "loop_warning" or attrs.get(MAIDA_EVENT_TYPE) == "LOOP_WARNING":
+        return EventType.LOOP_WARNING.value
+
     if MAIDA_ERROR_TYPE in attrs:
         return EventType.ERROR.value
 
@@ -230,6 +233,14 @@ def derive_event_payload(span: dict) -> dict[str, Any]:
             "diff": diff,
         }
 
+    if span_type == EventType.LOOP_WARNING.value:
+        loop_data = {}
+        for ev in span.get("events", []):
+            if ev.get("name") == "maida.loop.warning":
+                for k, v in ev.get("attributes", {}).items():
+                    loop_data[k] = v
+        return loop_data
+
     if span_type == EventType.ERROR.value:
         return {
             "error_type": attrs.get(MAIDA_ERROR_TYPE, "Error"),
@@ -250,6 +261,17 @@ def span_to_event_dict(span: dict) -> dict[str, Any]:
     if parent_span_id is None and event_type == EventType.RUN_START.value:
         event_type = EventType.RUN_START.value
 
+    span_attrs = span.get("attributes", {})
+    meta_val = {}
+    raw_meta = span_attrs.get(MAIDA_META)
+    if raw_meta is not None:
+        try:
+            meta_val = json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
+        except (json.JSONDecodeError, TypeError):
+            meta_val = {"raw": raw_meta}
+    if not isinstance(meta_val, dict):
+        meta_val = {}
+
     return {
         "spec_version": SPEC_VERSION,
         "event_id": span.get("span_id", ""),
@@ -260,7 +282,7 @@ def span_to_event_dict(span: dict) -> dict[str, Any]:
         "duration_ms": span.get("duration_ms"),
         "name": span.get("name", ""),
         "payload": payload,
-        "meta": {},
+        "meta": meta_val,
     }
 
 
@@ -398,6 +420,8 @@ try:
         MAIDA_ERROR_TYPE,
         MAIDA_ERROR_MESSAGE,
         MAIDA_ERROR_STACK,
+        MAIDA_EVENT_TYPE,
+        MAIDA_META,
         MAIDA_TOOL_NAME,
     )
 except ImportError:
@@ -405,4 +429,6 @@ except ImportError:
     MAIDA_ERROR_TYPE = "maida.error_type"
     MAIDA_ERROR_MESSAGE = "maida.error_message"
     MAIDA_ERROR_STACK = "maida.error_stack"
+    MAIDA_EVENT_TYPE = "maida.event_type"
+    MAIDA_META = "maida.meta"
     MAIDA_TOOL_NAME = "maida.tool_name"

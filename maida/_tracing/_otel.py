@@ -61,6 +61,8 @@ MAIDA_LLM_COUNT = "maida.llm_calls"
 MAIDA_TOOL_COUNT = "maida.tool_calls"
 MAIDA_ERROR_COUNT = "maida.errors"
 MAIDA_LOOP_WARNING_COUNT = "maida.loop_warnings"
+MAIDA_META = "maida.meta"
+MAIDA_EVENT_TYPE = "maida.event_type"
 
 
 def span_kind_str(kind: SpanKind) -> str:
