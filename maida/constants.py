@@ -5,20 +5,18 @@ from pathlib import Path
 REDACTED_MARKER = "__REDACTED__"
 TRUNCATED_MARKER = "__TRUNCATED__"
 
-# SPEC version for run.json and event payloads (single source of truth).
+# SPEC version: bumped to 0.2 in the storage/API change commit.
 SPEC_VERSION = "0.1"
 
 # Recursion limit and depth of redaction/truncation
-# This smells like the same thing, but might change in the future
 DEPTH_LIMIT = 10
 
 # Default directory name for configs, local storage, etc.
-# This can (and should) be overridden by the user.
 LOCAL_DIR_NAME = Path(".maida")
 
 
 def default_counts() -> dict[str, int]:
-    """Default counts per SPEC run.json schema. Keys: llm_calls, tool_calls, errors, loop_warnings."""
+    """Default counts per run meta schema. Keys: llm_calls, tool_calls, errors, loop_warnings."""
     return {
         "llm_calls": 0,
         "tool_calls": 0,
