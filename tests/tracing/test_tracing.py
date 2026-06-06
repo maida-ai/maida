@@ -6,6 +6,9 @@ Uses temp dir via MAIDA_DATA_DIR; env restored by fixture.
 
 import pytest
 
+from opentelemetry import trace as ot_trace
+from opentelemetry.sdk.trace import TracerProvider
+
 from maida import (
     has_active_run,
     record_llm_call,
@@ -16,7 +19,8 @@ from maida import (
 )
 from maida.config import load_config
 from maida.events import EventType
-from maida.storage import load_events, load_run_meta
+from maida.events import spans_to_events
+from maida.storage import list_runs, load_run_meta, load_spans
 from tests.conftest import get_latest_run_id
 
 
@@ -35,7 +39,7 @@ def test_trace_success_one_run_start_one_run_end_run_json_ok(temp_data_dir):
     _traced_ok()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     run_starts = [e for e in events if e.get("event_type") == EventType.RUN_START.value]
@@ -52,7 +56,7 @@ def test_trace_error_one_error_run_json_error_counts(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
@@ -90,7 +94,7 @@ def test_loop_warning_emitted_once_for_repeated_pattern(temp_data_dir):
     _traced_loop_pattern()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     loop_warnings = [
@@ -123,7 +127,7 @@ def test_tool_call_records_error_status_and_error_object_on_exception(temp_data_
     _run()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     tool_events = [
         e for e in events if e.get("event_type") == EventType.TOOL_CALL.value
     ]
@@ -152,7 +156,7 @@ def test_llm_call_records_error_status_and_error_object_on_exception(temp_data_d
     _run()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     llm_events = [e for e in events if e.get("event_type") == EventType.LLM_CALL.value]
     assert len(llm_events) >= 1
     payload = llm_events[0].get("payload", {})
@@ -174,7 +178,7 @@ def test_success_calls_have_status_ok_and_no_error(temp_data_dir):
     _run()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     tool_events = [
         e for e in events if e.get("event_type") == EventType.TOOL_CALL.value
     ]
@@ -209,7 +213,7 @@ def test_record_llm_call_accepts_float_token_counts(temp_data_dir, monkeypatch):
     _run()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     llm_events = [e for e in events if e.get("event_type") == EventType.LLM_CALL.value]
     assert len(llm_events) >= 1
     usage = llm_events[0].get("payload", {}).get("usage")
@@ -296,7 +300,7 @@ def test_traced_run_success_one_run_start_one_run_end(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     run_starts = [e for e in events if e.get("event_type") == EventType.RUN_START.value]
@@ -316,7 +320,7 @@ def test_traced_run_error_one_error_run_json_error(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
@@ -328,7 +332,7 @@ def test_traced_run_error_one_error_run_json_error(temp_data_dir):
 
 
 def test_trace_system_exit_propagates_without_error_recorded(temp_data_dir):
-    """SystemExit inside @trace propagates immediately; no ERROR event or RUN_END is written."""
+    """SystemExit inside @trace propagates immediately; no ERROR event is recorded."""
 
     @trace(name="sys_exit_run")
     def _traced_sys_exit():
@@ -340,11 +344,9 @@ def test_trace_system_exit_propagates_without_error_recorded(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
-    run_ends = [e for e in events if e.get("event_type") == EventType.RUN_END.value]
     assert len(errors) == 0, "SystemExit must not be recorded as ERROR"
-    assert len(run_ends) == 0, "RUN_END must not be written on SystemExit (fast exit)"
 
 
 def test_traced_run_keyboard_interrupt_propagates_without_error_recorded(temp_data_dir):
@@ -355,7 +357,7 @@ def test_traced_run_keyboard_interrupt_propagates_without_error_recorded(temp_da
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(errors) == 0, "KeyboardInterrupt must not be recorded as ERROR"
 
@@ -368,7 +370,7 @@ def test_traced_run_nested_does_not_create_new_run(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_starts = [e for e in events if e.get("event_type") == EventType.RUN_START.value]
     run_ends = [e for e in events if e.get("event_type") == EventType.RUN_END.value]
     tool_events = [
@@ -399,7 +401,7 @@ def test_trace_nested_decorated_uses_outer_run(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_starts = [e for e in events if e.get("event_type") == EventType.RUN_START.value]
     run_ends = [e for e in events if e.get("event_type") == EventType.RUN_END.value]
     tool_events = [
@@ -425,15 +427,42 @@ def test_record_state_inside_trace_writes_state_update_event(temp_data_dir):
     _run()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     state_events = [
         e for e in events if e.get("event_type") == EventType.STATE_UPDATE.value
     ]
     assert len(state_events) == 1
     payload = state_events[0].get("payload", {})
     assert payload.get("state") == {"step": 1, "query": "hello"}
-    assert state_events[0].get("meta", {}).get("label") == "after_search"
+    assert state_events[0].get("meta") == {"label": "after_search"}
     assert state_events[0].get("name") == "state"
+
+
+def test_live_child_span_makes_run_visible_before_root_span_ends(temp_data_dir):
+    config = load_config()
+
+    with traced_run(name="live-run"):
+        record_state(state={"step": 1})
+        runs = list_runs(limit=1, config=config)
+
+    assert runs
+    assert runs[0]["trace_id"]
+    assert runs[0]["status"] == "running"
+
+
+def test_maida_reuses_preconfigured_tracer_provider(temp_data_dir):
+    provider = TracerProvider()
+    ot_trace.set_tracer_provider(provider)
+
+    with traced_run(name="preconfigured-provider"):
+        record_tool_call("tool", args={}, result="ok")
+
+    assert ot_trace.get_tracer_provider() is provider
+
+    config = load_config()
+    runs = list_runs(limit=1, config=config)
+    assert runs[0]["run_name"] == "preconfigured-provider"
+    assert load_spans(runs[0]["trace_id"], config)
 
 
 def test_record_state_with_diff(temp_data_dir):
@@ -446,7 +475,7 @@ def test_record_state_with_diff(temp_data_dir):
     _run()
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     state_events = [
         e for e in events if e.get("event_type") == EventType.STATE_UPDATE.value
     ]
@@ -463,7 +492,7 @@ def test_record_state_no_op_outside_trace(temp_data_dir):
     record_state(state={"orphan": True})
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     state_events = [
         e for e in events if e.get("event_type") == EventType.STATE_UPDATE.value
     ]
@@ -488,7 +517,7 @@ def test_trace_async_function_records_events(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     assert run_meta["status"] == "ok"
@@ -517,7 +546,7 @@ def test_trace_async_function_records_error(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     assert run_meta["status"] == "error"
@@ -543,7 +572,7 @@ def test_trace_async_with_guardrails(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
     assert run_meta["status"] == "error"

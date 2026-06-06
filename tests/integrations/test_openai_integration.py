@@ -388,7 +388,8 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
     from maida.config import load_config
     from maida.events import EventType
     from maida.exceptions import LoopAbort
-    from maida.storage import load_events, load_run_meta
+    from maida.storage import load_spans, load_run_meta
+    from maida.events import spans_to_events
     from tests.conftest import get_latest_run_id
 
     processor = openai_agents.PROCESSOR
@@ -439,7 +440,8 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    spans = load_spans(run_id, config)
+    events = spans_to_events(spans)
     run_meta = load_run_meta(run_id, config)
 
     loop_warnings = [
@@ -455,4 +457,4 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
 
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(errors) == 1
-    assert errors[0]["payload"]["guardrail"] == "stop_on_loop"
+    assert errors[0]["payload"]["error_type"] == "LoopAbort"

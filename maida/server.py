@@ -28,6 +28,13 @@ def _get_config(request: Request) -> MaidaConfig:
     return request.app.state.config
 
 
+def _validated_trace_id(trace_id: str) -> str:
+    try:
+        return storage._validate_trace_id(trace_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid trace_id")
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Maida Viewer")
     app.state.config = load_config()
@@ -42,10 +49,9 @@ def create_app() -> FastAPI:
 
     @app.get("/api/runs/{trace_id}")
     def get_run_meta(trace_id: str, config: MaidaConfig = Depends(_get_config)) -> dict:
+        trace_id = _validated_trace_id(trace_id)
         try:
             return storage.load_run_meta(trace_id, config)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="invalid trace_id")
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
 
@@ -53,10 +59,9 @@ def create_app() -> FastAPI:
     def get_run_spans(
         trace_id: str, config: MaidaConfig = Depends(_get_config)
     ) -> dict:
+        trace_id = _validated_trace_id(trace_id)
         try:
             storage.load_run_meta(trace_id, config)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="invalid trace_id")
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
         try:
@@ -88,10 +93,9 @@ def create_app() -> FastAPI:
     def validate_run_for_rename(
         trace_id: str, config: MaidaConfig = Depends(_get_config)
     ) -> dict:
+        trace_id = _validated_trace_id(trace_id)
         try:
             return storage.load_run_meta(trace_id, config)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="invalid trace_id")
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
 

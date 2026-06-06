@@ -11,13 +11,13 @@ from tests.conftest import get_latest_run_id
 
 from maida import trace
 from maida.config import load_config
-from maida.events import EventType
+from maida.events import EventType, spans_to_events
 from maida.exceptions import (
     GuardrailExceeded,
     LoopAbort,
     _MaidaAbortSignal,
 )
-from maida.storage import load_events
+from maida.storage import load_spans
 
 try:
     from maida.integrations.langchain import LangChainCallbackHandler
@@ -115,7 +115,7 @@ def test_langchain_handler_emits_tool_call_and_llm_call(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
 
     tool_events = [
         e for e in events if e.get("event_type") == EventType.TOOL_CALL.value
@@ -156,7 +156,7 @@ def test_langchain_handler_tool_error_emits_error_status(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
     error_tools = [
         e
         for e in events
@@ -235,7 +235,7 @@ def test_langchain_handler_guardrail_propagates_via_raise_error(temp_data_dir):
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = load_events(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
 
     event_types = [e.get("event_type") for e in events]
     assert "LOOP_WARNING" in event_types, "trace should contain LOOP_WARNING"

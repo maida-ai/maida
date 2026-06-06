@@ -13,8 +13,8 @@ import tempfile
 from pathlib import Path
 
 from maida.config import load_config
-from maida.events import EventType
-from maida.storage import load_events, load_run_meta, list_runs
+from maida.events import EventType, spans_to_events
+from maida.storage import load_run_meta, list_runs, load_spans
 
 
 def _run_implicit_tool_call(data_dir: str) -> None:
@@ -50,9 +50,9 @@ def test_implicit_run_creates_run_with_run_start_and_tool_call():
             assert len(runs) >= 1, "expected at least one run"
             implicit = next((r for r in runs if r.get("run_name") == "implicit"), None)
             assert implicit is not None, "expected a run with run_name=='implicit'"
-            run_id = implicit["run_id"]
+            run_id = implicit.get("run_id") or implicit.get("trace_id")
 
-            events = load_events(run_id, config)
+            events = spans_to_events(load_spans(run_id, config))
             event_types = [e.get("event_type") for e in events]
 
             assert EventType.RUN_START.value in event_types, "expected RUN_START"

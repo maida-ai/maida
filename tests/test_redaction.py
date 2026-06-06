@@ -16,7 +16,8 @@ from maida.guardrails import GuardrailParams
 from maida.events import EventType
 from maida._tracing._redact import _redact_and_truncate
 from maida.tracing import record_tool_call, trace, traced_run
-from maida.storage import load_events, list_runs
+from maida.events import spans_to_events
+from maida.storage import list_runs, load_spans
 
 
 def test_redaction_constants_unchanged():
@@ -94,8 +95,9 @@ def test_record_tool_call_redacts_args_with_token_key(temp_data_dir, redact_toke
     config = load_config()
     runs = list_runs(limit=1, config=config)
     assert runs
-    run_id = runs[0]["run_id"]
-    events = load_events(run_id, config)
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    spans = load_spans(run_id, config)
+    events = spans_to_events(spans)
 
     tool_events = [
         e for e in events if e.get("event_type") == EventType.TOOL_CALL.value
@@ -123,8 +125,9 @@ def test_error_event_payload_redacted_decorator(
     config = load_config()
     runs = list_runs(limit=1, config=config)
     assert runs
-    run_id = runs[0]["run_id"]
-    events = load_events(run_id, config)
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    spans = load_spans(run_id, config)
+    events = spans_to_events(spans)
 
     error_events = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(error_events) == 1
@@ -145,8 +148,9 @@ def test_error_event_payload_redacted_context_manager(
     config = load_config()
     runs = list_runs(limit=1, config=config)
     assert runs
-    run_id = runs[0]["run_id"]
-    events = load_events(run_id, config)
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    spans = load_spans(run_id, config)
+    events = spans_to_events(spans)
 
     error_events = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(error_events) == 1
@@ -168,8 +172,9 @@ def test_run_start_argv_redacted(temp_data_dir):
     config = load_config()
     runs = list_runs(limit=1, config=config)
     assert runs
-    run_id = runs[0]["run_id"]
-    events = load_events(run_id, config)
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    spans = load_spans(run_id, config)
+    events = spans_to_events(spans)
 
     run_start_events = [
         e for e in events if e.get("event_type") == EventType.RUN_START.value
@@ -255,7 +260,7 @@ def test_redact_substring_match():
 def test_exception_message_secret_not_in_events_jsonl(
     temp_data_dir, redact_message_and_stack_env
 ):
-    """Secret in exception message must NOT appear anywhere in events.jsonl file content."""
+    """Secret in exception message must NOT appear anywhere in spans.jsonl file content."""
     secret = "sk-leaked-api-key-xyz789"
     assert secret not in REDACTED_MARKER
 
@@ -269,17 +274,17 @@ def test_exception_message_secret_not_in_events_jsonl(
     config = load_config()
     runs = list_runs(limit=1, config=config)
     assert runs
-    run_id = runs[0]["run_id"]
-    events_path = config.data_dir / "runs" / run_id / "events.jsonl"
-    raw_content = events_path.read_text(encoding="utf-8")
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    spans_path = config.data_dir / "runs" / run_id / "spans.jsonl"
+    raw_content = spans_path.read_text(encoding="utf-8")
 
     assert secret not in raw_content, (
-        f"Secret {secret!r} must not appear in events.jsonl"
+        f"Secret {secret!r} must not appear in spans.jsonl"
     )
 
 
-def test_argv_api_key_not_in_events_jsonl(temp_data_dir):
-    """argv containing --api-key=... must NOT appear in events.jsonl (value redacted or omitted)."""
+def test_argv_api_key_not_in_spans_jsonl(temp_data_dir):
+    """argv containing --api-key=... must NOT appear in spans.jsonl (value redacted or omitted)."""
     secret = "sk-secret-1234"
 
     with patch("sys.argv", ["main.py", f"--api-key={secret}", "--verbose"]):
@@ -293,10 +298,10 @@ def test_argv_api_key_not_in_events_jsonl(temp_data_dir):
     config = load_config()
     runs = list_runs(limit=1, config=config)
     assert runs
-    run_id = runs[0]["run_id"]
-    events_path = config.data_dir / "runs" / run_id / "events.jsonl"
-    raw_content = events_path.read_text(encoding="utf-8")
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    spans_path = config.data_dir / "runs" / run_id / "spans.jsonl"
+    raw_content = spans_path.read_text(encoding="utf-8")
 
     assert secret not in raw_content, (
-        f"API key value {secret!r} must not appear in events.jsonl"
+        f"API key value {secret!r} must not appear in spans.jsonl"
     )
