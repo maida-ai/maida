@@ -1,0 +1,7 @@
+interface:
+  display_name: "Commit Stack Review"
+  short_description: "Fix PR comments inside atomic commits"
+  default_prompt: "Use $commit-stack-review to address this PR's review comments while preserving its atomic commit stack."
+
+policy:
+  allow_implicit_invocation: true

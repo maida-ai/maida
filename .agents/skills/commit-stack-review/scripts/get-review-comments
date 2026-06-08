@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! command -v gh &> /dev/null; then
+    echo "error: gh could not be found" >&2
+    exit 1
+fi
+
+if ! command -v jq &> /dev/null; then
+    echo "error: jq could not be found" >&2
+    exit 1
+fi
+
+OWNER=""
+REPO=""
+PR=""
+ALLOW_SUBJECT_MAPPING="false"
+
+while getopts "o:r:p:u" opt; do
+    case $opt in
+        o) OWNER=$OPTARG;;
+        r) REPO=$OPTARG;;
+        p) PR=$OPTARG;;
+        u) ALLOW_SUBJECT_MAPPING="true";;
+        *) echo "Invalid option: -$OPTARG" >&2
+           exit 1;;
+    esac
+done
+
+if [ -z "$PR" ]; then
+    PR=$(gh pr view --json number --jq '.number' 2>/dev/null || true)
+fi
+
+if [ -z "$OWNER" ]; then
+    OWNER=$(gh repo view --json owner --jq '.owner.login' 2>/dev/null || true)
+fi
+
+if [ -z "$REPO" ]; then
+    REPO=$(gh repo view --json name --jq '.name' 2>/dev/null || true)
+fi
+
+if [ -z "$OWNER" ] || [ -z "$REPO" ] || [ -z "$PR" ]; then
+    echo "error: owner, repo, and PR are required" >&2
+    echo "usage: $0 -o OWNER -r REPO -p PR [-u]" >&2
+    exit 1
+fi
+
+gh api graphql \
+    --paginate \
+    --slurp \
+    -F owner="$OWNER" \
+    -F repo="$REPO" \
+    -F pr="$PR" \
+    -F query=@"$SCRIPT_DIR/pr-review-comments.graphql" \
+| jq --argjson allow_subject_mapping "$ALLOW_SUBJECT_MAPPING" -f "$SCRIPT_DIR/group-by-commit.jq"
