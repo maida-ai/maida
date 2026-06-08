@@ -1,0 +1,7 @@
+interface:
+  display_name: "Split PR Stack"
+  short_description: "Split large PR commits into atomic stack commits"
+  default_prompt: "Use $split-pr-stack to split this large PR or commit into smaller atomic commits in the same PR stack."
+
+policy:
+  allow_implicit_invocation: true

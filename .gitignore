@@ -11,6 +11,10 @@ _README.md
 !schemas/*.json
 !schemas/*.jsonl
 
+# Local reports
+_review_report/
+_split_report/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
