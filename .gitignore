@@ -2,6 +2,9 @@
 maida/_version.py
 _README.md
 
+# Local development files
+_ai_*/
+
 # Local traces
 # We ignore all JSON and JSONL files except under `schemas`
 # This behavior might change in the future.

@@ -254,6 +254,21 @@ def test_total_tokens_summed_from_llm_calls(temp_data_dir):
     assert bl["summary"]["total_tokens"] == 350
 
 
+def test_total_tokens_preserved_when_only_total_usage_is_recorded(temp_data_dir):
+    config = load_config()
+    events = [
+        (
+            EventType.LLM_CALL,
+            "gpt-test",
+            {"usage": {"total_tokens": 7}},
+        ),
+    ]
+    run_id = _make_run(config, events=events)
+    bl = create_baseline(run_id, config)
+
+    assert bl["summary"]["total_tokens"] == 7
+
+
 def test_total_tokens_zero_when_no_usage(temp_data_dir):
     config = load_config()
     events = [
