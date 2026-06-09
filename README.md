@@ -169,7 +169,7 @@ In the UI, you see:
 - **Live-refresh**: leave `maida view` running — new runs appear in the sidebar, events stream in real-time for running agents
 - **Filter chips**: All, LLM, Tools, Errors, State, Loops
 
-Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (full structured span records) under `~/.maida/runs/<trace_id>/`. Nothing leaves your machine.
+Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (OpenTelemetry span records) under `~/.maida/`. Nothing leaves your machine.
 
 
 ## What Maida is
@@ -311,7 +311,7 @@ All data is local. Plain files, easy to inspect or delete.
 └── runs/
     └── <trace_id>/
         ├── meta.json       # run metadata (status, counts, timing)
-        └── spans.jsonl     # append-only OTel span records
+        └── spans.jsonl     # append-only OpenTelemetry span records
 ```
 
 Override the location:
