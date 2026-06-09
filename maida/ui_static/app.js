@@ -139,9 +139,9 @@ async function copyRunPath() {
     if (!r.ok) throw new Error(r.statusText || 'Failed to load paths');
     const data = await r.json();
     const paths = data.paths || {};
-    // const runJsonPath = paths.run_json;
-    // if (!runJsonPath) throw new Error('run.json path unavailable');
-    // await navigator.clipboard.writeText(runJsonPath);
+    // const metaJsonPath = paths.meta_json;
+    // if (!metaJsonPath) throw new Error('meta.json path unavailable');
+    // await navigator.clipboard.writeText(metaJsonPath);
     const runDirPath = paths.run_dir;
     if (!runDirPath) throw new Error('run directory path unavailable');
     await navigator.clipboard.writeText(runDirPath);
@@ -154,7 +154,7 @@ async function renameRun() {
   if (!currentRunId) return;
   const currentName = currentRunMeta?.run_name || '';
   const msg =
-    'Enter a new name for this run. This will update its run.json file on disk.';
+    'Enter a new name for this run. This will update its meta.json file on disk.';
   const nextName = window.prompt(msg, currentName);
   if (nextName == null) return;
   const trimmed = nextName.trim();
@@ -182,7 +182,7 @@ async function renameRun() {
 async function deleteRun() {
   if (!currentRunId) return;
   const ok = window.confirm(
-    'Delete this run permanently?\n\nThis will remove its directory and run.json file from local storage. This action cannot be undone.',
+    'Delete this run permanently?\n\nThis will remove its directory and trace files from local storage. This action cannot be undone.',
   );
   if (!ok) return;
 
@@ -294,7 +294,7 @@ function escapeHtml(s) {
 
 /**
  * UI status for a run: completed ok with any loop warning counts as "warning"
- * (run.json still stores status "ok"; list + summary show warning).
+ * (meta.json still stores status "ok"; list + summary show warning).
  */
 function effectiveRunUiStatus(run) {
   const raw = (run.status || '').toLowerCase();
@@ -354,9 +354,9 @@ function selectRun(runId, options) {
 }
 
 // Run Summary panel: single compact overview above the timeline.
-// State flow: run.json (loadRunMeta) -> currentRunMeta; events (loadEvents) -> currentEvents.
+// State flow: meta.json (loadRunMeta) -> currentRunMeta; events (loadEvents) -> currentEvents.
 // We render status strip + KPI chips from run only; callouts (first error, loop warning, running)
-// and filter row use events when available. If events fail to load, summary still shows from run.json;
+// and filter row use events when available. If events fail to load, summary still shows from meta.json;
 // jump links are hidden when events is null.
 function renderRunSummary(run, events) {
   if (!runSummaryEl || !run) {
