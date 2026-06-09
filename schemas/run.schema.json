@@ -1,13 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maida-ai/maida/schemas/run.schema.json",
-  "title": "Maida run.json",
-  "description": "Run metadata file (run.json) for Maida v0.1. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
+  "title": "Maida meta.json",
+  "description": "Run metadata file (meta.json) for Maida trace format spec_version 0.2. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
   "type": "object",
-  "required": ["spec_version", "run_id", "run_name", "started_at", "ended_at", "duration_ms", "status", "counts", "last_event_ts"],
+  "required": ["trace_id", "run_name", "started_at", "ended_at", "duration_ms", "status", "counts"],
   "properties": {
-    "spec_version": { "const": "0.1" },
-    "run_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
     "run_name": { "type": ["string", "null"] },
     "started_at": { "type": "string", "format": "date-time" },
     "ended_at": { "type": ["string", "null"], "format": "date-time" },
@@ -23,8 +22,7 @@
         "loop_warnings": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
-    },
-    "last_event_ts": { "type": ["string", "null"], "format": "date-time" }
+    }
   },
   "additionalProperties": false
 }

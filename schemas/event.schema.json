@@ -1,23 +1,40 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maida-ai/maida/schemas/event.schema.json",
-  "title": "Maida event (envelope)",
-  "description": "Event envelope for Maida v0.1. One event per line in events.jsonl. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
+  "title": "Maida span (spans.jsonl record)",
+  "description": "OpenTelemetry span record for Maida trace format spec_version 0.2. One span per line in spans.jsonl. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
   "type": "object",
-  "required": ["spec_version", "event_id", "run_id", "parent_id", "event_type", "ts", "duration_ms", "name", "payload", "meta"],
+  "required": ["trace_id", "span_id", "parent_span_id", "name", "kind", "start_time", "end_time", "duration_ms", "attributes", "events", "status_code", "status_description"],
   "properties": {
-    "spec_version": { "const": "0.1" },
-    "event_id": { "type": "string", "format": "uuid" },
-    "run_id": { "type": "string", "format": "uuid" },
-    "parent_id": { "type": ["string", "null"], "format": "uuid" },
-    "event_type": {
-      "enum": ["RUN_START", "RUN_END", "LLM_CALL", "TOOL_CALL", "STATE_UPDATE", "ERROR", "LOOP_WARNING"]
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "parent_span_id": {
+      "anyOf": [
+        { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        { "type": "null" }
+      ]
     },
-    "ts": { "type": "string", "format": "date-time" },
-    "duration_ms": { "type": ["integer", "null"] },
     "name": { "type": "string" },
-    "payload": { "type": "object", "description": "Event-type-specific; see trace-format.md" },
-    "meta": { "type": "object", "description": "Freeform metadata" }
+    "kind": { "enum": ["INTERNAL", "CLIENT", "SERVER", "PRODUCER", "CONSUMER"] },
+    "start_time": { "type": "string", "format": "date-time" },
+    "end_time": { "type": ["string", "null"], "format": "date-time" },
+    "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "attributes": { "type": "object" },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "timestamp", "attributes"],
+        "properties": {
+          "name": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "attributes": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "status_code": { "enum": ["OK", "ERROR", "UNSET"] },
+    "status_description": { "type": "string" }
   },
   "additionalProperties": false
 }
