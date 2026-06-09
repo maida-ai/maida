@@ -27,7 +27,7 @@ You can control the UI via the URL (and the UI keeps these in sync when you chan
 
 | Parameter   | Description |
 |------------|-------------|
-| `run` or `run_id` | Which run to show (full UUID or short prefix). |
+| `run` or `run_id` | Which run to show (full 32-hex-character OTel trace ID or short prefix). |
 | `filter`         | Event filter: `all`, `llm`, `tools`, `errors`, `state`, `loops`. |
 | `poll_runs`      | Run-list poll interval in **seconds** (default `3`, min 1, max 60). |
 | `poll_events`     | Event-list poll interval in **seconds** when the run is “running” (default `2`, min 1, max 60). |
@@ -41,10 +41,10 @@ You can control the UI via the URL (and the UI keeps these in sync when you chan
 
 The viewer supports renaming and deleting runs directly from the UI:
 
-- **Rename:** Click the rename button next to the run summary. Enter a new name; this updates `run_name` in the run's `run.json` file. The sidebar reflects the change on the next poll.
+- **Rename:** Click the rename button next to the run summary. Enter a new name; this updates `run_name` in the run's `meta.json` file. The sidebar reflects the change on the next poll.
 - **Delete:** Click the delete button. After confirmation, the run directory and all its contents are permanently removed from disk. The sidebar switches to another run or shows "No runs yet."
 
-These operations use `POST /api/runs/{run_id}/rename` and `DELETE /api/runs/{run_id}` respectively. See [Architecture](architecture.md) for the full API surface.
+These operations use `POST /api/runs/{trace_id}/rename` and `DELETE /api/runs/{trace_id}` respectively. See [Architecture](architecture.md) for the full API surface.
 
 ### Live refresh
 

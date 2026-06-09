@@ -21,7 +21,7 @@ Configuration is merged in this order (highest wins):
 
 | Env | YAML key | Default | Description |
 |-----|----------|---------|-------------|
-| `MAIDA_DATA_DIR` | `data_dir` | `~/.maida` | Base directory for runs. Runs are stored under `<data_dir>/runs/<run_id>/`. |
+| `MAIDA_DATA_DIR` | `data_dir` | `~/.maida` | Base directory for runs. Runs are stored under `<data_dir>/runs/<trace_id>/`. |
 
 **Example (env):**
 

@@ -99,9 +99,9 @@ See [Guardrails](guardrails.md) for examples and [Configuration reference](refer
 
 ## Where data is stored
 
-- **Default:** `~/.maida/runs/<run_id>/`
-  - `run.json` - run metadata (status, counts, started_at, ended_at)
-  - `events.jsonl` - one JSON object per line (append-only)
+- **Default:** `~/.maida/runs/<trace_id>/`
+  - `meta.json` - run metadata (status, counts, started_at, ended_at)
+  - `spans.jsonl` - one OpenTelemetry span JSON object per line (append-only)
 
 ---
 

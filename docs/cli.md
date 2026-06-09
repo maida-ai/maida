@@ -31,7 +31,7 @@ maida list --json
 
 **Exit codes:** `0` success; `10` internal error.
 
-**Text columns:** run_id (short), run_name, started_at, duration_ms, llm_calls, tool_calls, status.
+**Text columns:** trace_id (short; displayed in the compatibility `run_id` column), run_name, started_at, duration_ms, llm_calls, tool_calls, status.
 
 ---
 
@@ -42,18 +42,18 @@ Starts the local viewer server and optionally opens the browser. Default bind: `
 **Usage:**
 
 ```bash
-maida view [RUN_ID] [--host HOST] [--port PORT] [--no-browser] [--json]
+maida view [TRACE_ID] [--host HOST] [--port PORT] [--no-browser] [--json]
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Default | Description |
 |-----------------|---------|-------------|
-| `RUN_ID` | (latest) | Run to view; can be a short prefix (e.g. first 8 chars of UUID) |
+| `TRACE_ID` | (latest) | Run to view; can be a full 32-hex-character OTel trace ID or a prefix |
 | `--host`, `-H` | 127.0.0.1 | Bind host |
 | `--port`, `-p` | 8712 | Bind port |
 | `--no-browser` | - | Do not open the browser; only start the server |
-| `--json` | - | Print run_id, url, status as JSON, then start server |
+| `--json` | - | Print the selected trace ID in the `run_id` compatibility field, url, and status as JSON, then start server |
 
 **Examples:**
 
@@ -66,7 +66,7 @@ maida view --json
 
 **Exit codes:** `0` success; `2` run not found (or no runs); `10` internal error.
 
-With `--json`, output shape: `{"spec_version":"0.1","run_id":"...","url":"http://127.0.0.1:8712/?run_id=...","status":"serving"}`.
+With `--json`, output shape: `{"spec_version":"0.2","run_id":"...","url":"http://127.0.0.1:8712/?run_id=...","status":"serving"}`.
 
 ---
 
@@ -77,21 +77,21 @@ Exports one run to a single JSON file (run metadata + events array).
 **Usage:**
 
 ```bash
-maida export RUN_ID --out FILE
+maida export TRACE_ID --out FILE
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Description |
 |---|---|
-| `RUN_ID` | Run to export; can be a short prefix (e.g. first 8 chars of UUID) |
+| `TRACE_ID` | Run to export; can be a full 32-hex-character OTel trace ID or a prefix |
 | `--out`, `-o` | Output file path (JSON) |
 
 **Examples:**
 
 ```bash
-maida export a1b2c3d4-1234-5678-90ab-cdef12345678 --out run.json
-maida export a1b2c3d4 -o ./exports/run.json
+maida export a1b2c3d4e5f67890abcdef1234567890 --out run-export.json
+maida export a1b2c3d4 -o ./exports/run-export.json
 ```
 
 **Exit codes:** `0` success; `2` run not found; `10` internal error.
@@ -107,14 +107,14 @@ Captures a baseline snapshot from a completed run. The snapshot records structur
 **Usage:**
 
 ```bash
-maida baseline RUN_ID [--out PATH]
+maida baseline TRACE_ID [--out PATH]
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Default | Description |
 |---|---|---|
-| `RUN_ID` | *(required)* | Run ID or prefix to snapshot |
+| `TRACE_ID` | *(required)* | OTel trace ID or prefix to snapshot |
 | `--out`, `-o` | `.maida/baselines/<run_name>.json` | Output path for the baseline JSON file |
 
 **Examples:**
@@ -137,14 +137,14 @@ Asserts that a completed run meets behavioral policy checks. Returns exit code `
 **Usage:**
 
 ```bash
-maida assert RUN_ID [options]
+maida assert TRACE_ID [options]
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Default | Description |
 |---|---|---|
-| `RUN_ID` | *(required)* | Run ID or prefix to check |
+| `TRACE_ID` | *(required)* | OTel trace ID or prefix to check |
 | `--baseline`, `-b` | - | Baseline JSON file to compare against |
 | `--policy` | `.maida/policy.yaml` (auto-detected) | Policy YAML file with assertion thresholds |
 | `--max-steps` | - | Max total events allowed |
@@ -190,17 +190,17 @@ Compares two runs, or a run against a baseline, showing structural differences i
 **Usage:**
 
 ```bash
-maida diff RUN_A [RUN_B] [--baseline FILE] [--format FORMAT]
+maida diff TRACE_A [TRACE_B] [--baseline FILE] [--format FORMAT]
 ```
 
-Exactly one of `RUN_B` or `--baseline` must be provided.
+Exactly one of `TRACE_B` or `--baseline` must be provided.
 
 **Arguments / options:**
 
 | Argument/Option | Description |
 |---|---|
-| `RUN_A` | First run ID or prefix |
-| `RUN_B` | Second run ID or prefix (mutually exclusive with `--baseline`) |
+| `TRACE_A` | First OTel trace ID or prefix |
+| `TRACE_B` | Second OTel trace ID or prefix (mutually exclusive with `--baseline`) |
 | `--baseline`, `-b` | Baseline JSON file to compare against (mutually exclusive with `RUN_B`) |
 | `--format`, `-f` | Output format: `text` (default) |
 
