@@ -10,7 +10,7 @@ This page describes the **public trace format** for Maida (`spec_version: "0.2"`
 
 - **Per run:** One directory `runs/<trace_id_hex>/` containing:
   - **spans.jsonl** - append-only; one JSON object per line (one OTel span per line).
-  - **meta.json** - run metadata; written at run end (overwritten on finalize).
+  - **meta.json** - run metadata; created while the run is active and finalized when the root span ends.
 - **Ordering:** Spans in `spans.jsonl` are in export order; `start_time` provides logical ordering.
 - **Span hierarchy:** Root span (no `parent_span_id`) represents the run itself; child spans represent LLM calls, tool calls, etc.
 
@@ -164,7 +164,7 @@ Error payloads use a consistent shape (same for standalone ERROR events and nest
 
 ## meta.json schema
 
-Each run has a `meta.json` file in its directory. It is written when the root span ends.
+Each run has a `meta.json` file in its directory. It is created as running metadata when child spans are exported and overwritten with final metadata when the root span ends.
 
 **Required fields:**
 
@@ -175,7 +175,7 @@ Each run has a `meta.json` file in its directory. It is written when the root sp
 | `started_at` | string | UTC ISO8601 with µs and `Z` |
 | `ended_at` | string \| null | Set when run finishes |
 | `duration_ms` | integer \| null | Total run duration in ms |
-| `status` | string | `"ok"` \| `"error"` |
+| `status` | string | `"running"` \| `"ok"` \| `"error"` |
 | `counts` | object | See below |
 
 **counts** object:
@@ -191,14 +191,16 @@ Each run has a `meta.json` file in its directory. It is written when the root sp
 
 ### Lifecycle semantics
 
-- **On run start:** No file is written until the root span ends.
-- **On run end:** `meta.json` is written with final `status`, `ended_at`, `duration_ms`, and `counts`.
+- **During a run:** child spans are appended to `spans.jsonl`; `meta.json` may appear with `status: "running"` so the local viewer can discover active runs.
+- **On run end:** `meta.json` is overwritten with final `status`, `ended_at`, `duration_ms`, and `counts`.
 
 ---
 
 ## Versioning note
 
 The trace format is a **public contract** versioned independently from the Maida package version. All releases using `spec_version "0.2"` share this format. Additive changes (e.g. new optional fields, new event types) are allowed without a spec version bump. Breaking changes (removing fields, changing types or semantics) will be accompanied by a new `spec_version`. The markdown reference on this page is **canonical**; JSON schemas in the repo root `schemas/` folder are best-effort for tooling.
+
+TODO(#43): Clarify whether `spec_version` is only an API/export/event-projection envelope field or should also be written into local `meta.json` for self-describing trace directories. This is not expected to be a breaking change for the `0.2` format.
 
 ### Changes from v0.1
 
