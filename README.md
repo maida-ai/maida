@@ -12,8 +12,8 @@ Add `@trace`, capture a baseline, then gate future runs:
 ```bash
 python my_agent.py
 maida list --json
-maida baseline <RUN_ID> --out baselines/my_agent.json
-maida assert <NEW_RUN_ID> --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
+maida baseline <TRACE_ID> --out baselines/my_agent.json
+maida assert <NEW_TRACE_ID> --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
 ```
 
 For local inspection, use:
@@ -169,7 +169,7 @@ In the UI, you see:
 - **Live-refresh**: leave `maida view` running — new runs appear in the sidebar, events stream in real-time for running agents
 - **Filter chips**: All, LLM, Tools, Errors, State, Loops
 
-Each run produces `run.json` (metadata, status, counts) and `events.jsonl` (full structured event stream) under `~/.maida/`. Nothing leaves your machine.
+Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (full structured span records) under `~/.maida/runs/<trace_id>/`. Nothing leaves your machine.
 
 
 ## What Maida is
@@ -203,29 +203,29 @@ maida list --json       # machine-readable output
 
 ```bash
 maida view              # opens latest run, stays running
-maida view <RUN_ID>     # specific run
+maida view <TRACE_ID>   # specific run
 maida view --no-browser # just print the URL
 ```
 
 ### Export a run
 
 ```bash
-maida export <RUN_ID> --out run.json
+maida export <TRACE_ID> --out run-export.json
 ```
 
 ### Capture a baseline
 
 ```bash
-maida baseline <RUN_ID>                          # saves to .maida/baselines/<run_name>.json
-maida baseline <RUN_ID> --out baselines/v1.json  # custom path
+maida baseline <TRACE_ID>                          # saves to .maida/baselines/<run_name>.json
+maida baseline <TRACE_ID> --out baselines/v1.json  # custom path
 ```
 
 ### Assert against a baseline
 
 ```bash
-maida assert <RUN_ID> --baseline .maida/baselines/my_agent.json
-maida assert <RUN_ID> --max-steps 80 --no-loops  # standalone thresholds
-maida assert <RUN_ID> --baseline baseline.json --format markdown  # for CI summaries
+maida assert <TRACE_ID> --baseline .maida/baselines/my_agent.json
+maida assert <TRACE_ID> --max-steps 80 --no-loops  # standalone thresholds
+maida assert <TRACE_ID> --baseline baseline.json --format markdown  # for CI summaries
 ```
 
 Exit code `0` = pass, `1` = fail. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
@@ -309,9 +309,9 @@ All data is local. Plain files, easy to inspect or delete.
 ```
 ~/.maida/
 └── runs/
-    └── <run_id>/
-        ├── run.json        # run metadata (status, counts, timing)
-        └── events.jsonl    # append-only event log
+    └── <trace_id>/
+        ├── meta.json       # run metadata (status, counts, timing)
+        └── spans.jsonl     # append-only OTel span records
 ```
 
 Override the location:

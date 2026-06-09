@@ -14,10 +14,10 @@ Agent behavior is non-deterministic. A prompt tweak, model upgrade, or tool chan
 
 ```
 1. Run your agent              python your_agent.py
-2. Capture a baseline          maida baseline <run_id>
+2. Capture a baseline          maida baseline <trace_id>
 3. Run the agent again         python your_agent.py
-4. Assert against baseline     maida assert <new_run_id> --baseline .maida/baselines/my_agent.json
-5. If it fails, diff           maida diff <new_run_id> --baseline .maida/baselines/my_agent.json
+4. Assert against baseline     maida assert <new_trace_id> --baseline .maida/baselines/my_agent.json
+5. If it fails, diff           maida diff <new_trace_id> --baseline .maida/baselines/my_agent.json
 ```
 
 ---
@@ -27,10 +27,10 @@ Agent behavior is non-deterministic. A prompt tweak, model upgrade, or tool chan
 After a successful run that represents the expected behavior:
 
 ```bash
-maida baseline <RUN_ID>
+maida baseline <TRACE_ID>
 ```
 
-This creates a JSON snapshot at `.maida/baselines/<run_name>.json` (or the run ID if no name was set). Use `--out` to control the path:
+This creates a JSON snapshot at `.maida/baselines/<run_name>.json` (or the trace ID if no name was set). Use `--out` to control the path:
 
 ```bash
 maida baseline a1b2c3d4 --out baselines/support_agent_v1.json
@@ -58,7 +58,7 @@ Check the baseline file into version control so the team shares the same referen
 ## Step 2: Assert against a baseline
 
 ```bash
-maida assert <RUN_ID> --baseline .maida/baselines/my_agent.json
+maida assert <TRACE_ID> --baseline .maida/baselines/my_agent.json
 ```
 
 Exit codes: `0` = all checks pass, `1` = one or more checks failed, `2` = run or baseline not found, `10` = internal error.
@@ -72,7 +72,7 @@ Checks are controlled by the **assertion policy** — a combination of a policy 
 You can assert without a baseline by setting hard caps:
 
 ```bash
-maida assert <RUN_ID> --max-steps 80 --max-tool-calls 30 --no-loops
+maida assert <TRACE_ID> --max-steps 80 --max-tool-calls 30 --no-loops
 ```
 
 ### Combining baseline and thresholds
@@ -104,7 +104,7 @@ assert:
 `maida assert` auto-detects `.maida/policy.yaml` in the current directory. To use a different path:
 
 ```bash
-maida assert <RUN_ID> --baseline baseline.json --policy ci-policy.yaml
+maida assert <TRACE_ID> --baseline baseline.json --policy ci-policy.yaml
 ```
 
 **Precedence:** CLI flags > policy file > defaults. See the [full policy reference](reference/policy.md) for all fields, threshold semantics, and override rules.
@@ -118,7 +118,7 @@ Use `--format` (`-f`) to choose the output format.
 ### Text (default)
 
 ```bash
-maida assert <RUN_ID> --baseline baseline.json
+maida assert <TRACE_ID> --baseline baseline.json
 ```
 
 ```
@@ -133,7 +133,7 @@ RESULT: FAILED (1 of 4 checks failed)
 ### JSON
 
 ```bash
-maida assert <RUN_ID> --baseline baseline.json --format json
+maida assert <TRACE_ID> --baseline baseline.json --format json
 ```
 
 ```json
@@ -165,7 +165,7 @@ maida assert <RUN_ID> --baseline baseline.json --format json
 Designed for GitHub PR comments and step summaries:
 
 ```bash
-maida assert <RUN_ID> --baseline baseline.json --format markdown
+maida assert <TRACE_ID> --baseline baseline.json --format markdown
 ```
 
 ```markdown
@@ -188,7 +188,7 @@ When `maida assert` fails, use `maida diff` to see exactly what changed.
 ### Diff against a baseline
 
 ```bash
-maida diff <RUN_ID> --baseline .maida/baselines/my_agent.json
+maida diff <TRACE_ID> --baseline .maida/baselines/my_agent.json
 ```
 
 ### Diff two runs directly
@@ -230,8 +230,8 @@ Run your agent in CI, then assert against the checked-in baseline:
 
 - name: Assert agent behavior
   run: |
-    RUN_ID=$(maida list --json | python -c "import sys,json; print(json.load(sys.stdin)['runs'][0]['run_id'])")
-    maida assert "$RUN_ID" \
+    TRACE_ID=$(maida list --json | python -c "import sys,json; print(json.load(sys.stdin)['runs'][0]['trace_id'])")
+    maida assert "$TRACE_ID" \
       --baseline .maida/baselines/my_agent.json \
       --format markdown >> "$GITHUB_STEP_SUMMARY"
 ```

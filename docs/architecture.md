@@ -1,27 +1,29 @@
 # Architecture
 
-How Maida works: event schema, storage, viewer API, UI, guardrails, and loop detection. These pieces provide the behavioral evidence used by baselines, assertions, diffs, and downstream reliability workflows. For the full public contract (envelope, event types, payload schemas, run.json), see the [Trace format](reference/trace-format.md) reference.
+How Maida works: trace capture, storage, viewer API, UI, guardrails, and loop detection. These pieces provide the behavioral evidence used by baselines, assertions, diffs, and downstream reliability workflows. For the full public contract (span envelope, projected events, payload schemas, `meta.json`, and `spans.jsonl`), see the [Trace format](reference/trace-format.md) reference.
 
 ---
 
-## Event schema
+## Trace schema
 
-Every event is a JSON object with a common set of top-level fields:
+Maida stores traces as OpenTelemetry spans. Every serialized span is a JSON object with a common set of top-level fields:
 
 | Field | Type | Description |
 |---|---|---|
-| `spec_version` | `"0.1"` | Schema version |
-| `event_id` | UUID string | Unique event identifier |
-| `run_id` | UUID string | Run this event belongs to |
-| `parent_id` | UUID string or `null` | Parent event (for nesting) |
-| `event_type` | string | One of the types below |
-| `ts` | ISO8601 UTC (`2026-02-15T20:31:05.123Z`) | Timestamp with milliseconds |
-| `duration_ms` | integer or `null` | Duration if applicable |
-| `name` | string | Label (tool name, model name, etc.) |
-| `payload` | object | Event-type-specific data |
-| `meta` | object | Freeform user-defined metadata |
+| `trace_id` | 32-character hex string | OTel trace ID for the run |
+| `span_id` | 16-character hex string | OTel span ID |
+| `parent_span_id` | 16-character hex string or `null` | Parent span ID; `null` for the root run span |
+| `name` | string | Span name, such as a run name, tool name, or model name |
+| `kind` | string | OTel span kind |
+| `start_time` | ISO8601 UTC | Span start time |
+| `end_time` | ISO8601 UTC or `null` | Span end time |
+| `duration_ms` | integer or `null` | Duration in milliseconds |
+| `attributes` | object | Redacted/truncated span attributes |
+| `events` | array | In-span OTel events |
+| `status_code` | string | `OK`, `ERROR`, or `UNSET` |
+| `status_description` | string | Error description when available |
 
-### Event types
+Maida also projects spans into a flat event view for baselines, diffs, assertions, and the timeline UI. The projected event types are:
 
 | Type | Emitted by | Payload highlights |
 |---|---|---|
@@ -33,18 +35,18 @@ Every event is a JSON object with a common set of top-level fields:
 | `ERROR` | `@trace` (on exception) | `error_type`, `message`, `stack` |
 | `LOOP_WARNING` | Automatic detection | `pattern`, `repetitions`, `window_size`, `evidence_event_ids` |
 
-Events are written as one JSON object per line (JSONL) and flushed after each write.
+The span records are written as one JSON object per line and flushed after each write.
 
 ---
 
 ## Storage layout
 
 - **Base directory:** `~/.maida/` (or `MAIDA_DATA_DIR`).
-- **Per run:** `runs/<run_id>/`
-  - **run.json** - Run metadata: `run_id`, `run_name`, `started_at`, `ended_at`, `duration_ms`, `status`, `counts` (llm_calls, tool_calls, errors, loop_warnings), `last_event_ts`.
-  - **events.jsonl** - Append-only; one event per line.
+- **Per run:** `runs/<trace_id>/`
+  - **meta.json** - Run metadata: `trace_id`, `run_name`, `started_at`, `ended_at`, `duration_ms`, `status`, and `counts` (llm_calls, tool_calls, errors, loop_warnings).
+  - **spans.jsonl** - Append-only; one OTel span JSON object per line.
 
-`run.json` is created at run start (status `running`) and updated at run end (status `ok` or `error`, counts, ended_at, duration_ms).
+`meta.json` may be created with `status: "running"` when child spans are exported before the root span finishes. It is finalized when the root span ends with final status, counts, `ended_at`, and `duration_ms`.
 
 ---
 
@@ -55,11 +57,11 @@ The local server (FastAPI) exposes:
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/runs` | List recent runs (metadata only). |
-| `GET /api/runs/{run_id}` | Run metadata (run.json). |
-| `GET /api/runs/{run_id}/events` | Events array for the run. |
-| `GET /api/runs/{run_id}/paths` | Local filesystem paths for the run (run_dir, run_json, events_jsonl). |
-| `POST /api/runs/{run_id}/rename` | Rename a run (body: `{"run_name": "..."}`, updates run.json). |
-| `DELETE /api/runs/{run_id}` | Delete a run directory and its contents (returns 204). |
+| `GET /api/runs/{trace_id}` | Run metadata. |
+| `GET /api/runs/{trace_id}/spans` | Serialized spans and projected events for the run. |
+| `GET /api/runs/{trace_id}/paths` | Local filesystem paths for the run directory and trace files. |
+| `POST /api/runs/{trace_id}/rename` | Rename a run (body: `{"run_name": "..."}`, updates `meta.json`). |
+| `DELETE /api/runs/{trace_id}` | Delete a run directory and its contents (returns 204). |
 | `GET /` | Static UI (`maida/ui_static/index.html`). |
 
 Default bind: `127.0.0.1:8712`. The UI fetches runs and events from these endpoints and renders a timeline.
@@ -69,7 +71,7 @@ Default bind: `127.0.0.1:8712`. The UI fetches runs and events from these endpoi
 ## UI overview
 
 - **Multi-file static UI** (HTML, JS, CSS); no build step. Served from `maida/ui_static/`.
-- Loads run list from `/api/runs`; when a run is selected (or `run_id` in query), loads `/api/runs/{run_id}/events`.
+- Loads run list from `/api/runs`; when a run is selected (or `run_id` in query), loads `/api/runs/{trace_id}/spans`.
 - **Flat timeline:** events are shown in chronological order (write order / `ts`). Each event is expandable with payload shown as formatted JSON. Nesting by `parent_id` is not required.
 - `LOOP_WARNING` events are displayed prominently.
 

@@ -36,7 +36,7 @@ python examples/minimal/simple_agent.py
 maida view
 ```
 
-A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.maida/runs/<run_id>/`.
+A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.maida/runs/<trace_id>/`.
 
 From there, capture a baseline with `maida baseline` and gate future runs with `maida assert`.
 
@@ -69,6 +69,6 @@ After any run, inspect evidence with `maida view`, capture baselines with `maida
 | [Integrations](integrations.md) | LangChain handler, OpenAI Agents adapter, and planned adapters |
 | [Architecture](architecture.md) | Event schema, storage layout, viewer API, loop detection |
 | **Reference** | |
-| [Trace format](reference/trace-format.md) | Event envelope, event types, payload schemas, run.json (public contract) |
+| [Trace format](reference/trace-format.md) | OTel span envelope, event projection, `meta.json`, and `spans.jsonl` public contract |
 | [Configuration](reference/config.md) | Env vars, YAML precedence, redaction, truncation, loop detection, guardrails |
 | [Policy YAML](reference/policy.md) | Assertion policy file format, fields, threshold semantics, CLI mapping |
