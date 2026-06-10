@@ -229,3 +229,50 @@ def test_compute_diff_raises_without_target(temp_data_dir):
     rid = _make_run(config, events=[])
     with pytest.raises(ValueError, match="Either run_b_id or baseline"):
         compute_diff(rid, config=config)
+
+
+# ---------------------------------------------------------------------------
+# format_diff_markdown
+# ---------------------------------------------------------------------------
+
+
+def test_format_diff_markdown_includes_changes(temp_data_dir):
+    from maida.diff import format_diff_markdown
+
+    config = load_config()
+    bl_run = _make_run(
+        config,
+        name="bl",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.LLM_CALL, "model-a", {"usage": {"total_tokens": 10}}),
+        ],
+    )
+    baseline = create_baseline(bl_run, config)
+
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "escalate", {}),
+            (EventType.LLM_CALL, "model-b", {"usage": {"total_tokens": 50}}),
+        ],
+    )
+    diff = compute_diff(run_id, baseline=baseline, config=config)
+    md = format_diff_markdown(diff)
+    assert "### What changed vs baseline" in md
+    assert "| Metric | Baseline | Current | Change |" in md
+    assert "➕ `escalate`" in md
+    assert "**Model changes:**" in md
+    assert "➕ `model-b`" in md
+    assert "➖ `model-a`" in md
+
+
+def test_format_diff_markdown_empty_when_identical(temp_data_dir):
+    from maida.diff import format_diff_markdown
+
+    from maida.diff import RunDiff
+
+    diff = RunDiff(run_a_id="a" * 32, run_b_id="b" * 32)
+    assert format_diff_markdown(diff) == ""

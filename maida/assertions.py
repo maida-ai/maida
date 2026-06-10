@@ -7,7 +7,10 @@ results are collected into an ``AssertionReport`` with an overall pass/fail.
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from maida.diff import RunDiff
 
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig
@@ -299,8 +302,13 @@ _PASS = "\u2713"  # ✓
 _FAIL = "\u2717"  # ✗
 
 
-def format_report_text(report: AssertionReport) -> str:
-    """Format report as human-readable text for CLI output."""
+def format_report_text(report: AssertionReport, diff: "RunDiff | None" = None) -> str:
+    """Format report as human-readable text for CLI output.
+
+    When *diff* is provided and the report failed, the structural diff is
+    appended so the terminal tells the same "what changed" story as the
+    Markdown PR comment.
+    """
     lines: list[str] = []
     for r in report.results:
         mark = _PASS if r.passed else _FAIL
@@ -315,6 +323,11 @@ def format_report_text(report: AssertionReport) -> str:
         lines.append(f"RESULT: {verdict} ({failed} of {total} checks failed)")
     else:
         lines.append(f"RESULT: {verdict} ({total} checks passed)")
+    if diff is not None and not report.passed:
+        from maida.diff import format_diff_text
+
+        lines.append("")
+        lines.append(format_diff_text(diff))
     return "\n".join(lines)
 
 
@@ -338,18 +351,96 @@ def format_report_json(report: AssertionReport) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
-def format_report_markdown(report: AssertionReport) -> str:
-    """Format report as Markdown for GitHub PR comments."""
-    lines: list[str] = [
-        "## Maida Assertion Report",
+def format_report_markdown(
+    report: AssertionReport,
+    diff: "RunDiff | None" = None,
+    baseline_path: str | None = None,
+) -> str:
+    """Format report as Markdown for GitHub PR comments.
+
+    Failed checks come first so reviewers see the regression immediately;
+    passing checks are collapsed. When *diff* is provided, a "What changed
+    vs baseline" section explains the structural difference, and
+    *baseline_path* (when known) makes the local-repro snippet copy-pasteable.
+    """
+    failed = [r for r in report.results if not r.passed]
+    passed = [r for r in report.results if r.passed]
+    short_run = report.run_id[:8]
+
+    if report.passed:
+        lines = ["## \u2705 Maida gate: no behavioral regression", ""]
+    else:
+        lines = ["## \u274c Maida gate: agent behavior regressed", ""]
+
+    scope = f"run `{short_run}`"
+    if report.baseline_run_id:
+        scope += f" vs baseline `{str(report.baseline_run_id)[:8]}`"
+    if not report.results:
+        lines.append(f"**No checks enabled** \u00b7 {scope}")
+    elif failed:
+        lines.append(
+            f"**{len(failed)} of {len(report.results)} checks failed** \u00b7 {scope}"
+        )
+    else:
+        lines.append(f"**All {len(report.results)} checks passed** \u00b7 {scope}")
+
+    if failed:
+        lines += ["", "| Check | Expected | Actual | Details |", "|---|---|---|---|"]
+        for r in failed:
+            expected = r.expected or "\u2014"
+            actual = r.actual or "\u2014"
+            lines.append(
+                f"| \u274c `{r.check_name}` | {expected} | {actual} | {r.message} |"
+            )
+
+    if passed:
+        lines += [
+            "",
+            "<details>",
+            f"<summary>\u2705 {len(passed)} passing checks</summary>",
+            "",
+            "| Check | Details |",
+            "|---|---|",
+        ]
+        for r in passed:
+            lines.append(f"| \u2705 `{r.check_name}` | {r.message} |")
+        lines += ["", "</details>"]
+
+    if diff is not None:
+        from maida.diff import format_diff_markdown
+
+        diff_md = format_diff_markdown(diff)
+        if diff_md:
+            if report.passed:
+                lines += [
+                    "",
+                    "<details>",
+                    "<summary>What changed vs baseline (within tolerance)</summary>",
+                    "",
+                    diff_md,
+                    "",
+                    "</details>",
+                ]
+            else:
+                lines += ["", diff_md]
+
+    repro = ["pip install maida-ai"]
+    if baseline_path:
+        repro.append(f"maida diff {short_run} --baseline {baseline_path}")
+    repro.append(f"maida view {short_run}")
+    lines += [
         "",
-        "| Check | Status | Details |",
-        "|-------|--------|---------|",
+        "<details>",
+        "<summary>Reproduce locally</summary>",
+        "",
+        "```bash",
+        *repro,
+        "```",
+        "",
+        "</details>",
+        "",
+        "---",
+        "*Gated by [Maida](https://maida.ai) \u2014 the local-first behavioral"
+        " regression gate for AI agents.*",
     ]
-    for r in report.results:
-        icon = "\u2705 Pass" if r.passed else "\u274c Fail"
-        lines.append(f"| {r.check_name} | {icon} | {r.message} |")
-    lines.append("")
-    verdict = "**PASSED**" if report.passed else "**FAILED**"
-    lines.append(f"Result: {verdict}")
     return "\n".join(lines)

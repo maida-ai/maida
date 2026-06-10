@@ -414,12 +414,24 @@ def assert_cmd(
 
         report = run_assertions(run_id, policy, baseline=bl, config=config)
 
+        run_diff = None
+        if bl is not None:
+            from maida.diff import compute_diff
+
+            run_diff = compute_diff(run_id, baseline=bl, config=config)
+
         if output_format == "json":
             typer.echo(format_report_json(report))
         elif output_format == "markdown":
-            typer.echo(format_report_markdown(report))
+            typer.echo(
+                format_report_markdown(
+                    report,
+                    diff=run_diff,
+                    baseline_path=str(baseline_path) if baseline_path else None,
+                )
+            )
         else:
-            typer.echo(format_report_text(report))
+            typer.echo(format_report_text(report, diff=run_diff))
 
         if not report.passed:
             raise Exit(1)

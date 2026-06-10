@@ -412,12 +412,108 @@ def test_format_report_json_valid(temp_data_dir):
     assert "results" in data
 
 
-def test_format_report_markdown_table(temp_data_dir):
+def test_format_report_markdown_pass_layout(temp_data_dir):
     config = load_config()
     events = [(EventType.TOOL_CALL, "t", {})]
     run_id = _make_run(config, events=events)
     policy = AssertionPolicy(max_steps=100)
     report = run_assertions(run_id, policy, config=config)
     md = format_report_markdown(report)
-    assert "Maida Assertion Report" in md
-    assert "| Check |" in md
+    assert "## ✅ Maida gate: no behavioral regression" in md
+    assert "<details>" in md  # passing checks are collapsed
+    assert "passing checks" in md
+    assert "Reproduce locally" in md
+    assert "maida.ai" in md
+
+
+def test_format_report_markdown_failed_checks_first(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(5)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_steps=2, no_loops=True)
+    report = run_assertions(run_id, policy, config=config)
+    md = format_report_markdown(report)
+    assert "## ❌ Maida gate: agent behavior regressed" in md
+    assert "1 of 2 checks failed" in md
+    # failed table with expected/actual comes before the collapsed passing block
+    assert md.index("| Check | Expected | Actual |") < md.index("<details>")
+    assert "❌ `step_count`" in md
+    assert "✅ `no_loops`" in md
+
+
+def test_format_report_markdown_includes_diff_section(temp_data_dir):
+    from maida.diff import compute_diff
+
+    config = load_config()
+    bl_run = _make_run(config, name="bl", events=[(EventType.TOOL_CALL, "t", {})])
+    baseline = create_baseline(bl_run, config)
+
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[
+            (EventType.TOOL_CALL, "t", {}),
+            (EventType.TOOL_CALL, "new_tool", {}),
+            (EventType.TOOL_CALL, "new_tool", {}),
+        ],
+    )
+    policy = AssertionPolicy(no_new_tools=True)
+    report = run_assertions(run_id, policy, baseline=baseline, config=config)
+    assert not report.passed
+
+    diff = compute_diff(run_id, baseline=baseline, config=config)
+    md = format_report_markdown(report, diff=diff, baseline_path="bl.json")
+    assert "### What changed vs baseline" in md
+    assert "`new_tool`" in md
+    assert "maida diff" in md
+    assert "--baseline bl.json" in md
+
+
+def test_format_report_markdown_no_diff_section_without_diff(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[(EventType.TOOL_CALL, "t", {})])
+    policy = AssertionPolicy(max_steps=100)
+    report = run_assertions(run_id, policy, config=config)
+    md = format_report_markdown(report)
+    assert "What changed vs baseline" not in md
+
+
+def test_format_report_text_appends_diff_on_failure(temp_data_dir):
+    from maida.diff import compute_diff
+
+    config = load_config()
+    bl_run = _make_run(config, name="bl", events=[(EventType.TOOL_CALL, "t", {})])
+    baseline = create_baseline(bl_run, config)
+
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[
+            (EventType.TOOL_CALL, "t", {}),
+            (EventType.TOOL_CALL, "new_tool", {}),
+        ],
+    )
+    policy = AssertionPolicy(no_new_tools=True)
+    report = run_assertions(run_id, policy, baseline=baseline, config=config)
+    diff = compute_diff(run_id, baseline=baseline, config=config)
+
+    text = format_report_text(report, diff=diff)
+    assert "FAILED" in text
+    assert "Run comparison:" in text
+
+
+def test_format_report_text_omits_diff_on_pass(temp_data_dir):
+    from maida.diff import compute_diff
+
+    config = load_config()
+    bl_run = _make_run(config, name="bl", events=[(EventType.TOOL_CALL, "t", {})])
+    baseline = create_baseline(bl_run, config)
+    run_id = _make_run(config, name="current", events=[(EventType.TOOL_CALL, "t", {})])
+
+    policy = AssertionPolicy(no_new_tools=True)
+    report = run_assertions(run_id, policy, baseline=baseline, config=config)
+    assert report.passed
+    diff = compute_diff(run_id, baseline=baseline, config=config)
+
+    text = format_report_text(report, diff=diff)
+    assert "Run comparison:" not in text
