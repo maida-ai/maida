@@ -167,3 +167,37 @@ def format_diff_text(diff: RunDiff) -> str:
                 lines.append(f"  {et}: {cb} -> {ca} ({_pct_change(ca, cb)})")
 
     return "\n".join(lines)
+
+
+def format_diff_markdown(diff: RunDiff) -> str:
+    """Format a ``RunDiff`` as a Markdown "What changed" section.
+
+    Designed to be embedded in the assert report posted as a PR comment.
+    Returns an empty string when there are no structural changes.
+    """
+    sections: list[str] = []
+
+    if diff.summary_diff:
+        rows = ["| Metric | Baseline | Current | Change |", "|---|---|---|---|"]
+        for key, (va, vb) in sorted(diff.summary_diff.items()):
+            if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+                rows.append(f"| {key} | {vb} | {va} | {_pct_change(va, vb)} |")
+            else:
+                rows.append(f"| {key} | {vb} | {va} | changed |")
+        sections.append("\n".join(rows))
+
+    tool_lines = [f"- ➕ `{t}` — new tool, not in baseline" for t in diff.new_tools]
+    tool_lines += [f"- ➖ `{t}` — no longer called" for t in diff.removed_tools]
+    if tool_lines:
+        sections.append("**Tool changes:**\n" + "\n".join(tool_lines))
+
+    model_added = diff.model_changes.get("added", [])
+    model_removed = diff.model_changes.get("removed", [])
+    model_lines = [f"- ➕ `{m}`" for m in model_added]
+    model_lines += [f"- ➖ `{m}`" for m in model_removed]
+    if model_lines:
+        sections.append("**Model changes:**\n" + "\n".join(model_lines))
+
+    if not sections:
+        return ""
+    return "### What changed vs baseline\n\n" + "\n\n".join(sections)
