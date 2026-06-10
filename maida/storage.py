@@ -264,16 +264,14 @@ def finalize_run(
     return meta
 
 
-def resolve_trace_id(prefix: str, config: MaidaConfig) -> str:
-    """Resolve a trace_id prefix (short or full) to the full 32-char hex trace_id.
+def _trace_candidates(
+    config: MaidaConfig, prefix: str | None = None
+) -> list[tuple[datetime | None, str]]:
+    """Collect (started_at, trace_id) for runs, newest first.
 
-    Raises FileNotFoundError if no match.
+    When *prefix* is given, only trace IDs matching it are included.
+    Raises FileNotFoundError if the runs directory does not exist.
     """
-    if not prefix or not prefix.strip():
-        raise FileNotFoundError("Trace ID is required")
-    prefix = prefix.strip().lower()
-    if ".." in prefix or "/" in prefix or "\\" in prefix:
-        raise FileNotFoundError("Trace ID is required")
     runs_base = _runs_dir(config)
     if not runs_base.is_dir():
         raise FileNotFoundError(f"No runs directory at {runs_base}")
@@ -287,7 +285,7 @@ def resolve_trace_id(prefix: str, config: MaidaConfig) -> str:
             _validate_trace_id(tid)
         except ValueError:
             continue
-        if tid != prefix and not tid.startswith(prefix):
+        if prefix is not None and tid != prefix and not tid.startswith(prefix):
             continue
         meta_f = entry / META_JSON
         if not meta_f.is_file():
@@ -301,14 +299,43 @@ def resolve_trace_id(prefix: str, config: MaidaConfig) -> str:
         started_dt = _parse_iso_z(started_str) if started_str else None
         candidates.append((started_dt, tid))
 
-    if not candidates:
-        raise FileNotFoundError(f"No run found matching '{prefix}'")
-
     def sort_key(item: tuple[datetime | None, str]) -> tuple[bool, datetime]:
         dt, _ = item
         return (dt is None, dt or datetime.min.replace(tzinfo=timezone.utc))
 
     candidates.sort(key=sort_key, reverse=True)
+    return candidates
+
+
+def resolve_trace_id(prefix: str, config: MaidaConfig) -> str:
+    """Resolve a trace_id prefix (short or full) to the full 32-char hex trace_id.
+
+    Raises FileNotFoundError if no match.
+    """
+    if not prefix or not prefix.strip():
+        raise FileNotFoundError("Trace ID is required")
+    prefix = prefix.strip().lower()
+    if ".." in prefix or "/" in prefix or "\\" in prefix:
+        raise FileNotFoundError("Trace ID is required")
+    candidates = _trace_candidates(config, prefix)
+    if not candidates:
+        raise FileNotFoundError(f"No run found matching '{prefix}'")
+    return candidates[0][1]
+
+
+def resolve_latest_trace_id(config: MaidaConfig) -> str:
+    """Return the trace_id of the most recently started run.
+
+    Raises FileNotFoundError if there are no runs yet.
+    """
+    try:
+        candidates = _trace_candidates(config)
+    except FileNotFoundError:
+        candidates = []
+    if not candidates:
+        raise FileNotFoundError(
+            "No runs found. Run your traced agent first, then retry."
+        )
     return candidates[0][1]
 
 
