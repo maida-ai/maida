@@ -1,6 +1,61 @@
 # CLI
 
-The `maida` CLI lists runs, starts the local viewer, and exports runs to JSON. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+The `maida` CLI runs the bundled demo, scaffolds a project, lists runs, starts the local viewer, exports runs to JSON, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+
+Commands that take a run ID (`assert`, `baseline`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
+
+---
+
+## `maida demo`
+
+Runs a bundled simulated customer-support agent and records a trace. No network, no API keys; all LLM/tool data is canned and nothing leaves your machine.
+
+**Usage:**
+
+```bash
+maida demo [--regression]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--regression` | Full story: baseline a known-good run, run a "refactored" agent that loops, calls a new tool, and burns more tokens, then show the failing gate report and a PR-comment preview. Writes the baseline to `.maida/baselines/demo-support-agent.json`. |
+
+**Examples:**
+
+```bash
+maida demo               # one traced run; inspect it with `maida view`
+maida demo --regression  # watch the gate catch a bad refactor
+```
+
+**Exit codes:** `0` success (including when the demo gate intentionally fails); `10` internal error.
+
+---
+
+## `maida init`
+
+Scaffolds Maida configuration in the current directory. Never overwrites existing files unless `--force` is given; safe to re-run.
+
+**Usage:**
+
+```bash
+maida init [--github] [--force]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--github` | Also write `.github/workflows/maida.yml` using the [maida-assert action](https://github.com/maida-ai/maida-assert) |
+| `--force` | Overwrite existing files |
+
+**Files written:**
+
+- `.maida/policy.yaml` — commented starter policy (`no_loops`, `no_guardrails`, `no_new_tools`, `expect_status: ok`, 50% tolerances)
+- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment
+
+**Exit codes:** `0` success; `10` internal error.
 
 ---
 
@@ -77,20 +132,20 @@ Exports one run to a single JSON file (run metadata + events array).
 **Usage:**
 
 ```bash
-maida export TRACE_ID --out FILE
+maida export [TRACE_ID] --out FILE
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Description |
 |---|---|
-| `TRACE_ID` | Run to export; can be a full 32-hex-character OTel trace ID or a prefix |
+| `TRACE_ID` | Run to export; can be a full 32-hex-character OTel trace ID or a prefix. Defaults to the latest run when omitted |
 | `--out`, `-o` | Output file path (JSON) |
 
 **Examples:**
 
 ```bash
-maida export a1b2c3d4e5f67890abcdef1234567890 --out run-export.json
+maida export --out run-export.json   # latest run
 maida export a1b2c3d4 -o ./exports/run-export.json
 ```
 
@@ -107,20 +162,20 @@ Captures a baseline snapshot from a completed run. The snapshot records structur
 **Usage:**
 
 ```bash
-maida baseline TRACE_ID [--out PATH]
+maida baseline [TRACE_ID] [--out PATH]
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Default | Description |
 |---|---|---|
-| `TRACE_ID` | *(required)* | OTel trace ID or prefix to snapshot |
+| `TRACE_ID` | *(latest run)* | OTel trace ID or prefix to snapshot |
 | `--out`, `-o` | `.maida/baselines/<run_name>.json` | Output path for the baseline JSON file |
 
 **Examples:**
 
 ```bash
-maida baseline a1b2c3d4
+maida baseline                       # snapshot the latest run
 maida baseline a1b2c3d4 --out baselines/support_agent_v1.json
 ```
 
@@ -137,14 +192,14 @@ Asserts that a completed run meets behavioral policy checks. Returns exit code `
 **Usage:**
 
 ```bash
-maida assert TRACE_ID [options]
+maida assert [TRACE_ID] [options]
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Default | Description |
 |---|---|---|
-| `TRACE_ID` | *(required)* | OTel trace ID or prefix to check |
+| `TRACE_ID` | *(latest run)* | OTel trace ID or prefix to check |
 | `--baseline`, `-b` | - | Baseline JSON file to compare against |
 | `--policy` | `.maida/policy.yaml` (auto-detected) | Policy YAML file with assertion thresholds |
 | `--max-steps` | - | Max total events allowed |
@@ -166,20 +221,22 @@ maida assert TRACE_ID [options]
 **Examples:**
 
 ```bash
-# Assert against a baseline with default tolerances
-maida assert a1b2c3d4 --baseline .maida/baselines/my_agent.json
+# Assert the latest run against a baseline with default tolerances
+maida assert --baseline .maida/baselines/my_agent.json
 
-# Assert with standalone thresholds (no baseline)
+# Assert a specific run with standalone thresholds (no baseline)
 maida assert a1b2c3d4 --max-steps 80 --max-tool-calls 30 --no-loops
 
 # Assert using a policy file
-maida assert a1b2c3d4 --baseline baseline.json --policy ci-policy.yaml
+maida assert --baseline baseline.json --policy ci-policy.yaml
 
-# Markdown output for GitHub step summaries
-maida assert a1b2c3d4 --baseline baseline.json --format markdown
+# Markdown output for GitHub PR comments / step summaries
+maida assert --baseline baseline.json --format markdown
 ```
 
 **Exit codes:** `0` all checks passed; `1` one or more checks failed; `2` run or baseline not found; `10` internal error.
+
+When a baseline is provided, the markdown report leads with a pass/fail verdict, lists failed checks first with expected vs actual values, collapses passing checks, and embeds a **What changed vs baseline** section (metric deltas, new/removed tools, model changes) plus a local-repro snippet. The text report appends the structural diff on failure.
 
 ---
 
@@ -190,7 +247,7 @@ Compares two runs, or a run against a baseline, showing structural differences i
 **Usage:**
 
 ```bash
-maida diff TRACE_A [TRACE_B] [--baseline FILE] [--format FORMAT]
+maida diff [TRACE_A] [TRACE_B] [--baseline FILE] [--format FORMAT]
 ```
 
 Exactly one of `TRACE_B` or `--baseline` must be provided.
@@ -199,9 +256,9 @@ Exactly one of `TRACE_B` or `--baseline` must be provided.
 
 | Argument/Option | Description |
 |---|---|
-| `TRACE_A` | First OTel trace ID or prefix |
+| `TRACE_A` | First OTel trace ID or prefix. Defaults to the latest run when omitted |
 | `TRACE_B` | Second OTel trace ID or prefix (mutually exclusive with `--baseline`) |
-| `--baseline`, `-b` | Baseline JSON file to compare against (mutually exclusive with `RUN_B`) |
+| `--baseline`, `-b` | Baseline JSON file to compare against (mutually exclusive with `TRACE_B`) |
 | `--format`, `-f` | Output format: `text` (default) |
 
 **Examples:**
@@ -210,8 +267,8 @@ Exactly one of `TRACE_B` or `--baseline` must be provided.
 # Compare two runs
 maida diff a1b2c3d4 e5f6a7b8
 
-# Compare a run against a baseline
-maida diff a1b2c3d4 --baseline .maida/baselines/my_agent.json
+# Compare the latest run against a baseline
+maida diff --baseline .maida/baselines/my_agent.json
 ```
 
 **Exit codes:** `0` success; `2` run or baseline not found; `10` internal error.

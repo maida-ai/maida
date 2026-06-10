@@ -7,13 +7,14 @@
 
 Maida is a local-first, CI-first behavioral regression gate for AI agents. It captures structured traces, turns known-good runs into checked-in baselines, and fails changes when structural behavior regresses: more steps, unexpected tool calls, loops, latency spikes, or cost blowups.
 
-Add `@trace`, capture a baseline, then gate future runs:
+Add `@trace`, capture a baseline, then gate future runs (commands default to the latest run):
 
 ```bash
 python my_agent.py
-maida list --json
-maida baseline <TRACE_ID> --out baselines/my_agent.json
-maida assert <NEW_TRACE_ID> --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
+maida baseline --out baselines/my_agent.json
+# ...after your next change:
+python my_agent.py
+maida assert --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
 ```
 
 For local inspection, use:
@@ -30,39 +31,36 @@ The viewer shows the execution timeline behind a pass/fail decision, but the cor
 
 ![Guardrails demo](docs/assets/guardrails.gif)
 
-## Get a local run in 5 minutes
+## Try it in 60 seconds
 
-Three commands. No config files, no API keys, no sign-up. Install: `pip install maida-ai`. Then:
-
-1. [Install (one-time)](#step-1-install)
-2. [Run example](#step-2-run-the-example-agent)
-3. [`maida view`](#step-3-open-the-timeline)
-
-### Step 1: Install
+Three commands. No repo clone, no config files, no API keys, no sign-up:
 
 ```bash
 pip install maida-ai
-```
-
-### Step 2: Run the example agent
-
-```bash
-python examples/demo/pure_python.py
-```
-
-This simulates a tiny agent that makes several tool and LLM calls and includes loop warnings and errors. Trace data lands in `~/.maida/runs/`.
-
-### Step 3: Open the timeline
-
-```bash
+maida demo
 maida view
 ```
 
-A browser tab opens at `http://127.0.0.1:8712` showing the full run timeline - every event, with inputs, outputs, and timing. The viewer stays running: run more agents and their timelines appear automatically.
+`maida demo` runs a bundled simulated customer-support agent (tool calls, LLM calls, state updates, automatic secret redaction — all canned data, nothing leaves your machine). `maida view` opens the timeline at `http://127.0.0.1:8712` — every event with inputs, outputs, and timing. The viewer stays running: run more agents and their timelines appear automatically.
 
 ![Pure Pythonic Agent Timeline UI](docs/assets/timeline-pure-python.gif)
 
 That trace is the evidence source for baselines, diffs, and CI assertions.
+
+### Watch Maida catch a regression
+
+```bash
+maida demo --regression
+```
+
+One command tells the whole story: Maida baselines a known-good run of the demo agent, then runs a "refactored" version that swaps in a cheaper model, loops on a tool, calls a tool the baseline has never seen, and burns 5x the tokens — while still exiting with status `ok`. The gate fails, the terminal shows exactly what changed, and you get a preview of the PR comment your team would see in CI.
+
+### Set up your own project
+
+```bash
+maida init            # writes a starter .maida/policy.yaml
+maida init --github   # also writes .github/workflows/maida.yml
+```
 
 
 ## Instrument your own agent
@@ -191,6 +189,22 @@ Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (Open
 
 ## CLI reference
 
+Commands that take a run ID (`assert`, `baseline`, `export`, `diff`) default to the **latest run** when the ID is omitted; a short prefix also works.
+
+### Run the bundled demo
+
+```bash
+maida demo               # trace a simulated agent (no network, no API keys)
+maida demo --regression  # baseline a good run, then watch the gate catch a bad refactor
+```
+
+### Scaffold a project
+
+```bash
+maida init           # starter .maida/policy.yaml
+maida init --github  # + .github/workflows/maida.yml (maida-assert action)
+```
+
 ### List recent runs
 
 ```bash
@@ -210,31 +224,32 @@ maida view --no-browser # just print the URL
 ### Export a run
 
 ```bash
-maida export <TRACE_ID> --out run-export.json
+maida export --out run-export.json             # latest run
+maida export <TRACE_ID> --out run-export.json  # specific run
 ```
 
 ### Capture a baseline
 
 ```bash
-maida baseline <TRACE_ID>                          # saves to .maida/baselines/<run_name>.json
-maida baseline <TRACE_ID> --out baselines/v1.json  # custom path
+maida baseline                                      # latest run -> .maida/baselines/<run_name>.json
+maida baseline <TRACE_ID> --out baselines/v1.json   # specific run, custom path
 ```
 
 ### Assert against a baseline
 
 ```bash
-maida assert <TRACE_ID> --baseline .maida/baselines/my_agent.json
-maida assert <TRACE_ID> --max-steps 80 --no-loops  # standalone thresholds
-maida assert <TRACE_ID> --baseline baseline.json --format markdown  # for CI summaries
+maida assert --baseline .maida/baselines/my_agent.json    # latest run
+maida assert <TRACE_ID> --max-steps 80 --no-loops          # standalone thresholds
+maida assert --baseline baseline.json --format markdown    # for CI summaries / PR comments
 ```
 
-Exit code `0` = pass, `1` = fail. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
+Exit code `0` = pass, `1` = fail. With a baseline, the markdown report includes a "What changed vs baseline" section (new tools, metric deltas, model changes) so a failing check explains itself. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
 
 ### Diff two runs
 
 ```bash
 maida diff <RUN_A> <RUN_B>
-maida diff <RUN_A> --baseline .maida/baselines/my_agent.json
+maida diff --baseline .maida/baselines/my_agent.json  # latest run vs baseline
 ```
 
 
