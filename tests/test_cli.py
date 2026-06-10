@@ -650,3 +650,38 @@ def test_demo_then_baseline_and_assert_pass(empty_data_dir):
     assert result.exit_code == 1 or result.exit_code == 0
     # the same run asserted against its own baseline must pass every check
     assert "FAILED" not in result.output
+
+
+def test_demo_regression_story(empty_data_dir, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config = load_config()
+
+    result = runner.invoke(app, ["demo", "--regression"])
+    assert result.exit_code == 0
+
+    # baseline written under cwd
+    bl_path = tmp_path / ".maida" / "baselines" / "demo-support-agent.json"
+    assert bl_path.is_file()
+
+    # two runs were recorded
+    from maida.storage import list_runs
+
+    runs = list_runs(limit=5, config=config)
+    assert len(runs) == 2
+
+    # the gate must fail and explain itself
+    assert "FAILED" in result.output
+    assert "escalate_to_human" in result.output
+    assert "loop warning" in result.output
+    # and preview the PR comment
+    assert "PR comment preview" in result.output
+    assert "Maida gate: agent behavior regressed" in result.output
+    assert "What changed vs baseline" in result.output
+
+
+def test_demo_regression_no_secret_on_disk(empty_data_dir, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["demo", "--regression"])
+    assert result.exit_code == 0
+    for spans_file in empty_data_dir.rglob("spans.jsonl"):
+        assert "sk-demo-DO_NOT_USE" not in spans_file.read_text()
