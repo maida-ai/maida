@@ -442,6 +442,41 @@ def assert_cmd(
         raise Exit(EXIT_INTERNAL)
 
 
+@app.command("demo")
+def demo_cmd() -> None:
+    """Run a bundled simulated agent and trace it. No network, no API keys."""
+    from maida.demo import ensure_demo_env, run_good_agent
+
+    try:
+        ensure_demo_env()
+        config = load_config()
+
+        typer.echo("Running the bundled demo agent (simulated; nothing leaves")
+        typer.echo("your machine, no API keys needed)...")
+        run_good_agent()
+
+        trace_id = storage.resolve_latest_trace_id(config)
+        meta = storage.load_run_meta(trace_id, config)
+        counts = meta.get("counts") or {}
+        typer.echo("")
+        typer.echo(f"✓ Run recorded: {trace_id[:8]} (status: {meta.get('status')})")
+        typer.echo(
+            f"  llm_calls={counts.get('llm_calls', 0)} "
+            f"tool_calls={counts.get('tool_calls', 0)} "
+            f"errors={counts.get('errors', 0)}"
+        )
+        typer.echo("")
+        typer.echo("Next steps:")
+        typer.echo("  maida view        # inspect the timeline in your browser")
+        typer.echo("  maida baseline    # snapshot this run as a baseline")
+        typer.echo("  maida assert --baseline .maida/baselines/demo-support-agent.json")
+    except Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"error: {e}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
 @app.command("diff")
 def diff_cmd(
     run_a: str | None = typer.Argument(
