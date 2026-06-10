@@ -442,34 +442,108 @@ def assert_cmd(
         raise Exit(EXIT_INTERNAL)
 
 
+def _demo_single_run(config) -> None:
+    """Run the good demo agent once and print summary + next steps."""
+    from maida.demo import run_good_agent
+
+    typer.echo("Running the bundled demo agent (simulated; nothing leaves")
+    typer.echo("your machine, no API keys needed)...")
+    run_good_agent()
+
+    trace_id = storage.resolve_latest_trace_id(config)
+    meta = storage.load_run_meta(trace_id, config)
+    counts = meta.get("counts") or {}
+    typer.echo("")
+    typer.echo(f"✓ Run recorded: {trace_id[:8]} (status: {meta.get('status')})")
+    typer.echo(
+        f"  llm_calls={counts.get('llm_calls', 0)} "
+        f"tool_calls={counts.get('tool_calls', 0)} "
+        f"errors={counts.get('errors', 0)}"
+    )
+    typer.echo("")
+    typer.echo("Next steps:")
+    typer.echo("  maida view              # inspect the timeline in your browser")
+    typer.echo("  maida baseline          # snapshot this run as a baseline")
+    typer.echo("  maida demo --regression # watch Maida catch a bad refactor")
+
+
+def _demo_regression(config) -> None:
+    """Baseline a good run, run a regressed one, and show the failing gate."""
+    from maida.assertions import (
+        AssertionPolicy,
+        format_report_markdown,
+        format_report_text,
+        run_assertions,
+    )
+    from maida.baseline import create_baseline, save_baseline
+    from maida.demo import run_good_agent, run_refactored_agent
+    from maida.diff import compute_diff
+
+    typer.echo("Maida regression demo: everything below is simulated and local.")
+    typer.echo("")
+
+    typer.echo("── Step 1/3 · Run the known-good agent and capture a baseline")
+    run_good_agent()
+    good_id = storage.resolve_latest_trace_id(config)
+    bl = create_baseline(good_id, config)
+    bl_path = LOCAL_DIR_NAME / "baselines" / "demo-support-agent.json"
+    save_baseline(bl, bl_path)
+    typer.echo(f"   ✓ good run {good_id[:8]} · baseline saved to {bl_path}")
+    typer.echo("")
+
+    typer.echo('── Step 2/3 · A "refactor" ships: new prompt, cheaper model')
+    run_refactored_agent()
+    bad_id = storage.resolve_latest_trace_id(config)
+    typer.echo(f"   ✓ new run {bad_id[:8]} · finished with status ok — looks fine!")
+    typer.echo("")
+
+    typer.echo("── Step 3/3 · Gate the new run against the baseline")
+    policy = AssertionPolicy(
+        no_new_tools=True,
+        no_loops=True,
+        expect_status="ok",
+        duration_tolerance=5.0,
+    )
+    report = run_assertions(bad_id, policy, baseline=bl, config=config)
+    diff = compute_diff(bad_id, baseline=bl, config=config)
+    typer.echo("")
+    typer.echo(format_report_text(report, diff=diff))
+    typer.echo("")
+
+    if report.passed:
+        typer.echo("Unexpected: the regression was not caught. Please report this!")
+    else:
+        typer.echo("In CI this blocks the merge. The PR comment would read:")
+        typer.echo("")
+        typer.echo("┄┄┄ PR comment preview ┄┄┄")
+        typer.echo(
+            format_report_markdown(report, diff=diff, baseline_path=str(bl_path))
+        )
+        typer.echo("┄┄┄ end preview ┄┄┄")
+    typer.echo("")
+    typer.echo("Next steps:")
+    typer.echo(f"  maida view {bad_id[:8]}      # inspect the regressed timeline")
+    typer.echo(f"  maida diff {bad_id[:8]} --baseline {bl_path}")
+
+
 @app.command("demo")
-def demo_cmd() -> None:
+def demo_cmd(
+    regression: bool = typer.Option(
+        False,
+        "--regression",
+        help="Full story: baseline a good run, then catch a bad refactor.",
+    ),
+) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""
-    from maida.demo import ensure_demo_env, run_good_agent
+    from maida.demo import ensure_demo_env
 
     try:
         ensure_demo_env()
         config = load_config()
-
-        typer.echo("Running the bundled demo agent (simulated; nothing leaves")
-        typer.echo("your machine, no API keys needed)...")
-        run_good_agent()
-
-        trace_id = storage.resolve_latest_trace_id(config)
-        meta = storage.load_run_meta(trace_id, config)
-        counts = meta.get("counts") or {}
-        typer.echo("")
-        typer.echo(f"✓ Run recorded: {trace_id[:8]} (status: {meta.get('status')})")
-        typer.echo(
-            f"  llm_calls={counts.get('llm_calls', 0)} "
-            f"tool_calls={counts.get('tool_calls', 0)} "
-            f"errors={counts.get('errors', 0)}"
-        )
-        typer.echo("")
-        typer.echo("Next steps:")
-        typer.echo("  maida view        # inspect the timeline in your browser")
-        typer.echo("  maida baseline    # snapshot this run as a baseline")
-        typer.echo("  maida assert --baseline .maida/baselines/demo-support-agent.json")
+        if regression:
+            _demo_regression(config)
+        else:
+            _demo_single_run(config)
     except Exit:
         raise
     except Exception as e:
