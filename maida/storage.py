@@ -334,7 +334,7 @@ def resolve_latest_trace_id(config: MaidaConfig) -> str:
         candidates = []
     if not candidates:
         raise FileNotFoundError(
-            "No runs found. Run your traced agent first, then retry."
+            "No runs found. Run your traced agent first (or try `maida demo`)."
         )
     return candidates[0][1]
 

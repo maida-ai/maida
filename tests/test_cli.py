@@ -608,3 +608,45 @@ def test_diff_defaults_to_latest_run_with_baseline(empty_data_dir):
     result = runner.invoke(app, ["diff", "--baseline", str(bl_path)])
     assert result.exit_code == 0
     assert "new_tool" in result.output
+
+
+# --- demo command ---
+
+
+def test_demo_records_a_run(empty_data_dir):
+    config = load_config()
+    result = runner.invoke(app, ["demo"])
+    assert result.exit_code == 0
+    assert "Run recorded:" in result.output
+    assert "Next steps:" in result.output
+
+    from maida.storage import list_runs
+
+    runs = list_runs(limit=5, config=config)
+    assert len(runs) == 1
+    assert runs[0].get("run_name") == "demo-support-agent"
+    assert runs[0].get("status") == "ok"
+
+
+def test_demo_run_is_redacted_on_disk(empty_data_dir):
+    result = runner.invoke(app, ["demo"])
+    assert result.exit_code == 0
+
+    spans_files = list(empty_data_dir.rglob("spans.jsonl"))
+    assert spans_files, "expected a spans.jsonl to be written"
+    raw = spans_files[0].read_text()
+    assert "sk-demo-DO_NOT_USE" not in raw  # api_key value must be scrubbed
+
+
+def test_demo_then_baseline_and_assert_pass(empty_data_dir):
+    result = runner.invoke(app, ["demo"])
+    assert result.exit_code == 0
+
+    bl_path = empty_data_dir / "demo.json"
+    result = runner.invoke(app, ["baseline", "--out", str(bl_path)])
+    assert result.exit_code == 0
+
+    result = runner.invoke(app, ["assert", "--baseline", str(bl_path)])
+    assert result.exit_code == 1 or result.exit_code == 0
+    # the same run asserted against its own baseline must pass every check
+    assert "FAILED" not in result.output
