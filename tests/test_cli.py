@@ -685,3 +685,58 @@ def test_demo_regression_no_secret_on_disk(empty_data_dir, tmp_path, monkeypatch
     assert result.exit_code == 0
     for spans_file in empty_data_dir.rglob("spans.jsonl"):
         assert "sk-demo-DO_NOT_USE" not in spans_file.read_text()
+
+
+# --- init command ---
+
+
+def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    policy_path = tmp_path / ".maida" / "policy.yaml"
+    assert policy_path.is_file()
+    assert "wrote" in result.output
+    assert "Next steps:" in result.output
+
+    # generated policy must load through the real policy loader
+    from maida.policy import load_policy
+
+    policy = load_policy(policy_path)
+    assert policy.no_loops is True
+    assert policy.no_new_tools is True
+    assert policy.expect_status == "ok"
+    assert policy.step_tolerance == 0.5
+
+
+def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch):
+    import yaml
+
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--github"])
+    assert result.exit_code == 0
+    wf_path = tmp_path / ".github" / "workflows" / "maida.yml"
+    assert wf_path.is_file()
+
+    wf = yaml.safe_load(wf_path.read_text())
+    job = wf["jobs"]["agent-check"]
+    uses = [step.get("uses", "") for step in job["steps"]]
+    assert any(u.startswith("maida-ai/maida-assert@") for u in uses)
+    assert wf["permissions"]["pull-requests"] == "write"
+
+
+def test_init_skips_existing_without_force(empty_data_dir, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    runner.invoke(app, ["init"])
+    policy_path = tmp_path / ".maida" / "policy.yaml"
+    policy_path.write_text("assert: {}\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    assert "skipped" in result.output
+    assert policy_path.read_text() == "assert: {}\n"  # untouched
+
+    result = runner.invoke(app, ["init", "--force"])
+    assert result.exit_code == 0
+    assert "wrote" in result.output
+    assert "no_loops" in policy_path.read_text()  # overwritten
