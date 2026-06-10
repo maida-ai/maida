@@ -8,6 +8,7 @@ import json
 import socket
 import threading
 import time
+import yaml
 
 import pytest
 from typer.testing import CliRunner
@@ -16,14 +17,15 @@ from maida import record_llm_call, record_tool_call, traced_run
 from maida.cli import _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
+from maida.policy import load_policy
+from maida.storage import list_runs
+from tests.conftest import get_latest_run_id
 
 runner = CliRunner()
 
 
 def _make_run(config, *, name="test_run", events=None, status="ok"):
     """Helper: create a run via traced_run + recorders, return run_id."""
-    from tests.conftest import get_latest_run_id
-
     if status == "error":
         with pytest.raises(RuntimeError):
             with traced_run(name=name):
@@ -132,8 +134,6 @@ def test_export_success_path_writes_run_and_events(empty_data_dir):
     config = load_config()
     with traced_run(name="export_success_run"):
         record_tool_call("test_tool", args={}, result="done")
-    from tests.conftest import get_latest_run_id
-
     run_id = get_latest_run_id(config)
 
     tmpfile = empty_data_dir / "export_success.json"
@@ -194,8 +194,6 @@ def test_list_with_actual_runs_shows_runs(empty_data_dir):
     config = load_config()
     with traced_run(name="list_me_run"):
         pass
-    from tests.conftest import get_latest_run_id
-
     run_id = get_latest_run_id(config)
 
     result = runner.invoke(app, ["list"])
@@ -333,8 +331,6 @@ def test_baseline_creates_file(empty_data_dir):
     config = load_config()
     with traced_run(name="baseline_test"):
         record_tool_call("search", args={}, result=None)
-    from tests.conftest import get_latest_run_id
-
     run_id = get_latest_run_id(config)
 
     out = empty_data_dir / "bl.json"
@@ -620,8 +616,6 @@ def test_demo_records_a_run(empty_data_dir):
     assert "Run recorded:" in result.output
     assert "Next steps:" in result.output
 
-    from maida.storage import list_runs
-
     runs = list_runs(limit=5, config=config)
     assert len(runs) == 1
     assert runs[0].get("run_name") == "demo-support-agent"
@@ -664,8 +658,6 @@ def test_demo_regression_story(empty_data_dir, tmp_path, monkeypatch):
     assert bl_path.is_file()
 
     # two runs were recorded
-    from maida.storage import list_runs
-
     runs = list_runs(limit=5, config=config)
     assert len(runs) == 2
 
@@ -700,8 +692,6 @@ def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
     assert "Next steps:" in result.output
 
     # generated policy must load through the real policy loader
-    from maida.policy import load_policy
-
     policy = load_policy(policy_path)
     assert policy.no_loops is True
     assert policy.no_new_tools is True
@@ -710,8 +700,6 @@ def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
 
 
 def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch):
-    import yaml
-
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--github"])
     assert result.exit_code == 0

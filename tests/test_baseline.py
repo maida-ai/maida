@@ -16,10 +16,8 @@ from tests.conftest import get_latest_run_id
 
 def _make_run(config, *, name="test_run", events=None, status="ok"):
     """Helper: create a run via traced_run + recorders, return run_id."""
-    import pytest as _pt
-
     if status == "error":
-        with _pt.raises(RuntimeError):
+        with pytest.raises(RuntimeError):
             with traced_run(name=name):
                 for ev_type, ev_name, payload in events or []:
                     if ev_type == EventType.TOOL_CALL:
