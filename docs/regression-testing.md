@@ -14,11 +14,15 @@ Agent behavior is non-deterministic. A prompt tweak, model upgrade, or tool chan
 
 ```
 1. Run your agent              python your_agent.py
-2. Capture a baseline          maida baseline <trace_id>
+2. Capture a baseline          maida baseline
 3. Run the agent again         python your_agent.py
-4. Assert against baseline     maida assert <new_trace_id> --baseline .maida/baselines/my_agent.json
-5. If it fails, diff           maida diff <new_trace_id> --baseline .maida/baselines/my_agent.json
+4. Assert against baseline     maida assert --baseline .maida/baselines/my_agent.json
+5. If it fails, diff           maida diff --baseline .maida/baselines/my_agent.json
 ```
+
+`baseline`, `assert`, and `diff` default to the latest run when no run ID is given; pass an ID or short prefix to target a specific run.
+
+To see the whole workflow on canned data first, run `maida demo --regression`.
 
 ---
 
@@ -165,19 +169,35 @@ maida assert <TRACE_ID> --baseline baseline.json --format json
 Designed for GitHub PR comments and step summaries:
 
 ```bash
-maida assert <TRACE_ID> --baseline baseline.json --format markdown
+maida assert --baseline baseline.json --format markdown
 ```
 
 ```markdown
-## Maida Regression Report
+## ❌ Maida gate: agent behavior regressed
 
-| Check | Status | Details |
-|-------|--------|---------|
-| step_count | ✅ Pass | 42 steps (baseline: 38, tolerance: 50%) |
-| no_loops | ❌ Fail | 2 loop warning(s) detected |
+**1 of 4 checks failed** · run `a1b2c3d4` vs baseline `e5f6a7b8`
 
-Result: **FAILED**
+| Check | Expected | Actual | Details |
+|---|---|---|---|
+| ❌ `no_loops` | — | 2 | 2 loop warning(s) detected |
+
+<details>
+<summary>✅ 3 passing checks</summary>
+...
+</details>
+
+### What changed vs baseline
+
+| Metric | Baseline | Current | Change |
+|---|---|---|---|
+| tool_calls | 10 | 14 | +40% |
+| loop_warnings | 0 | 2 | NEW |
+
+**Tool changes:**
+- ➕ `web_search` — new tool, not in baseline
 ```
+
+The report leads with the verdict, lists failed checks first with expected vs actual values, collapses passing checks, and — when a baseline is provided — embeds the structural diff and a copy-pasteable local-repro snippet.
 
 ---
 
@@ -222,7 +242,9 @@ The diff shows summary-level metric changes, new or removed tools, and shifts in
 
 ## GitHub Actions example
 
-Run your agent in CI, then assert against the checked-in baseline:
+The easiest path is the [maida-assert action](https://github.com/maida-ai/maida-assert) — scaffold it with `maida init --github`. It runs your traced agent, asserts the run, and posts the regression report as a sticky PR comment.
+
+To wire it up by hand instead, run your agent in CI, then assert against the checked-in baseline (`maida assert` picks up the latest run automatically):
 
 ```yaml
 - name: Run agent
@@ -230,8 +252,7 @@ Run your agent in CI, then assert against the checked-in baseline:
 
 - name: Assert agent behavior
   run: |
-    TRACE_ID=$(maida list --json | python -c "import sys,json; print(json.load(sys.stdin)['runs'][0]['trace_id'])")
-    maida assert "$TRACE_ID" \
+    maida assert \
       --baseline .maida/baselines/my_agent.json \
       --format markdown >> "$GITHUB_STEP_SUMMARY"
 ```

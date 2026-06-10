@@ -29,6 +29,31 @@ pip install -e .
 
 ---
 
+## Try it in 60 seconds
+
+No repo clone, no config, no API keys:
+
+```bash
+pip install maida-ai
+maida demo        # trace a bundled simulated agent
+maida view        # inspect the timeline in your browser
+```
+
+Then watch the gate catch a regression end-to-end — baseline a good run, run a "refactored" agent that loops and calls a new tool, and see the failing report with a PR-comment preview:
+
+```bash
+maida demo --regression
+```
+
+When you're ready to wire up your own project:
+
+```bash
+maida init            # starter .maida/policy.yaml
+maida init --github   # + GitHub Actions workflow
+```
+
+---
+
 ## Quickstart
 
 **1. Decorate your entrypoint with `@trace`** so each invocation becomes a run (RUN_START / RUN_END, ERROR on exception).
