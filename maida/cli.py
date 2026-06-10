@@ -526,6 +526,51 @@ def _demo_regression(config) -> None:
     typer.echo(f"  maida diff {bad_id[:8]} --baseline {bl_path}")
 
 
+@app.command("init")
+def init_cmd(
+    github: bool = typer.Option(
+        False, "--github", help="Also scaffold a GitHub Actions workflow"
+    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing files"),
+) -> None:
+    """Scaffold .maida/policy.yaml (and optionally a CI workflow)."""
+    from maida.scaffold import (
+        POLICY_RELPATH,
+        POLICY_TEMPLATE,
+        WORKFLOW_RELPATH,
+        WORKFLOW_TEMPLATE,
+        write_scaffold,
+    )
+
+    try:
+        targets = [(POLICY_RELPATH, POLICY_TEMPLATE)]
+        if github:
+            targets.append((WORKFLOW_RELPATH, WORKFLOW_TEMPLATE))
+
+        for path, content in targets:
+            if write_scaffold(path, content, force=force):
+                typer.echo(f"✓ wrote {path}")
+            else:
+                typer.echo(f"  skipped {path} (exists; use --force to overwrite)")
+
+        typer.echo("")
+        typer.echo("Next steps:")
+        typer.echo("  1. Instrument your agent with @trace (see `maida demo`).")
+        typer.echo(
+            "  2. Run it, then: maida baseline --out .maida/baselines/<name>.json"
+        )
+        typer.echo(
+            "  3. Gate it:      maida assert --baseline .maida/baselines/<name>.json"
+        )
+        if github:
+            typer.echo(f"  4. Edit {WORKFLOW_RELPATH} (set agent-script), then commit.")
+        else:
+            typer.echo("  4. Add CI later: maida init --github")
+    except Exception as e:
+        typer.echo(f"error: {e}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
 @app.command("demo")
 def demo_cmd(
     regression: bool = typer.Option(
