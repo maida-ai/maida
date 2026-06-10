@@ -54,6 +54,19 @@ def version_callback(
     """Show Maida version."""
 
 
+def _resolve_run_or_latest(run_id: str | None, config) -> str:
+    """Resolve *run_id* (full ID or prefix) or fall back to the latest run.
+
+    When falling back, the chosen run is announced on stderr so stdout stays
+    machine-readable.  Raises FileNotFoundError if nothing can be resolved.
+    """
+    if run_id is None:
+        resolved = storage.resolve_latest_trace_id(config)
+        typer.echo(f"Using latest run: {resolved[:8]}", err=True)
+        return resolved
+    return storage.resolve_trace_id(run_id, config)
+
+
 def _wait_for_port(host: str, port: int, timeout_s: float = 5.0) -> bool:
     """Block until *host*:*port* accepts a TCP connection, or *timeout_s* elapses.
 
@@ -145,7 +158,9 @@ def list_cmd(
 
 @app.command("export")
 def export_cmd(
-    run_id: str = typer.Argument(..., help="Run ID or trace ID prefix to export"),
+    run_id: str | None = typer.Argument(
+        None, help="Run ID or trace ID prefix to export (default: latest run)"
+    ),
     out: Path = typer.Option(
         ..., "--out", "-o", path_type=Path, help="Output JSON file path"
     ),
@@ -154,8 +169,9 @@ def export_cmd(
     try:
         config = load_config()
         try:
-            trace_id = storage.resolve_trace_id(run_id, config)
-        except FileNotFoundError:
+            trace_id = _resolve_run_or_latest(run_id, config)
+        except FileNotFoundError as e:
+            typer.echo(f"Run not found: {e}", err=True)
             raise Exit(EXIT_NOT_FOUND)
         try:
             run_meta = storage.load_run_meta(trace_id, config)
@@ -257,7 +273,9 @@ def view_cmd(
 
 @app.command("baseline")
 def baseline_cmd(
-    run_id: str = typer.Argument(..., help="Run ID or prefix to snapshot"),
+    run_id: str | None = typer.Argument(
+        None, help="Run ID or prefix to snapshot (default: latest run)"
+    ),
     out: Path | None = typer.Option(
         None, "--out", "-o", help="Output path for baseline JSON"
     ),
@@ -268,9 +286,9 @@ def baseline_cmd(
     try:
         config = load_config()
         try:
-            run_id = storage.resolve_trace_id(run_id, config)
-        except FileNotFoundError:
-            typer.echo(f"Run not found: {run_id}", err=True)
+            run_id = _resolve_run_or_latest(run_id, config)
+        except FileNotFoundError as e:
+            typer.echo(f"Run not found: {run_id or e}", err=True)
             raise Exit(EXIT_NOT_FOUND)
 
         bl = create_baseline(run_id, config)
@@ -290,7 +308,9 @@ def baseline_cmd(
 
 @app.command(name="assert")
 def assert_cmd(
-    run_id: str = typer.Argument(..., help="Run ID or prefix to check"),
+    run_id: str | None = typer.Argument(
+        None, help="Run ID or prefix to check (default: latest run)"
+    ),
     baseline_path: Path | None = typer.Option(
         None, "--baseline", "-b", help="Baseline JSON file to compare against"
     ),
@@ -348,9 +368,9 @@ def assert_cmd(
     try:
         config = load_config()
         try:
-            run_id = storage.resolve_trace_id(run_id, config)
-        except FileNotFoundError:
-            typer.echo(f"Run not found: {run_id}", err=True)
+            run_id = _resolve_run_or_latest(run_id, config)
+        except FileNotFoundError as e:
+            typer.echo(f"Run not found: {run_id or e}", err=True)
             raise Exit(EXIT_NOT_FOUND)
 
         # Build policy: start from file, then overlay CLI flags
@@ -412,7 +432,9 @@ def assert_cmd(
 
 @app.command("diff")
 def diff_cmd(
-    run_a: str = typer.Argument(..., help="First run ID or prefix"),
+    run_a: str | None = typer.Argument(
+        None, help="First run ID or prefix (default: latest run)"
+    ),
     run_b: str | None = typer.Argument(None, help="Second run ID (or use --baseline)"),
     baseline_path: Path | None = typer.Option(
         None, "--baseline", "-b", help="Baseline JSON file to compare against"
@@ -428,9 +450,9 @@ def diff_cmd(
     try:
         config = load_config()
         try:
-            run_a = storage.resolve_trace_id(run_a, config)
-        except FileNotFoundError:
-            typer.echo(f"Run not found: {run_a}", err=True)
+            run_a = _resolve_run_or_latest(run_a, config)
+        except FileNotFoundError as e:
+            typer.echo(f"Run not found: {run_a or e}", err=True)
             raise Exit(EXIT_NOT_FOUND)
 
         bl = None

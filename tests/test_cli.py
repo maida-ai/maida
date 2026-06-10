@@ -530,3 +530,81 @@ def test_diff_missing_args(empty_data_dir):
 
     result = runner.invoke(app, ["diff", rid])
     assert result.exit_code == 2
+
+
+# --- latest-run defaults (run ID argument omitted) ---
+
+
+def test_assert_defaults_to_latest_run(empty_data_dir):
+    config = load_config()
+    _make_run(config, name="older", events=[(EventType.TOOL_CALL, "t", {})])
+    newest = _make_run(config, name="newer", events=[(EventType.TOOL_CALL, "t", {})])
+
+    result = runner.invoke(app, ["assert", "--max-steps", "10", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["run_id"] == newest
+    assert "Using latest run:" in result.stderr
+
+
+def test_assert_no_runs_exit_two(empty_data_dir):
+    result = runner.invoke(app, ["assert", "--max-steps", "10"])
+    assert result.exit_code == 2
+    assert "No runs found" in result.stderr
+
+
+def test_assert_json_stdout_stays_clean_when_run_id_omitted(empty_data_dir):
+    config = load_config()
+    _make_run(config, name="run", events=[(EventType.TOOL_CALL, "t", {})])
+
+    result = runner.invoke(app, ["assert", "--max-steps", "10", "--format", "json"])
+    assert result.exit_code == 0
+    json.loads(result.stdout)  # stdout must be pure JSON
+
+
+def test_baseline_defaults_to_latest_run(empty_data_dir):
+    config = load_config()
+    _make_run(config, name="older", events=[(EventType.TOOL_CALL, "t", {})])
+    newest = _make_run(config, name="newer", events=[(EventType.TOOL_CALL, "t", {})])
+
+    out = empty_data_dir / "bl.json"
+    result = runner.invoke(app, ["baseline", "--out", str(out)])
+    assert result.exit_code == 0
+    bl = json.loads(out.read_text())
+    assert bl["source_run_id"] == newest
+
+
+def test_baseline_no_runs_exit_two(empty_data_dir):
+    out = empty_data_dir / "bl.json"
+    result = runner.invoke(app, ["baseline", "--out", str(out)])
+    assert result.exit_code == 2
+    assert "No runs found" in result.stderr
+
+
+def test_export_defaults_to_latest_run(empty_data_dir):
+    config = load_config()
+    newest = _make_run(config, name="run", events=[(EventType.TOOL_CALL, "t", {})])
+
+    out = empty_data_dir / "export.json"
+    result = runner.invoke(app, ["export", "--out", str(out)])
+    assert result.exit_code == 0
+    payload = json.loads(out.read_text())
+    run_id = payload["run"].get("trace_id") or payload["run"].get("run_id")
+    assert run_id == newest
+
+
+def test_diff_defaults_to_latest_run_with_baseline(empty_data_dir):
+    config = load_config()
+    _make_run(config, name="bl", events=[(EventType.TOOL_CALL, "t", {})])
+    bl_path = empty_data_dir / "bl.json"
+    runner.invoke(app, ["baseline", "--out", str(bl_path)])
+
+    _make_run(
+        config,
+        name="current",
+        events=[(EventType.TOOL_CALL, "t", {}), (EventType.TOOL_CALL, "new_tool", {})],
+    )
+
+    result = runner.invoke(app, ["diff", "--baseline", str(bl_path)])
+    assert result.exit_code == 0
+    assert "new_tool" in result.output

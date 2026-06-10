@@ -342,3 +342,38 @@ def test_spans_to_events_produces_expected_event_types(temp_data_dir):
     tool_events = [e for e in events if e["event_type"] == EventType.TOOL_CALL.value]
     assert len(tool_events) == 1
     assert tool_events[0]["payload"]["tool_name"] == "my_tool"
+
+
+# ---------------------------------------------------------------------------
+# resolve_latest_trace_id
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_latest_trace_id_returns_most_recent(temp_data_dir):
+    from maida.storage import resolve_latest_trace_id
+
+    config = load_config()
+    runs_base = config.data_dir / "runs"
+    older_id = "d" * 32
+    newer_id = "e" * 32
+    _write_meta(runs_base / older_id, older_id, "old", "2026-01-01T10:00:00.000Z")
+    _write_meta(runs_base / newer_id, newer_id, "new", "2026-01-01T14:00:00.000Z")
+    assert resolve_latest_trace_id(config) == newer_id
+
+
+def test_resolve_latest_trace_id_no_runs_raises(temp_data_dir):
+    from maida.storage import resolve_latest_trace_id
+
+    config = load_config()
+    with pytest.raises(FileNotFoundError, match="No runs found"):
+        resolve_latest_trace_id(config)
+
+
+def test_resolve_latest_trace_id_missing_runs_dir_raises(temp_data_dir):
+    import dataclasses
+
+    from maida.storage import resolve_latest_trace_id
+
+    config = dataclasses.replace(load_config(), data_dir=temp_data_dir / "nonexistent")
+    with pytest.raises(FileNotFoundError, match="No runs found"):
+        resolve_latest_trace_id(config)
