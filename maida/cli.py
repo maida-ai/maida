@@ -17,13 +17,29 @@ import typer
 from typer import Exit
 
 import maida.storage as storage
-from maida.config import load_config
-from maida.constants import SPEC_VERSION
-from maida.server import create_app
-from maida.events import spans_to_events
 from maida import __version__
-
-from maida.constants import LOCAL_DIR_NAME
+from maida.assertions import (
+    AssertionPolicy,
+    format_report_json,
+    format_report_markdown,
+    format_report_text,
+    run_assertions,
+)
+from maida.baseline import create_baseline, load_baseline, save_baseline
+from maida.config import load_config
+from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
+from maida.demo import ensure_demo_env, run_good_agent, run_refactored_agent
+from maida.diff import compute_diff, format_diff_text
+from maida.events import spans_to_events
+from maida.policy import load_policy, merge_policy
+from maida.scaffold import (
+    POLICY_RELPATH,
+    POLICY_TEMPLATE,
+    WORKFLOW_RELPATH,
+    WORKFLOW_TEMPLATE,
+    write_scaffold,
+)
+from maida.server import create_app
 
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
@@ -281,8 +297,6 @@ def baseline_cmd(
     ),
 ) -> None:
     """Capture a baseline snapshot from a completed run."""
-    from maida.baseline import create_baseline, save_baseline
-
     try:
         config = load_config()
         try:
@@ -356,15 +370,6 @@ def assert_cmd(
     ),
 ) -> None:
     """Assert that a run meets behavioral policy checks. Exit 0 = pass, 1 = fail."""
-    from maida.assertions import (
-        AssertionPolicy,
-        format_report_json,
-        format_report_markdown,
-        format_report_text,
-        run_assertions,
-    )
-    from maida.baseline import load_baseline
-
     try:
         config = load_config()
         try:
@@ -374,8 +379,6 @@ def assert_cmd(
             raise Exit(EXIT_NOT_FOUND)
 
         # Build policy: start from file, then overlay CLI flags
-        from maida.policy import load_policy, merge_policy
-
         policy = AssertionPolicy()
         if policy_path is not None:
             policy = load_policy(policy_path)
@@ -416,8 +419,6 @@ def assert_cmd(
 
         run_diff = None
         if bl is not None:
-            from maida.diff import compute_diff
-
             run_diff = compute_diff(run_id, baseline=bl, config=config)
 
         if output_format == "json":
@@ -444,8 +445,6 @@ def assert_cmd(
 
 def _demo_single_run(config) -> None:
     """Run the good demo agent once and print summary + next steps."""
-    from maida.demo import run_good_agent
-
     typer.echo("Running the bundled demo agent (simulated; nothing leaves")
     typer.echo("your machine, no API keys needed)...")
     run_good_agent()
@@ -469,16 +468,6 @@ def _demo_single_run(config) -> None:
 
 def _demo_regression(config) -> None:
     """Baseline a good run, run a regressed one, and show the failing gate."""
-    from maida.assertions import (
-        AssertionPolicy,
-        format_report_markdown,
-        format_report_text,
-        run_assertions,
-    )
-    from maida.baseline import create_baseline, save_baseline
-    from maida.demo import run_good_agent, run_refactored_agent
-    from maida.diff import compute_diff
-
     typer.echo("Maida regression demo: everything below is simulated and local.")
     typer.echo("")
 
@@ -534,14 +523,6 @@ def init_cmd(
     force: bool = typer.Option(False, "--force", help="Overwrite existing files"),
 ) -> None:
     """Scaffold .maida/policy.yaml (and optionally a CI workflow)."""
-    from maida.scaffold import (
-        POLICY_RELPATH,
-        POLICY_TEMPLATE,
-        WORKFLOW_RELPATH,
-        WORKFLOW_TEMPLATE,
-        write_scaffold,
-    )
-
     try:
         targets = [(POLICY_RELPATH, POLICY_TEMPLATE)]
         if github:
@@ -580,8 +561,6 @@ def demo_cmd(
     ),
 ) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""
-    from maida.demo import ensure_demo_env
-
     try:
         ensure_demo_env()
         config = load_config()
@@ -610,9 +589,6 @@ def diff_cmd(
     ),
 ) -> None:
     """Compare two runs or a run against a baseline."""
-    from maida.baseline import load_baseline
-    from maida.diff import compute_diff, format_diff_text
-
     try:
         config = load_config()
         try:

@@ -16,11 +16,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from maida.config import MaidaConfig, load_config
-from maida.events import utc_now_iso_ms_z
 from maida.constants import default_counts
-from maida.guardrails import GuardrailParams
+from maida.events import utc_now_iso_ms_z
+from maida.guardrails import GuardrailParams, check_after_event
+from maida._tracing._redact import _redact_and_truncate, _redact_argv
 
 _run_id_var: ContextVar[str | None] = ContextVar("maida_run_id", default=None)
 _counts_var: ContextVar[dict | None] = ContextVar("maida_counts", default=None)
@@ -112,8 +114,6 @@ def _finalize_implicit_run() -> None:
     _implicit_event_window = []
     _implicit_loop_emitted = set()
     try:
-        from opentelemetry.trace import Status, StatusCode
-
         if _implicit_root_span is not None:
             _implicit_root_span.set_attribute(
                 "maida.llm_calls", counts.get("llm_calls", 0)
@@ -150,8 +150,6 @@ def _append_event_and_check_guardrails(
     In the OTel-based system, spans are the primary storage unit. This function
     maintains backward compat by tracking the event count for guardrail checks.
     """
-    from maida.guardrails import check_after_event
-
     params = _guardrail_params_var.get()
     if params is None:
         return
@@ -186,8 +184,6 @@ def _run_end_payload(status: str, counts: dict, started_at: str) -> dict[str, di
 
 def _run_start_payload_for_event(run_name: str | None, config: MaidaConfig) -> dict:
     """Build a backward-compatible event-like payload for RUN_START. Used by lifecycle."""
-    from maida._tracing._redact import _redact_argv, _redact_and_truncate
-
     payload = {
         "run_name": run_name,
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",

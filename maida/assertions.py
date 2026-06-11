@@ -13,7 +13,8 @@ if TYPE_CHECKING:
     from maida.diff import RunDiff
 
 from maida.baseline import extract_run_metrics
-from maida.config import MaidaConfig
+from maida.config import MaidaConfig, load_config
+from maida.diff import format_diff_markdown, format_diff_text
 from maida.events import spans_to_events
 from maida.storage import load_run_meta, load_spans, resolve_trace_id
 
@@ -156,8 +157,6 @@ def run_assertions(
         ``AssertionReport`` with all check results.
     """
     if config is None:
-        from maida.config import load_config
-
         config = load_config()
 
     full_id = resolve_trace_id(trace_id, config)
@@ -324,8 +323,6 @@ def format_report_text(report: AssertionReport, diff: "RunDiff | None" = None) -
     else:
         lines.append(f"RESULT: {verdict} ({total} checks passed)")
     if diff is not None and not report.passed:
-        from maida.diff import format_diff_text
-
         lines.append("")
         lines.append(format_diff_text(diff))
     return "\n".join(lines)
@@ -407,8 +404,6 @@ def format_report_markdown(
         lines += ["", "</details>"]
 
     if diff is not None:
-        from maida.diff import format_diff_markdown
-
         diff_md = format_diff_markdown(diff)
         if diff_md:
             if report.passed:

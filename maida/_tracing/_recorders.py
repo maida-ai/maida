@@ -42,6 +42,7 @@ from maida._tracing._otel import (
 )
 from maida._tracing._redact import (
     _apply_redaction_truncation,
+    _build_error_payload,
     _normalize_usage,
     _redact_and_truncate,
 )
@@ -65,8 +66,6 @@ def _record_llm_call_otel(
     status_val = "ok" if status not in ("ok", "error") else status
     error_obj: dict[str, Any] | None = None
     if status_val == "error" and error is not None:
-        from maida._tracing._redact import _build_error_payload
-
         error_obj = _build_error_payload(error, config, include_stack=True)
 
     attrs = {
@@ -136,8 +135,6 @@ def _record_tool_call_otel(
     status_val = "ok" if status not in ("ok", "error") else status
     error_obj: dict[str, Any] | None = None
     if status_val == "error" and error is not None:
-        from maida._tracing._redact import _build_error_payload
-
         error_obj = _build_error_payload(error, config, include_stack=True)
 
     attrs = {

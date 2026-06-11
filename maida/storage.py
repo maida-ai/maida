@@ -11,11 +11,14 @@ Note: trace_id_hex is 32 hex characters (128-bit trace ID).
 import json
 import logging
 import os
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from maida.config import MaidaConfig
+from maida.constants import SPEC_VERSION, default_counts
+from maida.events import spans_to_events, utc_now_iso_ms_z
 
 META_JSON = "meta.json"
 SPANS_JSONL = "spans.jsonl"
@@ -173,8 +176,6 @@ def load_events(run_id: str, config: MaidaConfig) -> list[dict]:
     except ValueError:
         spans = []
     if spans:
-        from maida.events import spans_to_events
-
         return spans_to_events(spans)
 
     path = _legacy_run_dir(run_id, config) / EVENTS_JSONL
@@ -210,9 +211,6 @@ def append_event(run_id: str, event: dict, config: MaidaConfig) -> None:
 
 def create_run(run_name: str, config: MaidaConfig) -> dict:
     """Compatibility wrapper for legacy run.json callers."""
-    from maida.constants import SPEC_VERSION, default_counts
-    from maida.events import utc_now_iso_ms_z
-
     run_id = str(uuid.uuid4())
     run_dir = _legacy_run_dir(run_id, config)
     meta = {
@@ -239,8 +237,6 @@ def finalize_run(
     run_id: str, status: str, counts: dict[str, int], config: MaidaConfig
 ) -> dict:
     """Compatibility wrapper for legacy run finalization callers."""
-    from maida.events import utc_now_iso_ms_z
-
     path = _legacy_run_dir(run_id, config) / RUN_JSON
     if not path.is_file():
         raise FileNotFoundError(f"No run found for run_id '{run_id}'")
@@ -430,8 +426,6 @@ def rename_run(trace_id: str, run_name: str, config: MaidaConfig) -> dict:
 
 def delete_run(trace_id: str, config: MaidaConfig) -> None:
     """Delete a run directory and all its contents."""
-    import shutil
-
     run_dir = _trace_dir(trace_id, config)
     if not run_dir.is_dir():
         raise FileNotFoundError(f"No run found for trace_id '{trace_id}'")
