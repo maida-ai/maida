@@ -4,6 +4,7 @@ LangChain/LangGraph callback handler that forwards LLM and tool events to Maida.
 Uses only Maida SDK: record_llm_call, record_tool_call. No CLI or server imports.
 """
 
+import json
 from typing import Any
 
 from maida.exceptions import GuardrailExceeded, _MaidaAbortSignal
@@ -252,8 +253,6 @@ class LangChainCallbackHandler(BaseCallbackHandler):
         key = self._key(run_id=run_id, parent_run_id=parent_run_id, **kwargs)
         name = _tool_name_from_serialized(serialized)
         try:
-            import json
-
             args = json.loads(input_str) if input_str.strip() else {}
         except Exception:
             args = input_str if input_str else None

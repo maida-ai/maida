@@ -7,7 +7,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from maida.baseline import extract_run_metrics
-from maida.config import MaidaConfig
+from maida.config import MaidaConfig, load_config
 from maida.events import spans_to_events
 from maida.storage import load_run_meta, load_spans, resolve_trace_id
 
@@ -50,8 +50,6 @@ def compute_diff(
     Exactly one of *run_b_id* or *baseline* must be provided.
     """
     if config is None:
-        from maida.config import load_config
-
         config = load_config()
 
     full_a = resolve_trace_id(run_a_id, config)
