@@ -38,3 +38,27 @@ def test_public_docs_do_not_describe_legacy_trace_storage_contract():
                 offenders.append(f"{rel_path}: {snippet}")
 
     assert offenders == []
+
+
+def test_trace_format_documents_current_storage_contract():
+    text = (ROOT / "docs/reference/trace-format.md").read_text(encoding="utf-8")
+
+    required_snippets = [
+        "## Run storage layout",
+        "`<data_dir>/runs/<trace_id>/`",
+        "`meta.json` and `spans.jsonl` are the required files",
+        "Local `meta.json` does not include `spec_version`",
+        "`spans_to_events()` projection",
+        "Stable for external tooling",
+        "Internal and subject to change",
+        "[`maida list`](../cli.md#maida-list)",
+        "[`maida view`](../cli.md#maida-view)",
+        "[`maida export`](../cli.md#maida-export)",
+        "[`maida baseline`](../cli.md#maida-baseline)",
+        "[`maida assert`](../cli.md#maida-assert)",
+        "[`maida diff`](../cli.md#maida-diff)",
+    ]
+
+    missing = [snippet for snippet in required_snippets if snippet not in text]
+
+    assert missing == []

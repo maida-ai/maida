@@ -414,7 +414,7 @@ def get_run_paths(trace_id: str, config: MaidaConfig) -> dict:
 
 
 def rename_run(trace_id: str, run_name: str, config: MaidaConfig) -> dict:
-    """Update run.json meta.json with a new run_name."""
+    """Update meta.json with a new run_name."""
     path = _meta_path(trace_id, config)
     if not path.is_file():
         raise FileNotFoundError(f"No run found for trace_id '{trace_id}'")
