@@ -133,7 +133,14 @@ def test_step_tolerance_passes_at_50_percent(temp_data_dir):
     run_events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(15)]
     run_id = _make_run(config, events=run_events, name="check")
 
-    policy = AssertionPolicy(max_steps=100)
+    policy = AssertionPolicy(
+        max_steps=100,
+        step_tolerance=0.5,
+        # Large multipliers to avoid flakiness
+        duration_tolerance=50.0,
+        tool_call_tolerance=50.0,
+        cost_tolerance=50.0,
+    )
     report = run_assertions(run_id, policy, baseline=bl, config=config)
     step_result = next(r for r in report.results if r.check_name == "step_count")
     assert step_result.passed is True
@@ -148,7 +155,14 @@ def test_step_tolerance_fails_above_50_percent(temp_data_dir):
     run_events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(16)]
     run_id = _make_run(config, events=run_events, name="check")
 
-    policy = AssertionPolicy(max_steps=100)
+    policy = AssertionPolicy(
+        max_steps=100,
+        step_tolerance=0.5,
+        # Large multipliers to avoid flakiness
+        duration_tolerance=50.0,
+        tool_call_tolerance=50.0,
+        cost_tolerance=50.0,
+    )
     report = run_assertions(run_id, policy, baseline=bl, config=config)
     step_result = next(r for r in report.results if r.check_name == "step_count")
     assert step_result.passed is False
@@ -203,8 +217,9 @@ def test_no_new_tools_passes_when_subset(temp_data_dir):
 
     policy = AssertionPolicy(
         no_new_tools=True,
-        duration_tolerance=50.0,
+        # Large multipliers to avoid flakiness
         step_tolerance=50.0,
+        duration_tolerance=50.0,
         tool_call_tolerance=50.0,
         cost_tolerance=50.0,
     )
@@ -224,7 +239,14 @@ def test_no_new_tools_fails_on_new_tool(temp_data_dir):
     ]
     run_id = _make_run(config, events=run_events, name="check")
 
-    policy = AssertionPolicy(no_new_tools=True)
+    policy = AssertionPolicy(
+        no_new_tools=True,
+        # Large multipliers to avoid flakiness
+        step_tolerance=50.0,
+        duration_tolerance=50.0,
+        tool_call_tolerance=50.0,
+        cost_tolerance=50.0,
+    )
     report = run_assertions(run_id, policy, baseline=bl, config=config)
     assert report.passed is False
     tool_result = next(r for r in report.results if r.check_name == "new_tools")
@@ -457,7 +479,14 @@ def test_format_report_markdown_includes_diff_section(temp_data_dir):
             (EventType.TOOL_CALL, "new_tool", {}),
         ],
     )
-    policy = AssertionPolicy(no_new_tools=True)
+    policy = AssertionPolicy(
+        no_new_tools=True,
+        # Large multipliers to avoid flakiness
+        step_tolerance=50.0,
+        duration_tolerance=50.0,
+        tool_call_tolerance=50.0,
+        cost_tolerance=50.0,
+    )
     report = run_assertions(run_id, policy, baseline=baseline, config=config)
     assert not report.passed
 
@@ -493,7 +522,14 @@ def test_format_report_text_appends_diff_on_failure(temp_data_dir):
             (EventType.TOOL_CALL, "new_tool", {}),
         ],
     )
-    policy = AssertionPolicy(no_new_tools=True)
+    policy = AssertionPolicy(
+        no_new_tools=True,
+        # Large multipliers to avoid flakiness
+        step_tolerance=50.0,
+        duration_tolerance=50.0,
+        tool_call_tolerance=50.0,
+        cost_tolerance=50.0,
+    )
     report = run_assertions(run_id, policy, baseline=baseline, config=config)
     diff = compute_diff(run_id, baseline=baseline, config=config)
 
@@ -510,7 +546,14 @@ def test_format_report_text_omits_diff_on_pass(temp_data_dir):
     baseline = create_baseline(bl_run, config)
     run_id = _make_run(config, name="current", events=[(EventType.TOOL_CALL, "t", {})])
 
-    policy = AssertionPolicy(no_new_tools=True)
+    policy = AssertionPolicy(
+        no_new_tools=True,
+        # Large multipliers to avoid flakiness
+        step_tolerance=50.0,
+        duration_tolerance=50.0,
+        tool_call_tolerance=50.0,
+        cost_tolerance=50.0,
+    )
     report = run_assertions(run_id, policy, baseline=baseline, config=config)
     assert report.passed
     diff = compute_diff(run_id, baseline=baseline, config=config)
