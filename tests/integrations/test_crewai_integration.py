@@ -96,13 +96,19 @@ CREWAI_MISSING_MSG = "CrewAI integration requires optional deps. Install with `p
 
 def test_import_crewai_without_extra_raises_clear_error():
     """If CrewAI is not installed, importing maida.integrations.crewai raises that friendly error string."""
+    # Pop every crewai-related module (including already-cached real
+    # `crewai.hooks` submodules). When the crewai extra is installed, another
+    # test may have imported the real `crewai.hooks` first; leaving it cached
+    # would let `from crewai.hooks import ...` succeed and defeat the fake.
     to_restore_mods = []
     for mod in list(sys.modules.keys()):
-        if mod == "maida.integrations.crewai" or mod.startswith(
-            "maida.integrations.crewai."
+        if (
+            mod == "maida.integrations.crewai"
+            or mod.startswith("maida.integrations.crewai.")
+            or mod == "crewai"
+            or mod.startswith("crewai.")
         ):
             to_restore_mods.append((mod, sys.modules.pop(mod)))
-    old_crewai = sys.modules.get("crewai")
     fake = _make_fake_crewai_hooks_import_error()
     try:
         sys.modules["crewai"] = fake
@@ -110,10 +116,8 @@ def test_import_crewai_without_extra_raises_clear_error():
             __import__("maida.integrations.crewai")
         assert str(exc_info.value) == CREWAI_MISSING_MSG
     finally:
-        if old_crewai is not None:
-            sys.modules["crewai"] = old_crewai
-        elif "crewai" in sys.modules and sys.modules["crewai"] is fake:
-            del sys.modules["crewai"]
+        sys.modules.pop("crewai", None)
+        sys.modules.pop("maida.integrations.crewai", None)
         for mod, val in to_restore_mods:
             sys.modules[mod] = val
         if "maida.integrations.crewai" not in sys.modules:
@@ -121,6 +125,21 @@ def test_import_crewai_without_extra_raises_clear_error():
                 __import__("maida.integrations.crewai")
             except MissingOptionalDependencyError:
                 pass
+
+
+def _reset_crewai_module_state(crewai_mod) -> None:
+    """Clear crewai's process-global pending/sequence state.
+
+    The module keeps per-run dicts at module scope, and patch.dict's restore
+    can hand back a shared module instance between tests. Combined with random
+    test ordering under xdist, residue (e.g. empty ``{run_id: {}}`` left by
+    after-hooks) leaks across tests. Reset explicitly so each test starts clean.
+    """
+    crewai_mod._pending_llm.clear()
+    crewai_mod._pending_tool.clear()
+    crewai_mod._llm_stack.clear()
+    crewai_mod._llm_next_seq.clear()
+    crewai_mod._tool_next_seq.clear()
 
 
 @pytest.fixture
@@ -137,9 +156,10 @@ def crewai_module_with_mocked_hooks():
         try:
             import maida.integrations.crewai as crewai_mod
 
+            _reset_crewai_module_state(crewai_mod)
             yield crewai_mod
         finally:
-            pass
+            _reset_crewai_module_state(crewai_mod)
 
 
 def test_gating_no_active_run_handlers_no_op_and_do_not_record(
