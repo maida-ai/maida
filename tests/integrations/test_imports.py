@@ -21,14 +21,19 @@ INTEGRATIONS = [  # name, dependency
 
 @pytest.fixture
 def reload_integrations():
+    global integrations
+
+    integrations = importlib.import_module("maida.integrations")
     sys.modules.pop("maida.integrations.crewai", None)
     sys.modules.pop("maida.integrations.langchain", None)
+    sys.modules.pop("maida.integrations.openai_agents", None)
 
     integrations.__dict__.pop("crewai", None)
     integrations.__dict__.pop("langchain", None)
+    integrations.__dict__.pop("openai_agents", None)
     integrations.__dict__.pop("LangChainCallbackHandler", None)
 
-    importlib.reload(integrations)
+    integrations = importlib.reload(integrations)
 
 
 def test_no_eager_imports(reload_integrations):
