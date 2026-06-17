@@ -24,7 +24,8 @@ from opentelemetry.sdk.trace.export import (
     SpanExporter,
 )
 
-from maida.config import load_config
+from maida._tracing._redact import _redact_and_truncate
+from maida.config import MaidaConfig, load_config
 
 _MAIDA_TRACER_NAME = "maida"
 _MAIDA_TRACER_VERSION = "0.1.0"
@@ -65,6 +66,25 @@ MAIDA_LOOP_WARNING_COUNT = "maida.loop_warnings"
 MAIDA_META = "maida.meta"
 MAIDA_EVENT_TYPE = "maida.event_type"
 
+_JSON_STRING_ATTRIBUTE_KEYS = frozenset({MAIDA_META})
+_JSON_STRING_EVENT_ATTRIBUTE_KEYS = frozenset(
+    {
+        "args",
+        "result",
+        "state",
+        "diff",
+        MAIDA_TOOL_ARGS,
+        MAIDA_TOOL_RESULT,
+    }
+)
+_NON_SECRET_ATTRIBUTE_KEYS = frozenset(
+    {
+        GEN_AI_USAGE_INPUT_TOKENS,
+        GEN_AI_USAGE_OUTPUT_TOKENS,
+        GEN_AI_USAGE_TOTAL_TOKENS,
+    }
+)
+
 
 def span_kind_str(kind: SpanKind) -> str:
     mapping = {
@@ -87,8 +107,54 @@ def nanos_to_ms(nanos: int) -> int:
     return max(0, int(nanos / 1_000_000))
 
 
-def span_to_dict(span: ReadableSpan) -> dict[str, Any]:
+def _decode_attribute_value(value: Any) -> Any:
+    if isinstance(value, (bytes, bytearray)):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
+def _sanitize_attribute_mapping(
+    attributes: Any,
+    config: MaidaConfig,
+    *,
+    json_string_keys: frozenset[str] = frozenset(),
+) -> dict[str, Any]:
+    safe: dict[str, Any] = {}
+    if not attributes:
+        return safe
+
+    for raw_key, raw_value in attributes.items():
+        key = str(raw_key)
+        value = _decode_attribute_value(raw_value)
+        if key in _NON_SECRET_ATTRIBUTE_KEYS:
+            safe[key] = _redact_and_truncate(value, config)
+            continue
+        if key in json_string_keys and isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+            else:
+                safe[key] = json.dumps(
+                    _redact_and_truncate(parsed, config),
+                    ensure_ascii=False,
+                    default=str,
+                )
+                continue
+
+        redacted = _redact_and_truncate({key: value}, config)
+        if isinstance(redacted, dict) and key in redacted:
+            safe[key] = redacted[key]
+        else:
+            safe[key] = _redact_and_truncate(value, config)
+    return safe
+
+
+def span_to_dict(
+    span: ReadableSpan, config: MaidaConfig | None = None
+) -> dict[str, Any]:
     """Serialize a ReadableSpan to a JSON-safe dict for local storage."""
+    config = config or load_config()
     sc = span.context
     parent_sc = span.parent
     start_nanos = span.start_time or 0
@@ -97,21 +163,19 @@ def span_to_dict(span: ReadableSpan) -> dict[str, Any]:
         nanos_to_ms(end_nanos - start_nanos) if end_nanos > start_nanos else None
     )
 
-    attrs: dict[str, Any] = {}
-    if span.attributes:
-        for k, v in span.attributes.items():
-            if isinstance(v, (bytes, bytearray)):
-                v = v.decode("utf-8", errors="replace")
-            attrs[k] = v
+    attrs = _sanitize_attribute_mapping(
+        span.attributes,
+        config,
+        json_string_keys=_JSON_STRING_ATTRIBUTE_KEYS,
+    )
 
     events_list: list[dict[str, Any]] = []
     for ev in span.events or []:
-        ev_attrs: dict[str, Any] = {}
-        if ev.attributes:
-            for k, v in ev.attributes.items():
-                if isinstance(v, (bytes, bytearray)):
-                    v = v.decode("utf-8", errors="replace")
-                ev_attrs[k] = v
+        ev_attrs = _sanitize_attribute_mapping(
+            ev.attributes,
+            config,
+            json_string_keys=_JSON_STRING_EVENT_ATTRIBUTE_KEYS,
+        )
         events_list.append(
             {
                 "name": ev.name,
@@ -129,6 +193,7 @@ def span_to_dict(span: ReadableSpan) -> dict[str, Any]:
             else str(span.status.status_code)
         )
         status_desc = span.status.description or ""
+    status_desc = _redact_and_truncate(status_desc, config)
 
     return {
         "trace_id": format(sc.trace_id, "032x"),
@@ -156,6 +221,7 @@ class MaidaLocalSpanExporter(SpanExporter):
 
     def __init__(self, data_dir: Path | None = None) -> None:
         config = load_config()
+        self._config = config
         self._runs_dir = (data_dir or config.data_dir).expanduser() / "runs"
         self._lock = threading.Lock()
 
@@ -169,7 +235,7 @@ class MaidaLocalSpanExporter(SpanExporter):
                 run_dir = self._runs_dir / trace_id_hex
                 run_dir.mkdir(parents=True, exist_ok=True)
 
-                span_dict = span_to_dict(span)
+                span_dict = span_to_dict(span, self._config)
 
                 spans_path = run_dir / "spans.jsonl"
                 with self._lock:
