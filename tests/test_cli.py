@@ -104,12 +104,14 @@ def _write_run(temp_data_dir, trace_id, run_name):
         "span_id": "0" * 16,
         "parent_span_id": None,
         "name": run_name,
+        "kind": "INTERNAL",
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2026-01-01T00:00:01.000Z",
         "duration_ms": 1000,
         "attributes": {"maida.run_name": run_name},
         "events": [],
         "status_code": "OK",
+        "status_description": "",
     }
     (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
 
@@ -168,14 +170,36 @@ def _write_trace_run(temp_data_dir, trace_id, run_name):
         "span_id": "0" * 16,
         "parent_span_id": None,
         "name": run_name,
+        "kind": "INTERNAL",
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2026-01-01T00:00:01.000Z",
         "duration_ms": 1000,
         "attributes": {"maida.run_name": run_name},
         "events": [],
         "status_code": "OK",
+        "status_description": "",
     }
     (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
+
+
+def _write_run_with_malformed_span(temp_data_dir, trace_id, run_name="bad"):
+    config = load_config()
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": run_name,
+        "started_at": "2026-01-01T00:00:00.000Z",
+        "ended_at": "2026-01-01T00:00:01.000Z",
+        "duration_ms": 1000,
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    (run_dir / "spans.jsonl").write_text(
+        '{"api_key":"sk-test-DO-NOT-LEAK",\n',
+        encoding="utf-8",
+    )
 
 
 def test_list_json_outputs_valid_json_spec_version_and_runs(empty_data_dir):
@@ -233,6 +257,36 @@ def test_view_defaults_to_latest_trace_id(monkeypatch, empty_data_dir):
     data = json.loads(result.output)
     assert data["run_id"] == trace_id
     assert f"run_id={trace_id}" in data["url"]
+
+
+@pytest.mark.parametrize(
+    "command_builder",
+    [
+        lambda bad, good, tmp: ["view", bad, "--no-browser", "--json", "--port", "0"],
+        lambda bad, good, tmp: ["baseline", bad, "--out", str(tmp / "bl.json")],
+        lambda bad, good, tmp: ["assert", bad, "--max-steps", "10"],
+        lambda bad, good, tmp: ["diff", bad, good],
+    ],
+)
+def test_run_loading_commands_report_validation_errors(
+    command_builder,
+    empty_data_dir,
+):
+    bad_trace_id = "badbad10" + "a" * 24
+    good_trace_id = "face0010" + "b" * 24
+    _write_run_with_malformed_span(empty_data_dir, bad_trace_id)
+    _write_trace_run(empty_data_dir, good_trace_id, "good")
+
+    result = runner.invoke(
+        app,
+        command_builder(bad_trace_id, good_trace_id, empty_data_dir),
+    )
+
+    assert result.exit_code == 2
+    assert "Run validation failed" in result.stderr
+    assert "spans.jsonl line 1" in result.stderr
+    assert "Next step:" in result.stderr
+    assert "sk-test-DO-NOT-LEAK" not in result.stderr
 
 
 # ---------------------------------------------------------------------------
