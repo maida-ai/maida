@@ -3,8 +3,8 @@
 A baseline captures the structural behavior of a completed run (tool path,
 event sequence, token usage, etc.) for later comparison by ``assertions.py``.
 
-Updated for OTel-based storage: reads span dicts and converts to event-like
-dicts using events.spans_to_events().
+Updated for OTel-based storage: reads event-like records through the shared
+run analysis loader.
 """
 
 import json

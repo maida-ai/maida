@@ -10,12 +10,15 @@ import pytest
 from maida.config import load_config
 from maida.events import EventType, spans_to_events
 from maida.storage import (
+    RunValidationError,
     _validate_trace_id,
     delete_run,
     list_runs,
+    load_validated_run,
     load_run_meta,
     load_spans,
     rename_run,
+    resolve_trace_id_for_read,
     resolve_trace_id,
 )
 
@@ -102,6 +105,50 @@ def _write_spans(run_dir, trace_id, spans):
     (run_dir / "spans.jsonl").write_text("\n".join(lines), encoding="utf-8")
 
 
+def _valid_meta(trace_id, *, run_name="validated"):
+    return {
+        "trace_id": trace_id,
+        "run_name": run_name,
+        "started_at": "2026-01-01T12:00:00.000Z",
+        "ended_at": "2026-01-01T12:00:01.000Z",
+        "duration_ms": 1000,
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+
+
+def _valid_root_span(trace_id, *, span_id="1" * 16, run_name="validated"):
+    return {
+        "trace_id": trace_id,
+        "span_id": span_id,
+        "parent_span_id": None,
+        "name": run_name,
+        "kind": "INTERNAL",
+        "start_time": "2026-01-01T12:00:00.000Z",
+        "end_time": "2026-01-01T12:00:01.000Z",
+        "duration_ms": 1000,
+        "attributes": {"maida.run_name": run_name},
+        "events": [],
+        "status_code": "OK",
+        "status_description": "",
+    }
+
+
+def _write_validated_run(config, trace_id, *, meta=None, spans=None):
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "meta.json").write_text(
+        json.dumps(meta if meta is not None else _valid_meta(trace_id)),
+        encoding="utf-8",
+    )
+    span_lines = [
+        json.dumps(span)
+        for span in (spans if spans is not None else [_valid_root_span(trace_id)])
+    ]
+    (run_dir / "spans.jsonl").write_text("\n".join(span_lines) + "\n", encoding="utf-8")
+    return run_dir
+
+
 def test_load_spans_returns_spans(temp_data_dir):
     config = load_config()
     trace_id = "d" * 32
@@ -145,6 +192,147 @@ def test_load_spans_missing_file_returns_empty(temp_data_dir):
     meta = {"trace_id": trace_id, "status": "ok", "counts": {}}
     (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     assert load_spans(trace_id, config) == []
+
+
+# ---------------------------------------------------------------------------
+# strict run validation
+# ---------------------------------------------------------------------------
+
+
+def test_load_validated_run_accepts_current_trace_contract(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc12" + "a" * 24
+    _write_validated_run(config, trace_id)
+
+    meta, spans = load_validated_run(trace_id, config)
+
+    assert meta["trace_id"] == trace_id
+    assert spans[0]["trace_id"] == trace_id
+
+
+def test_resolve_trace_id_for_read_keeps_incomplete_exact_trace_for_validation(
+    temp_data_dir,
+):
+    config = load_config()
+    trace_id = "abcabc13" + "a" * 24
+    (config.data_dir / "runs" / trace_id).mkdir(parents=True)
+
+    assert resolve_trace_id_for_read(trace_id, config) == trace_id
+
+
+def test_load_validated_run_missing_required_file_has_next_step(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc14" + "a" * 24
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "meta.json").write_text(
+        json.dumps(_valid_meta(trace_id)), encoding="utf-8"
+    )
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(trace_id, config)
+
+    message = str(excinfo.value)
+    assert "spans.jsonl" in message
+    assert "Next step:" in message
+    assert "maida demo" in message
+
+
+def test_load_validated_run_malformed_span_is_sanitized(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc15" + "a" * 24
+    run_dir = config.data_dir / "runs" / trace_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "meta.json").write_text(
+        json.dumps(_valid_meta(trace_id)), encoding="utf-8"
+    )
+    (run_dir / "spans.jsonl").write_text(
+        '{"secret":"sk-test-DO-NOT-LEAK",\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(trace_id, config)
+
+    message = str(excinfo.value)
+    assert "spans.jsonl line 1" in message
+    assert "malformed JSON" in message
+    assert "sk-test-DO-NOT-LEAK" not in message
+
+
+def test_load_validated_run_unsupported_spec_version(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc16" + "a" * 24
+    meta = _valid_meta(trace_id) | {"spec_version": "0.1"}
+    _write_validated_run(config, trace_id, meta=meta)
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(trace_id, config)
+
+    assert "unsupported spec_version" in str(excinfo.value)
+    assert "0.1" in str(excinfo.value)
+
+
+def test_load_validated_run_unsupported_spec_version_redacts_non_version_value(
+    temp_data_dir,
+):
+    config = load_config()
+    trace_id = "abcabc20" + "a" * 24
+    meta = _valid_meta(trace_id) | {"spec_version": "sk-test-DO-NOT-LEAK"}
+    _write_validated_run(config, trace_id, meta=meta)
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(trace_id, config)
+
+    message = str(excinfo.value)
+    assert "unsupported spec_version" in message
+    assert "<redacted>" in message
+    assert "sk-test-DO-NOT-LEAK" not in message
+
+
+def test_load_validated_run_missing_span_field(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc17" + "a" * 24
+    span = _valid_root_span(trace_id)
+    span.pop("status_code")
+    _write_validated_run(config, trace_id, spans=[span])
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(trace_id, config)
+
+    assert "spans.jsonl line 1" in str(excinfo.value)
+    assert "status_code" in str(excinfo.value)
+
+
+def test_load_validated_run_allows_running_trace_without_root_span(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc18" + "a" * 24
+    meta = _valid_meta(trace_id) | {
+        "status": "running",
+        "ended_at": None,
+        "duration_ms": None,
+    }
+    child_span = _valid_root_span(trace_id)
+    child_span["parent_span_id"] = "2" * 16
+    _write_validated_run(config, trace_id, meta=meta, spans=[child_span])
+
+    loaded_meta, loaded_spans = load_validated_run(trace_id, config)
+
+    assert loaded_meta["status"] == "running"
+    assert loaded_spans[0]["parent_span_id"] == "2" * 16
+
+
+def test_load_validated_run_completed_trace_requires_root_span(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc19" + "a" * 24
+    child_span = _valid_root_span(trace_id)
+    child_span["parent_span_id"] = "2" * 16
+    _write_validated_run(config, trace_id, spans=[child_span])
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(trace_id, config)
+
+    assert "no root span" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------

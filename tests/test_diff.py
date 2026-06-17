@@ -45,12 +45,14 @@ def _write_trace_run(config, trace_id, run_name):
         "span_id": "0" * 16,
         "parent_span_id": None,
         "name": run_name,
+        "kind": "INTERNAL",
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2026-01-01T00:00:01.000Z",
         "duration_ms": 1000,
         "attributes": {"maida.run_name": run_name},
         "events": [],
         "status_code": "OK",
+        "status_description": "",
     }
     (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
 

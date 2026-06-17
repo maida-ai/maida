@@ -33,14 +33,36 @@ def _write_run(config, trace_id, run_name="test"):
         "span_id": "0" * 16,
         "parent_span_id": None,
         "name": run_name,
+        "kind": "INTERNAL",
         "start_time": "2026-01-01T12:00:00.000Z",
         "end_time": "2026-01-01T12:00:01.000Z",
         "duration_ms": 1000,
         "attributes": {"maida.run_name": run_name},
         "events": [],
         "status_code": "OK",
+        "status_description": "",
     }
     (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
+
+
+def _write_run_with_malformed_span(config, trace_id):
+    runs_base = config.data_dir / "runs"
+    run_dir = runs_base / trace_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trace_id": trace_id,
+        "run_name": "bad",
+        "started_at": "2026-01-01T12:00:00.000Z",
+        "ended_at": "2026-01-01T12:00:01.000Z",
+        "duration_ms": 1000,
+        "status": "ok",
+        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
+    }
+    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    (run_dir / "spans.jsonl").write_text(
+        '{"token":"sk-test-DO-NOT-LEAK",\n',
+        encoding="utf-8",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +100,21 @@ def test_server_returns_400_for_invalid_run_id_spans(temp_data_dir):
     r = client.get("/api/runs/short/spans")
     assert r.status_code == 400, r.json()
     assert "invalid" in (r.json().get("detail") or "").lower()
+
+
+def test_server_spans_returns_422_for_invalid_run_format(temp_data_dir):
+    config = load_config()
+    trace_id = "abcabc20" + "a" * 24
+    _write_run_with_malformed_span(config, trace_id)
+    client = TestClient(create_app())
+
+    r = client.get(f"/api/runs/{trace_id}/spans")
+
+    assert r.status_code == 422
+    detail = r.json().get("detail") or ""
+    assert "spans.jsonl line 1" in detail
+    assert "Next step:" in detail
+    assert "sk-test-DO-NOT-LEAK" not in detail
 
 
 def test_server_returns_404_for_valid_but_missing_run_id(temp_data_dir):

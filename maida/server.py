@@ -61,14 +61,14 @@ def create_app() -> FastAPI:
     ) -> dict:
         trace_id = _validated_trace_id(trace_id)
         try:
-            storage.load_run_meta(trace_id, config)
+            # TODO: cache or incrementally project events for large live traces.
+            _, spans = storage.load_validated_run(trace_id, config)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
-        try:
-            # TODO: cache or incrementally project events for large live traces.
-            spans = storage.load_spans(trace_id, config)
         except ValueError:
             raise HTTPException(status_code=400, detail="invalid trace_id")
+        except storage.RunValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         events = spans_to_events(spans)
         return {
             "spec_version": SPEC_VERSION,

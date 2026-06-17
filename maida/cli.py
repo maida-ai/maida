@@ -87,6 +87,11 @@ def _exit_unsupported_trace_format(error: storage.UnsupportedTraceFormatError) -
     raise Exit(EXIT_NOT_FOUND)
 
 
+def _exit_run_validation_error(error: storage.RunValidationError) -> None:
+    typer.echo(str(error), err=True)
+    raise Exit(EXIT_NOT_FOUND)
+
+
 def _wait_for_port(host: str, port: int, timeout_s: float = 5.0) -> bool:
     """Block until *host*:*port* accepts a TCP connection, or *timeout_s* elapses.
 
@@ -197,6 +202,8 @@ def export_cmd(
             _, run_meta, events = storage.load_run_for_analysis(trace_id, config)
         except storage.UnsupportedTraceFormatError as e:
             _exit_unsupported_trace_format(e)
+        except storage.RunValidationError as e:
+            _exit_run_validation_error(e)
         except (ValueError, FileNotFoundError):
             raise Exit(EXIT_NOT_FOUND)
         payload = {"spec_version": SPEC_VERSION, "run": run_meta, "events": events}
@@ -233,13 +240,15 @@ def view_cmd(
                 run_id = runs[0].get("trace_id") or runs[0].get("run_id") or ""
         if run_id:
             try:
-                run_id = storage.resolve_trace_id(run_id, config)
+                run_id = storage.resolve_trace_id_for_read(run_id, config)
             except FileNotFoundError as e:
                 if not json_out:
                     typer.echo(f"Run not found: {e}", err=True)
                 raise Exit(EXIT_NOT_FOUND)
             try:
-                storage.load_run_meta(run_id, config)
+                storage.load_validated_run(run_id, config)
+            except storage.RunValidationError as e:
+                _exit_run_validation_error(e)
             except (ValueError, FileNotFoundError) as e:
                 if not json_out:
                     typer.echo(f"Run not found: {e}", err=True)
@@ -323,6 +332,8 @@ def baseline_cmd(
         raise
     except storage.UnsupportedTraceFormatError as e:
         _exit_unsupported_trace_format(e)
+    except storage.RunValidationError as e:
+        _exit_run_validation_error(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -448,6 +459,8 @@ def assert_cmd(
         raise
     except storage.UnsupportedTraceFormatError as e:
         _exit_unsupported_trace_format(e)
+    except storage.RunValidationError as e:
+        _exit_run_validation_error(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -580,6 +593,8 @@ def demo_cmd(
             _demo_single_run(config)
     except Exit:
         raise
+    except storage.RunValidationError as e:
+        _exit_run_validation_error(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -631,6 +646,8 @@ def diff_cmd(
         raise
     except storage.UnsupportedTraceFormatError as e:
         _exit_unsupported_trace_format(e)
+    except storage.RunValidationError as e:
+        _exit_run_validation_error(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
