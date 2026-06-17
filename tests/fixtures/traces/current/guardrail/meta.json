@@ -1,0 +1,14 @@
+{
+  "trace_id": "10000000000000000000000000000005",
+  "run_name": "golden-guardrail",
+  "started_at": "2026-01-01T00:04:00.000000Z",
+  "ended_at": "2026-01-01T00:04:00.180000Z",
+  "duration_ms": 180,
+  "status": "error",
+  "counts": {
+    "llm_calls": 0,
+    "tool_calls": 1,
+    "errors": 1,
+    "loop_warnings": 0
+  }
+}

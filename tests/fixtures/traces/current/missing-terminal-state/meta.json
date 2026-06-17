@@ -1,0 +1,14 @@
+{
+  "trace_id": "10000000000000000000000000000004",
+  "run_name": "golden-running",
+  "started_at": "2026-01-01T00:03:00.000000Z",
+  "ended_at": null,
+  "duration_ms": null,
+  "status": "running",
+  "counts": {
+    "llm_calls": 0,
+    "tool_calls": 1,
+    "errors": 0,
+    "loop_warnings": 0
+  }
+}

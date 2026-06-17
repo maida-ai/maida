@@ -1,0 +1,14 @@
+{
+  "trace_id": "10000000000000000000000000000006",
+  "run_name": "golden-latency-cost-envelope",
+  "started_at": "2026-01-01T00:05:00.000000Z",
+  "ended_at": "2026-01-01T00:05:02.000000Z",
+  "duration_ms": 2000,
+  "status": "ok",
+  "counts": {
+    "llm_calls": 1,
+    "tool_calls": 1,
+    "errors": 0,
+    "loop_warnings": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "trace_id": "20000000000000000000000000000003",
+  "run_name": "malformed-invalid-spans",
+  "started_at": "2026-01-01T01:02:00.000000Z",
+  "ended_at": "2026-01-01T01:02:00.010000Z",
+  "duration_ms": 10,
+  "status": "ok",
+  "counts": {
+    "llm_calls": 0,
+    "tool_calls": 0,
+    "errors": 0,
+    "loop_warnings": 0
+  }
+}
