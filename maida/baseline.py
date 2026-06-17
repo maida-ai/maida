@@ -12,8 +12,8 @@ from collections import Counter
 from pathlib import Path
 
 from maida.config import MaidaConfig
-from maida.events import EventType, spans_to_events, utc_now_iso_ms_z
-from maida.storage import load_run_meta, load_spans, resolve_trace_id
+from maida.events import EventType, utc_now_iso_ms_z
+from maida.storage import load_run_for_analysis
 
 _BASELINE_SCHEMA_VERSION = "0.2"
 
@@ -92,10 +92,7 @@ def create_baseline(trace_id: str, config: MaidaConfig) -> dict:
         trace_id: The OTel trace ID (or prefix) for the run.
         config: MaidaConfig instance.
     """
-    full_id = resolve_trace_id(trace_id, config)
-    meta = load_run_meta(full_id, config)
-    spans = load_spans(full_id, config)
-    events = spans_to_events(spans)
+    full_id, meta, events = load_run_for_analysis(trace_id, config)
     metrics = extract_run_metrics(meta, events)
     return {
         "schema_version": _BASELINE_SCHEMA_VERSION,

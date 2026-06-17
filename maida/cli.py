@@ -30,7 +30,6 @@ from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import ensure_demo_env, run_good_agent, run_refactored_agent
 from maida.diff import compute_diff, format_diff_text
-from maida.events import spans_to_events
 from maida.policy import load_policy, merge_policy
 from maida.scaffold import (
     POLICY_RELPATH,
@@ -77,10 +76,15 @@ def _resolve_run_or_latest(run_id: str | None, config) -> str:
     machine-readable.  Raises FileNotFoundError if nothing can be resolved.
     """
     if run_id is None:
-        resolved = storage.resolve_latest_trace_id(config)
+        resolved = storage.resolve_latest_run_id(config)
         typer.echo(f"Using latest run: {resolved[:8]}", err=True)
         return resolved
-    return storage.resolve_trace_id(run_id, config)
+    return storage.resolve_run_id(run_id, config)
+
+
+def _exit_unsupported_trace_format(error: storage.UnsupportedTraceFormatError) -> None:
+    typer.echo(str(error), err=True)
+    raise Exit(EXIT_NOT_FOUND)
 
 
 def _wait_for_port(host: str, port: int, timeout_s: float = 5.0) -> bool:
@@ -190,17 +194,19 @@ def export_cmd(
             typer.echo(f"Run not found: {e}", err=True)
             raise Exit(EXIT_NOT_FOUND)
         try:
-            run_meta = storage.load_run_meta(trace_id, config)
+            _, run_meta, events = storage.load_run_for_analysis(trace_id, config)
+        except storage.UnsupportedTraceFormatError as e:
+            _exit_unsupported_trace_format(e)
         except (ValueError, FileNotFoundError):
             raise Exit(EXIT_NOT_FOUND)
-        spans = storage.load_spans(trace_id, config)
-        events = spans_to_events(spans)
         payload = {"spec_version": SPEC_VERSION, "run": run_meta, "events": events}
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
     except Exit:
         raise
+    except storage.UnsupportedTraceFormatError as e:
+        _exit_unsupported_trace_format(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -315,6 +321,8 @@ def baseline_cmd(
         typer.echo(f"Baseline saved to {out}")
     except Exit:
         raise
+    except storage.UnsupportedTraceFormatError as e:
+        _exit_unsupported_trace_format(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -438,6 +446,8 @@ def assert_cmd(
             raise Exit(1)
     except Exit:
         raise
+    except storage.UnsupportedTraceFormatError as e:
+        _exit_unsupported_trace_format(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -607,7 +617,7 @@ def diff_cmd(
                 raise Exit(EXIT_NOT_FOUND)
         elif run_b is not None:
             try:
-                resolved_b = storage.resolve_trace_id(run_b, config)
+                resolved_b = storage.resolve_run_id(run_b, config)
             except FileNotFoundError:
                 typer.echo(f"Run not found: {run_b}", err=True)
                 raise Exit(EXIT_NOT_FOUND)
@@ -619,6 +629,8 @@ def diff_cmd(
         typer.echo(format_diff_text(d))
     except Exit:
         raise
+    except storage.UnsupportedTraceFormatError as e:
+        _exit_unsupported_trace_format(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)

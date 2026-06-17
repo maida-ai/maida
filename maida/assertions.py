@@ -15,8 +15,7 @@ if TYPE_CHECKING:
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig, load_config
 from maida.diff import format_diff_markdown, format_diff_text
-from maida.events import spans_to_events
-from maida.storage import load_run_meta, load_spans, resolve_trace_id
+from maida.storage import load_run_for_analysis
 
 
 kDefaultTolerance = 0.5  # 50% global default
@@ -159,10 +158,7 @@ def run_assertions(
     if config is None:
         config = load_config()
 
-    full_id = resolve_trace_id(trace_id, config)
-    meta = load_run_meta(full_id, config)
-    spans = load_spans(full_id, config)
-    events = spans_to_events(spans)
+    full_id, meta, events = load_run_for_analysis(trace_id, config)
     metrics = extract_run_metrics(meta, events)
     summary = metrics["summary"]
     b_summary = (baseline or {}).get("summary")
