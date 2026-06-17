@@ -3,21 +3,23 @@ Tests for redaction: sensitive keys in payloads are replaced with __REDACTED__.
 Uses MAIDA_REDACT_KEYS and temp dir via MAIDA_DATA_DIR.
 """
 
+import json
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from opentelemetry import trace as ot_trace
 
-from pathlib import Path
-
-from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
-from maida.config import load_config, MaidaConfig
-from maida.guardrails import GuardrailParams
-from maida.events import EventType
 from maida._tracing._redact import _redact_and_truncate
-from maida.tracing import record_tool_call, trace, traced_run
-from maida.events import spans_to_events
+from maida.assertions import AssertionPolicy, format_report_markdown, run_assertions
+from maida.baseline import create_baseline
+from maida.config import MaidaConfig, load_config
+from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
+from maida.events import EventType, spans_to_events
+from maida.guardrails import GuardrailParams
 from maida.storage import list_runs, load_spans
+from maida.tracing import record_llm_call, record_tool_call, trace, traced_run
 
 
 def test_redaction_constants_unchanged():
@@ -199,6 +201,21 @@ def _redact_cfg(keys: list[str]) -> MaidaConfig:
     )
 
 
+def _latest_spans_jsonl(config: MaidaConfig) -> Path:
+    runs = list_runs(limit=1, config=config)
+    assert runs
+    run_id = runs[0].get("run_id") or runs[0].get("trace_id")
+    return config.data_dir / "runs" / run_id / "spans.jsonl"
+
+
+def _read_spans_jsonl(path: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
 def test_redact_nested_dict():
     """Nested dicts: sensitive keys at any depth are redacted; structure and non-matching keys preserved."""
     cfg = _redact_cfg(["token", "api_key"])
@@ -255,6 +272,142 @@ def test_redact_substring_match():
     assert out["api_key"] == REDACTED_MARKER
     assert out["prefix_api_key_suffix"] == REDACTED_MARKER
     assert out["other"] == "unchanged"
+
+
+def test_arbitrary_otel_span_attributes_and_events_are_sanitized_on_disk(
+    temp_data_dir, monkeypatch
+):
+    monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "100")
+    secret = "issue55-otel-secret"
+    long_value = "x" * 150
+
+    with traced_run(name="otel-privacy"):
+        tracer = ot_trace.get_tracer("external-privacy-test")
+        with tracer.start_as_current_span("external-span") as span:
+            span.set_attribute("api_key", secret)
+            span.set_attribute("large_attribute", long_value)
+            span.add_event(
+                "external.event",
+                {
+                    "token": secret,
+                    "large_event": long_value,
+                },
+            )
+
+    config = load_config()
+    spans_path = _latest_spans_jsonl(config)
+    raw = spans_path.read_text(encoding="utf-8")
+    assert secret not in raw
+
+    spans = _read_spans_jsonl(spans_path)
+    external_span = next(span for span in spans if span["name"] == "external-span")
+    attrs = external_span["attributes"]
+    assert attrs["api_key"] == REDACTED_MARKER
+    assert attrs["large_attribute"].endswith(TRUNCATED_MARKER)
+    assert len(attrs["large_attribute"].encode("utf-8")) <= 100
+
+    event_attrs = external_span["events"][0]["attributes"]
+    assert event_attrs["token"] == REDACTED_MARKER
+    assert event_attrs["large_event"].endswith(TRUNCATED_MARKER)
+    assert len(event_attrs["large_event"].encode("utf-8")) <= 100
+
+
+def test_maida_payload_metadata_and_errors_are_sanitized_on_disk(
+    temp_data_dir, monkeypatch
+):
+    monkeypatch.setenv(
+        "MAIDA_REDACT_KEYS",
+        "api_key,token,authorization,cookie,secret,password,message,stack",
+    )
+    monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "100")
+    secret = "issue55-maida-secret"
+    long_value = "y" * 150
+
+    @trace
+    def run_sensitive_payloads():
+        record_tool_call(
+            "sensitive_tool",
+            args={"api_key": secret, "large": long_value},
+            result={"token": secret, "large": long_value},
+            meta={"password": secret, "large": long_value},
+            status="error",
+            error={
+                "message": secret,
+                "details": {"authorization": secret, "large": long_value},
+                "stack": long_value,
+            },
+        )
+        record_llm_call(
+            "gpt-privacy",
+            prompt={"secret": secret, "large": long_value},
+            response={"token": secret, "large": long_value},
+            meta={"api_key": secret, "large": long_value},
+            status="error",
+            error={
+                "message": secret,
+                "details": {"token": secret, "large": long_value},
+                "stack": long_value,
+            },
+        )
+
+    run_sensitive_payloads()
+
+    config = load_config()
+    spans_path = _latest_spans_jsonl(config)
+    raw = spans_path.read_text(encoding="utf-8")
+    assert secret not in raw
+    assert REDACTED_MARKER in raw
+    assert TRUNCATED_MARKER in raw
+
+    spans = _read_spans_jsonl(spans_path)
+    events = spans_to_events(spans)
+    tool_event = next(e for e in events if e["event_type"] == EventType.TOOL_CALL)
+    llm_event = next(e for e in events if e["event_type"] == EventType.LLM_CALL)
+
+    assert tool_event["payload"]["args"]["api_key"] == REDACTED_MARKER
+    assert tool_event["payload"]["args"]["large"].endswith(TRUNCATED_MARKER)
+    assert tool_event["payload"]["result"]["token"] == REDACTED_MARKER
+    assert tool_event["meta"]["password"] == REDACTED_MARKER
+    assert tool_event["payload"]["error"]["message"] == REDACTED_MARKER
+
+    assert REDACTED_MARKER in str(llm_event["payload"]["prompt"])
+    assert REDACTED_MARKER in str(llm_event["payload"]["response"])
+    assert llm_event["meta"]["api_key"] == REDACTED_MARKER
+    assert llm_event["payload"]["error"]["message"] == REDACTED_MARKER
+
+
+def test_assertion_reports_do_not_reexpose_redacted_payloads(
+    temp_data_dir, monkeypatch
+):
+    monkeypatch.setenv("MAIDA_REDACT_KEYS", "api_key,token,password,secret")
+    secret = "issue55-report-secret"
+
+    @trace
+    def baseline_run():
+        record_tool_call("lookup", args={"api_key": secret}, result={"ok": True})
+
+    @trace
+    def current_run():
+        record_tool_call("lookup", args={"api_key": secret}, result={"ok": True})
+
+    baseline_run()
+    config = load_config()
+    baseline_id = list_runs(limit=1, config=config)[0].get("trace_id")
+    assert baseline_id
+    baseline = create_baseline(baseline_id, config)
+
+    current_run()
+    current_id = list_runs(limit=1, config=config)[0].get("trace_id")
+    assert current_id
+    report = run_assertions(
+        current_id,
+        AssertionPolicy(max_steps=10, no_new_tools=True),
+        baseline=baseline,
+        config=config,
+    )
+
+    rendered = format_report_markdown(report)
+    assert secret not in rendered
 
 
 def test_exception_message_secret_not_in_events_jsonl(
