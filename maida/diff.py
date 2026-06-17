@@ -8,8 +8,7 @@ from dataclasses import dataclass, field
 
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig, load_config
-from maida.events import spans_to_events
-from maida.storage import load_run_meta, load_spans, resolve_trace_id
+from maida.storage import load_run_for_analysis
 
 
 @dataclass
@@ -52,20 +51,14 @@ def compute_diff(
     if config is None:
         config = load_config()
 
-    full_a = resolve_trace_id(run_a_id, config)
-    meta_a = load_run_meta(full_a, config)
-    spans_a = load_spans(full_a, config)
-    events_a = spans_to_events(spans_a)
+    full_a, meta_a, events_a = load_run_for_analysis(run_a_id, config)
     metrics_a = extract_run_metrics(meta_a, events_a)
 
     if baseline is not None:
         metrics_b = _metrics_from_baseline(baseline)
         b_id = baseline.get("source_run_id", "baseline")
     elif run_b_id is not None:
-        full_b = resolve_trace_id(run_b_id, config)
-        meta_b = load_run_meta(full_b, config)
-        spans_b = load_spans(full_b, config)
-        events_b = spans_to_events(spans_b)
+        full_b, meta_b, events_b = load_run_for_analysis(run_b_id, config)
         metrics_b = extract_run_metrics(meta_b, events_b)
         b_id = full_b
     else:

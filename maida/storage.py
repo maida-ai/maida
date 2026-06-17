@@ -30,6 +30,21 @@ logger = logging.getLogger(__name__)
 _TRACE_ID_LEN = 32
 
 
+class UnsupportedTraceFormatError(RuntimeError):
+    """A stored run uses a trace format Maida cannot project safely."""
+
+    def __init__(self, run_id: str, problem: str) -> None:
+        self.run_id = run_id
+        self.problem = problem
+        short = run_id[:8] if isinstance(run_id, str) and run_id else "unknown"
+        super().__init__(
+            f"unsupported trace format for run {short}: {problem}. "
+            "The earliest fully supported trace format is 0.2. "
+            "Next step: rerun the traced agent to create a fresh trace, "
+            "or run `maida demo` to create a known-good local trace."
+        )
+
+
 def _validate_trace_id(trace_id: str) -> str:
     """Validate that trace_id is a 32-char hex string (no path traversal)."""
     if not trace_id or not isinstance(trace_id, str):
@@ -199,6 +214,104 @@ def load_events(run_id: str, config: MaidaConfig) -> list[dict]:
     return events
 
 
+def _current_trace_meta_exists(run_id: str, config: MaidaConfig) -> bool:
+    try:
+        return _meta_path(run_id, config).is_file()
+    except ValueError:
+        return False
+
+
+def _load_legacy_events_jsonl(run_id: str, config: MaidaConfig) -> list[dict]:
+    path = _legacy_run_dir(run_id, config) / EVENTS_JSONL
+    if not path.is_file():
+        return []
+    events: list[dict] = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line_no, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                raise UnsupportedTraceFormatError(
+                    run_id, f"{EVENTS_JSONL} line {line_no} is malformed JSON"
+                )
+            if not isinstance(event, dict):
+                raise UnsupportedTraceFormatError(
+                    run_id, f"{EVENTS_JSONL} line {line_no} must be a JSON object"
+                )
+            events.append(event)
+    return events
+
+
+def _normalize_legacy_events(run_id: str, events: list[dict]) -> list[dict]:
+    normalized: list[dict] = []
+    for idx, event in enumerate(events, start=1):
+        event_type = event.get("event_type")
+        if not isinstance(event_type, str) or not event_type:
+            raise UnsupportedTraceFormatError(
+                run_id, f"{EVENTS_JSONL} event {idx} is missing event_type"
+            )
+
+        payload = event.get("payload")
+        if payload is None:
+            payload = {}
+        elif not isinstance(payload, dict):
+            payload = {"value": payload}
+
+        meta = event.get("meta")
+        if meta is None:
+            meta = {}
+        elif not isinstance(meta, dict):
+            meta = {"value": meta}
+
+        normalized.append(
+            {
+                "spec_version": SPEC_VERSION,
+                "event_id": str(event.get("event_id") or ""),
+                "run_id": str(event.get("run_id") or run_id),
+                "parent_id": event.get("parent_id"),
+                "event_type": event_type,
+                "ts": str(event.get("ts") or event.get("timestamp") or ""),
+                "duration_ms": event.get("duration_ms"),
+                "name": str(event.get("name") or ""),
+                "payload": payload,
+                "meta": meta,
+            }
+        )
+    normalized.sort(key=lambda e: e.get("ts", ""))
+    return normalized
+
+
+def load_run_for_analysis(
+    run_id: str, config: MaidaConfig
+) -> tuple[str, dict, list[dict]]:
+    """Load a run as event-like records for baseline/diff/assert analysis.
+
+    Current OTel traces are fully supported. Legacy ``run.json`` /
+    ``events.jsonl`` directories are supported only when they declare the
+    current ``spec_version`` and already contain event-shaped records.
+    """
+    resolved_id = resolve_run_id(run_id, config)
+    meta = load_run_meta(resolved_id, config)
+
+    if _current_trace_meta_exists(resolved_id, config):
+        spans = load_spans(resolved_id, config)
+        return resolved_id, meta, spans_to_events(spans)
+
+    declared_spec = meta.get("spec_version")
+    if declared_spec != SPEC_VERSION:
+        if declared_spec is None:
+            problem = f"{RUN_JSON} is missing spec_version"
+        else:
+            problem = f"{RUN_JSON} declares spec_version {declared_spec!r}"
+        raise UnsupportedTraceFormatError(resolved_id, problem)
+
+    events = _load_legacy_events_jsonl(resolved_id, config)
+    return resolved_id, meta, _normalize_legacy_events(resolved_id, events)
+
+
 def append_event(run_id: str, event: dict, config: MaidaConfig) -> None:
     """Compatibility wrapper for legacy event append callers."""
     path = _legacy_run_dir(run_id, config) / EVENTS_JSONL
@@ -333,6 +446,21 @@ def resolve_latest_trace_id(config: MaidaConfig) -> str:
             "No runs found. Run your traced agent first (or try `maida demo`)."
         )
     return candidates[0][1]
+
+
+def resolve_latest_run_id(config: MaidaConfig) -> str:
+    """Return the most recent run identifier, whether current trace or legacy run."""
+    runs = list_runs(limit=1, config=config)
+    if not runs:
+        raise FileNotFoundError(
+            "No runs found. Run your traced agent first (or try `maida demo`)."
+        )
+    run_id = runs[0].get("trace_id") or runs[0].get("run_id")
+    if not run_id:
+        raise FileNotFoundError(
+            "No runs found. Run your traced agent first (or try `maida demo`)."
+        )
+    return str(run_id)
 
 
 def resolve_run_id(prefix: str, config: MaidaConfig) -> str:
