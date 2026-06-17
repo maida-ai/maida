@@ -1,0 +1,1 @@
+{"trace_id":"20000000000000000000000000000004","span_id":"1111111111111411","parent_span_id":null,"name":"malformed-unsupported-version","kind":"INTERNAL","start_time":"2026-01-01T01:03:00.000000Z","end_time":"2026-01-01T01:03:00.010000Z","duration_ms":10,"attributes":{"maida.run_name":"malformed-unsupported-version"},"events":[],"status_code":"OK","status_description":""}
