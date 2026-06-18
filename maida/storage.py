@@ -63,25 +63,27 @@ class UnsupportedTraceFormatError(RuntimeError):
         )
 
 
+def _validate_hex_id(value: object, length: int, field_name: str) -> str:
+    """Validate that *value* is a fixed-length lowercase hex string.
+
+    The hex charset + length check also rejects every path-traversal character
+    (``.``, ``/``, ``\\`` are not hex digits), so callers need no separate guard.
+    """
+    if not value or not isinstance(value, str):
+        raise ValueError(f"invalid {field_name}")
+    v = value.strip().lower()
+    if len(v) != length or not _HEX_CHARS.issuperset(v):
+        raise ValueError(f"invalid {field_name}")
+    return v
+
+
 def _validate_trace_id(trace_id: str) -> str:
     """Validate that trace_id is a 32-char hex string (no path traversal)."""
-    if not trace_id or not isinstance(trace_id, str):
-        raise ValueError("invalid trace_id")
-    t = trace_id.strip().lower()
-    if len(t) != _TRACE_ID_LEN or not all(c in "0123456789abcdef" for c in t.lower()):
-        raise ValueError("invalid trace_id")
-    if ".." in t or "/" in t or "\\" in t:
-        raise ValueError("invalid trace_id")
-    return t
+    return _validate_hex_id(trace_id, _TRACE_ID_LEN, "trace_id")
 
 
 def _validate_span_id(span_id: str, *, field_name: str) -> str:
-    if not span_id or not isinstance(span_id, str):
-        raise ValueError(f"invalid {field_name}")
-    sid = span_id.strip().lower()
-    if len(sid) != _SPAN_ID_LEN or not all(c in "0123456789abcdef" for c in sid):
-        raise ValueError(f"invalid {field_name}")
-    return sid
+    return _validate_hex_id(span_id, _SPAN_ID_LEN, field_name)
 
 
 def _atomic_write_json(path: Path, payload: dict) -> None:
@@ -523,32 +525,26 @@ def _safe_version_display(value: object) -> str:
     return text if _SAFE_VERSION_RE.fullmatch(text) else "<redacted>"
 
 
-def _run_validation_error(trace_id: str, problem: str) -> RunValidationError:
-    return RunValidationError(trace_id, problem)
-
-
 def _read_json_file_for_validation(path: Path, trace_id: str, display: str) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as f:
             payload = json.load(f)
     except json.JSONDecodeError:
-        raise _run_validation_error(trace_id, f"{display} is malformed JSON")
+        raise RunValidationError(trace_id, f"{display} is malformed JSON")
     except OSError:
-        raise _run_validation_error(trace_id, f"{display} could not be read")
+        raise RunValidationError(trace_id, f"{display} could not be read")
     if not isinstance(payload, dict):
-        raise _run_validation_error(trace_id, f"{display} must contain a JSON object")
+        raise RunValidationError(trace_id, f"{display} must contain a JSON object")
     return payload
 
 
 def _validate_counts(trace_id: str, counts: object) -> None:
     if not isinstance(counts, dict):
-        raise _run_validation_error(
-            trace_id, "meta.json field 'counts' must be an object"
-        )
+        raise RunValidationError(trace_id, "meta.json field 'counts' must be an object")
     for key in ("llm_calls", "tool_calls", "errors", "loop_warnings"):
         value = counts.get(key)
         if not isinstance(value, int) or value < 0:
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id,
                 f"meta.json counts.{key} must be a non-negative integer",
             )
@@ -557,7 +553,7 @@ def _validate_counts(trace_id: str, counts: object) -> None:
 def _validate_meta(trace_id: str, meta: dict) -> None:
     declared_spec = meta.get("spec_version")
     if declared_spec is not None and declared_spec != SPEC_VERSION:
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id,
             "meta.json declares unsupported spec_version "
             f"{_safe_version_display(declared_spec)!r}; expected {SPEC_VERSION!r}",
@@ -574,34 +570,32 @@ def _validate_meta(trace_id: str, meta: dict) -> None:
     )
     for field in required:
         if field not in meta:
-            raise _run_validation_error(
-                trace_id, f"meta.json is missing field {field!r}"
-            )
+            raise RunValidationError(trace_id, f"meta.json is missing field {field!r}")
 
     if meta.get("trace_id") != trace_id:
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, "meta.json trace_id does not match run directory"
         )
     if meta.get("run_name") is not None and not isinstance(meta.get("run_name"), str):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, "meta.json field 'run_name' must be a string or null"
         )
     if not isinstance(meta.get("started_at"), str):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, "meta.json field 'started_at' must be a string"
         )
     if meta.get("ended_at") is not None and not isinstance(meta.get("ended_at"), str):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, "meta.json field 'ended_at' must be a string or null"
         )
     duration = meta.get("duration_ms")
     if duration is not None and (not isinstance(duration, int) or duration < 0):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id,
             "meta.json field 'duration_ms' must be a non-negative integer or null",
         )
     if meta.get("status") not in ("running", "ok", "error"):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, "meta.json field 'status' must be running, ok, or error"
         )
     _validate_counts(trace_id, meta.get("counts"))
@@ -617,42 +611,42 @@ def _load_spans_for_validation(path: Path, trace_id: str) -> list[dict]:
                 try:
                     span = json.loads(line)
                 except json.JSONDecodeError:
-                    raise _run_validation_error(
+                    raise RunValidationError(
                         trace_id,
                         f"spans.jsonl line {line_no} is malformed JSON",
                     )
                 if not isinstance(span, dict):
-                    raise _run_validation_error(
+                    raise RunValidationError(
                         trace_id,
                         f"spans.jsonl line {line_no} must contain a JSON object",
                     )
                 spans.append(span)
     except OSError:
-        raise _run_validation_error(trace_id, "spans.jsonl could not be read")
+        raise RunValidationError(trace_id, "spans.jsonl could not be read")
     if not spans:
-        raise _run_validation_error(trace_id, "spans.jsonl contains no spans")
+        raise RunValidationError(trace_id, "spans.jsonl contains no spans")
     return spans
 
 
 def _validate_span_events(trace_id: str, line_no: int, events: object) -> None:
     if not isinstance(events, list):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, f"spans.jsonl line {line_no} field 'events' must be an array"
         )
     for idx, event in enumerate(events, start=1):
         if not isinstance(event, dict):
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id,
                 f"spans.jsonl line {line_no} event {idx} must be an object",
             )
         for field in ("name", "timestamp", "attributes"):
             if field not in event:
-                raise _run_validation_error(
+                raise RunValidationError(
                     trace_id,
                     f"spans.jsonl line {line_no} event {idx} is missing field {field!r}",
                 )
         if not isinstance(event.get("attributes"), dict):
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id,
                 f"spans.jsonl line {line_no} event {idx} field 'attributes' must be an object",
             )
@@ -662,7 +656,7 @@ def _require_span_string_field(
     trace_id: str, line_no: int, span: dict, field: str
 ) -> None:
     if not isinstance(span.get(field), str):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, f"spans.jsonl line {line_no} field {field!r} must be a string"
         )
 
@@ -672,7 +666,7 @@ def _require_optional_span_string_field(
 ) -> None:
     value = span.get(field)
     if value is not None and not isinstance(value, str):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id,
             f"spans.jsonl line {line_no} field {field!r} must be a string or null",
         )
@@ -683,7 +677,7 @@ def _require_optional_span_non_negative_int_field(
 ) -> None:
     value = span.get(field)
     if value is not None and (not isinstance(value, int) or value < 0):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id,
             f"spans.jsonl line {line_no} field {field!r} must be a non-negative integer or null",
         )
@@ -693,7 +687,7 @@ def _require_span_object_field(
     trace_id: str, line_no: int, span: dict, field: str
 ) -> None:
     if not isinstance(span.get(field), dict):
-        raise _run_validation_error(
+        raise RunValidationError(
             trace_id, f"spans.jsonl line {line_no} field {field!r} must be an object"
         )
 
@@ -719,25 +713,25 @@ def _validate_spans(
     for line_no, span in enumerate(spans, start=1):
         declared_spec = span.get("spec_version")
         if declared_spec is not None and declared_spec != SPEC_VERSION:
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id,
                 f"spans.jsonl line {line_no} declares unsupported spec_version "
                 f"{_safe_version_display(declared_spec)!r}; expected {SPEC_VERSION!r}",
             )
         for field in required:
             if field not in span:
-                raise _run_validation_error(
+                raise RunValidationError(
                     trace_id, f"spans.jsonl line {line_no} is missing field {field!r}"
                 )
         if span.get("trace_id") != trace_id:
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id,
                 f"spans.jsonl line {line_no} trace_id does not match run directory",
             )
         try:
             _validate_span_id(span.get("span_id"), field_name="span_id")
         except ValueError:
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id, f"spans.jsonl line {line_no} has an invalid span_id"
             )
         parent_span_id = span.get("parent_span_id")
@@ -747,7 +741,7 @@ def _validate_spans(
             try:
                 _validate_span_id(parent_span_id, field_name="parent_span_id")
             except ValueError:
-                raise _run_validation_error(
+                raise RunValidationError(
                     trace_id,
                     f"spans.jsonl line {line_no} has an invalid parent_span_id",
                 )
@@ -761,13 +755,13 @@ def _validate_spans(
         _require_span_object_field(trace_id, line_no, span, "attributes")
         _validate_span_events(trace_id, line_no, span.get("events"))
         if span.get("status_code") not in ("OK", "ERROR", "UNSET"):
-            raise _run_validation_error(
+            raise RunValidationError(
                 trace_id,
                 f"spans.jsonl line {line_no} field 'status_code' must be OK, ERROR, or UNSET",
             )
         _require_span_string_field(trace_id, line_no, span, "status_description")
     if require_root_span and root_count == 0:
-        raise _run_validation_error(trace_id, "spans.jsonl has no root span")
+        raise RunValidationError(trace_id, "spans.jsonl has no root span")
 
 
 def load_validated_run(trace_id: str, config: MaidaConfig) -> tuple[dict, list[dict]]:
@@ -780,9 +774,9 @@ def load_validated_run(trace_id: str, config: MaidaConfig) -> tuple[dict, list[d
     meta_path = run_dir / META_JSON
     spans_path = run_dir / SPANS_JSONL
     if not meta_path.is_file():
-        raise _run_validation_error(trace_id, "required file meta.json is missing")
+        raise RunValidationError(trace_id, "required file meta.json is missing")
     if not spans_path.is_file():
-        raise _run_validation_error(trace_id, "required file spans.jsonl is missing")
+        raise RunValidationError(trace_id, "required file spans.jsonl is missing")
 
     meta = _read_json_file_for_validation(meta_path, trace_id, META_JSON)
     _validate_meta(trace_id, meta)
