@@ -6,6 +6,6 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/ruff-action@v3
+      - uses: actions/checkout@v7
+      - uses: astral-sh/ruff-action@v4.0.0
       - run: ruff format --config=ruff.toml --check
