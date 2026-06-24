@@ -107,6 +107,7 @@ def _write_spans(run_dir, trace_id, spans):
 
 def _valid_meta(trace_id, *, run_name="validated"):
     return {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "run_name": run_name,
         "started_at": "2026-01-01T12:00:00.000Z",
@@ -119,6 +120,7 @@ def _valid_meta(trace_id, *, run_name="validated"):
 
 def _valid_root_span(trace_id, *, span_id="1" * 16, run_name="validated"):
     return {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "span_id": span_id,
         "parent_span_id": None,

@@ -38,6 +38,7 @@ Every OTel span is serialized as a single JSON object with these fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `spec_version` | string | Storage contract version (e.g. `"0.2"`) |
 | `trace_id` | string | 32-hex-character OTel trace ID |
 | `span_id` | string | 16-hex-character OTel span ID |
 | `parent_span_id` | string \| null | 16-hex-character parent span ID, or `null` for root |
@@ -195,6 +196,7 @@ All fields in this table are required keys for the current `meta.json` contract.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `spec_version` | string | Storage contract version (`"0.2"`) |
 | `trace_id` | string | 32-hex-character OTel trace ID |
 | `run_name` | string \| null | Optional run label |
 | `started_at` | string | UTC ISO8601 with µs and `Z` |
@@ -216,7 +218,7 @@ All fields in this table are required keys for the current `meta.json` contract.
 
 There are no stable optional `meta.json` fields in the current contract. Future optional fields may be added without a `spec_version` bump, so external tools should ignore unknown fields rather than fail closed.
 
-Local `meta.json` does not include `spec_version`. The storage contract version is declared by this reference page and by public API/export/projection envelopes that include `spec_version: "0.2"`:
+`spec_version` in `meta.json` (`"0.2"`) declares the storage contract version in-band. The version is also present in public API/export/projection envelopes that include `spec_version: "0.2"`:
 
 - `GET /api/runs`
 - `GET /api/runs/{trace_id}/spans`

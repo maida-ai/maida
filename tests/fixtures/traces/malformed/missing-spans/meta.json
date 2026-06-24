@@ -1,4 +1,5 @@
 {
+  "spec_version": "0.2",
   "trace_id": "20000000000000000000000000000001",
   "run_name": "malformed-missing-spans",
   "started_at": "2026-01-01T01:00:00.000000Z",

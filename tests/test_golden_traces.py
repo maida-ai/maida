@@ -34,6 +34,7 @@ MALFORMED_FIXTURES = {
 }
 
 REQUIRED_META_FIELDS = {
+    "spec_version",
     "trace_id",
     "run_name",
     "started_at",
@@ -43,6 +44,7 @@ REQUIRED_META_FIELDS = {
     "counts",
 }
 REQUIRED_SPAN_FIELDS = {
+    "spec_version",
     "trace_id",
     "span_id",
     "parent_span_id",
@@ -104,8 +106,7 @@ def _validate_fixture_shape(run_dir: Path, expected_trace_id: str) -> list[dict]
         "errors",
         "loop_warnings",
     }
-    if "spec_version" in meta:
-        assert meta["spec_version"] == SPEC_VERSION
+    assert meta["spec_version"] == SPEC_VERSION
 
     spans = _read_jsonl(spans_path)
     assert spans
