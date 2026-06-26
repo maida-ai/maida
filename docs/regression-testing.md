@@ -126,10 +126,10 @@ maida assert <TRACE_ID> --baseline baseline.json
 ```
 
 ```
-  ✓ step_count: 42 steps (baseline: 38, tolerance: 50%)
-  ✓ tool_calls: 12 tool calls (baseline: 10, tolerance: 50%)
-  ✗ no_loops: 2 loop warning(s) detected
-  ✓ expect_status: status is 'ok'
+  ✓ step_count [no_regression]: 42 steps (baseline: 38, tolerance: 50%)
+  ✓ tool_calls [no_regression]: 12 tool calls (baseline: 10, tolerance: 50%)
+  ✗ no_loops [loop_detected]: 2 loop warning(s) detected
+  ✓ expect_status [no_regression]: status is 'ok'
 
 RESULT: FAILED (1 of 4 checks failed)
 ```
@@ -145,10 +145,12 @@ maida assert <TRACE_ID> --baseline baseline.json --format json
   "run_id": "a1b2c3d4-...",
   "baseline_run_id": "e5f6a7b8-...",
   "passed": false,
+  "reason_codes": ["loop_detected"],
   "results": [
     {
       "check_name": "step_count",
       "passed": true,
+      "reason_code": "no_regression",
       "message": "42 steps (baseline: 38, tolerance: 50%)",
       "expected": "57",
       "actual": "42"
@@ -156,6 +158,7 @@ maida assert <TRACE_ID> --baseline baseline.json --format json
     {
       "check_name": "no_loops",
       "passed": false,
+      "reason_code": "loop_detected",
       "message": "2 loop warning(s) detected",
       "expected": null,
       "actual": "2"
@@ -177,6 +180,10 @@ maida assert --baseline baseline.json --format markdown
 
 **1 of 4 checks failed** · run `a1b2c3d4` vs baseline `e5f6a7b8`
 
+### Failed checks by reason
+
+#### `loop_detected`
+
 | Check | Expected | Actual | Details |
 |---|---|---|---|
 | ❌ `no_loops` | — | 2 | 2 loop warning(s) detected |
@@ -197,7 +204,7 @@ maida assert --baseline baseline.json --format markdown
 - ➕ `web_search` — new tool, not in baseline
 ```
 
-The report leads with the verdict, lists failed checks first with expected vs actual values, collapses passing checks, and — when a baseline is provided — embeds the structural diff and a copy-pasteable local-repro snippet.
+The report leads with the verdict, groups failed checks by stable reason code, collapses passing checks, and — when a baseline is provided — embeds the structural diff and a copy-pasteable local-repro snippet.
 
 ---
 

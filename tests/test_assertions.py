@@ -7,6 +7,7 @@ import pytest
 from maida import record_llm_call, record_tool_call, traced_run
 from maida.assertions import (
     AssertionPolicy,
+    RegressionReasonCode,
     _check_threshold,
     format_report_json,
     format_report_markdown,
@@ -17,6 +18,21 @@ from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.events import EventType
 from tests.conftest import get_latest_run_id
+
+
+def test_regression_reason_code_vocabulary_is_stable():
+    assert {code.value for code in RegressionReasonCode} == {
+        "no_regression",
+        "step_count_exceeded",
+        "new_tool_path",
+        "tool_call_count_exceeded",
+        "loop_detected",
+        "cycle_detected",
+        "terminal_state_missing",
+        "guardrail_event_changed",
+        "latency_envelope_exceeded",
+        "cost_envelope_exceeded",
+    }
 
 
 def _make_run(config, *, name="test_run", events=None, status="ok"):
@@ -102,6 +118,8 @@ def test_max_steps_fails_at_n_plus_one(temp_data_dir):
     report = run_assertions(run_id, policy, config=config)
     assert report.passed is False
     assert any(r.check_name == "step_count" and not r.passed for r in report.results)
+    step_result = next(r for r in report.results if r.check_name == "step_count")
+    assert step_result.reason_code == RegressionReasonCode.STEP_COUNT_EXCEEDED.value
 
 
 def test_max_tool_calls_boundary(temp_data_dir):
@@ -175,6 +193,7 @@ def test_zero_baseline_with_standalone_cap_uses_cap_as_limit():
         tolerance=0.5,
         standalone_max=10,
         check_name="step_count",
+        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
         unit="steps",
     )
 
@@ -190,6 +209,7 @@ def test_zero_baseline_without_standalone_cap_allows_no_growth():
         tolerance=0.5,
         standalone_max=None,
         check_name="step_count",
+        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
         unit="steps",
     )
 
@@ -251,6 +271,7 @@ def test_no_new_tools_fails_on_new_tool(temp_data_dir):
     assert report.passed is False
     tool_result = next(r for r in report.results if r.check_name == "new_tools")
     assert "salesforce_api" in tool_result.message
+    assert tool_result.reason_code == RegressionReasonCode.NEW_TOOL_PATH.value
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +303,7 @@ def test_no_loops_fails_when_present(temp_data_dir):
     assert report.passed is False
     loop_result = next(r for r in report.results if r.check_name == "no_loops")
     assert loop_result.actual == "1"
+    assert loop_result.reason_code == RegressionReasonCode.LOOP_DETECTED.value
 
 
 # ---------------------------------------------------------------------------
@@ -342,6 +364,8 @@ def test_max_cost_tokens_fails(temp_data_dir):
     policy = AssertionPolicy(max_cost_tokens=100)
     report = run_assertions(run_id, policy, config=config)
     assert report.passed is False
+    cost_result = next(r for r in report.results if r.check_name == "cost_tokens")
+    assert cost_result.reason_code == RegressionReasonCode.COST_ENVELOPE_EXCEEDED.value
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +401,10 @@ def test_expect_status_mismatch(temp_data_dir):
     policy = AssertionPolicy(expect_status="ok")
     report = run_assertions(run_id, policy, config=config)
     assert report.passed is False
+    status_result = next(r for r in report.results if r.check_name == "expect_status")
+    assert (
+        status_result.reason_code == RegressionReasonCode.TERMINAL_STATE_MISSING.value
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -424,6 +452,19 @@ def test_format_report_text_contains_verdict(temp_data_dir):
     assert "PASSED" in text
 
 
+def test_format_report_text_includes_reason_code(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(5)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_steps=2, no_loops=True)
+    report = run_assertions(run_id, policy, config=config)
+
+    text = format_report_text(report)
+
+    assert "[step_count_exceeded]" in text
+    assert "[no_regression]" in text
+
+
 def test_format_report_json_valid(temp_data_dir):
     config = load_config()
     run_id = _make_run(config, events=[])
@@ -432,6 +473,22 @@ def test_format_report_json_valid(temp_data_dir):
     data = json.loads(format_report_json(report))
     assert data["passed"] is True
     assert "results" in data
+    assert data["results"][0]["reason_code"] == RegressionReasonCode.NO_REGRESSION.value
+
+
+def test_format_report_json_emits_stable_reason_codes(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(3)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_steps=1)
+    report = run_assertions(run_id, policy, config=config)
+
+    data = json.loads(format_report_json(report))
+
+    assert data["reason_codes"] == [RegressionReasonCode.STEP_COUNT_EXCEEDED.value]
+    assert data["results"][0]["reason_code"] == (
+        RegressionReasonCode.STEP_COUNT_EXCEEDED.value
+    )
 
 
 def test_format_report_markdown_pass_layout(temp_data_dir):
@@ -444,6 +501,7 @@ def test_format_report_markdown_pass_layout(temp_data_dir):
     assert "## ✅ Maida gate: no behavioral regression" in md
     assert "<details>" in md  # passing checks are collapsed
     assert "passing checks" in md
+    assert "`no_regression`:" not in md
     assert "Reproduce locally" in md
     assert "maida.ai" in md
 
@@ -458,9 +516,26 @@ def test_format_report_markdown_failed_checks_first(temp_data_dir):
     assert "## ❌ Maida gate: agent behavior regressed" in md
     assert "1 of 2 checks failed" in md
     # failed table with expected/actual comes before the collapsed passing block
-    assert md.index("| Check | Expected | Actual |") < md.index("<details>")
-    assert "❌ `step_count`" in md
+    assert md.index("#### `step_count_exceeded`") < md.index("<details>")
+    assert "| Check | Expected | Actual | Details |" in md
+    assert "| ❌ `step_count` |" in md
     assert "✅ `no_loops`" in md
+
+
+def test_format_report_markdown_groups_failures_by_reason_code(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(5)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_steps=2, max_tool_calls=2)
+    report = run_assertions(run_id, policy, config=config)
+
+    md = format_report_markdown(report)
+
+    assert "#### `step_count_exceeded`" in md
+    assert "#### `tool_call_count_exceeded`" in md
+    assert md.index("#### `step_count_exceeded`") < md.index(
+        "#### `tool_call_count_exceeded`"
+    )
 
 
 def test_format_report_markdown_includes_diff_section(temp_data_dir):
