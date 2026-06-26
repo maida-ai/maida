@@ -26,6 +26,7 @@ def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
     """
     counts = meta.get("counts") or {}
     tool_names_ordered: list[str] = []
+    tool_call_sequence: list[str] = []
     tool_counter: Counter[str] = Counter()
     llm_models: set[str] = set()
     event_type_seq: list[str] = []
@@ -44,6 +45,7 @@ def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
 
         if et == EventType.TOOL_CALL.value:
             name = ev.get("name", "")
+            tool_call_sequence.append(name)
             tool_counter[name] += 1
             if name not in tool_names_ordered:
                 tool_names_ordered.append(name)
@@ -77,6 +79,8 @@ def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
             "total_tokens": total_tokens,
         },
         "tool_path": sorted(tool_names_ordered),
+        "tool_call_sequence": tool_call_sequence,
+        "_tool_call_sequence_exact": True,
         "tool_call_counts": dict(tool_counter),
         "llm_models_used": sorted(llm_models),
         "event_type_sequence": event_type_seq,

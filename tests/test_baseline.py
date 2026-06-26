@@ -87,6 +87,7 @@ def test_create_baseline_schema_keys(temp_data_dir):
         "source_run_name",
         "summary",
         "tool_path",
+        "tool_call_sequence",
         "tool_call_counts",
         "llm_models_used",
         "event_type_sequence",
@@ -180,6 +181,7 @@ def test_tool_path_ordered_unique(temp_data_dir):
     bl = create_baseline(run_id, config)
 
     assert bl["tool_path"] == sorted(["search", "parse", "format"])
+    assert bl["tool_call_sequence"] == ["search", "parse", "search", "format"]
     assert bl["tool_call_counts"] == {"search": 2, "parse": 1, "format": 1}
 
 

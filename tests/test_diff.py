@@ -175,6 +175,168 @@ def test_diff_against_baseline(temp_data_dir):
     assert d.run_b_id == bl_rid
 
 
+def test_old_baseline_tool_path_order_is_not_treated_as_exact_sequence(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "parse", {}),
+        ],
+    )
+    baseline = {
+        "source_run_id": "old-baseline",
+        "summary": {},
+        "tool_path": ["parse", "search"],
+        "tool_call_counts": {"parse": 1, "search": 1},
+        "llm_models_used": [],
+        "event_type_sequence": [],
+        "guardrail_events": [],
+        "final_status": "ok",
+    }
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+    text = format_diff_text(d)
+
+    assert d.reordered_tools is False
+    assert d.new_tools == []
+    assert d.removed_tools == []
+    assert "Tool path:" not in text
+    assert "Tool call changes:" not in text
+
+
+def test_old_baseline_without_call_counts_does_not_fake_repeated_tool(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[(EventType.TOOL_CALL, "bash", {}) for _ in range(4)],
+    )
+    baseline = {
+        "source_run_id": "old-baseline",
+        "summary": {},
+        "tool_path": ["bash"],
+        "llm_models_used": [],
+        "event_type_sequence": [],
+        "guardrail_events": [],
+        "final_status": "ok",
+    }
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+    text = format_diff_text(d)
+
+    assert d.repeated_tools == {}
+    assert "~ bash repeated" not in text
+
+
+def test_baseline_with_null_tool_path_is_treated_as_empty(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="current", events=[])
+    baseline = {
+        "source_run_id": "external-baseline",
+        "summary": {},
+        "tool_path": None,
+        "tool_call_counts": {},
+        "llm_models_used": [],
+        "event_type_sequence": [],
+        "guardrail_events": [],
+        "final_status": "ok",
+    }
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+
+    assert d.baseline_tool_sequence == []
+    assert d.removed_tools == []
+
+
+def test_diff_tool_path_reports_step_delta_and_tool_changes(temp_data_dir):
+    config = load_config()
+    bl_rid = _make_run(
+        config,
+        name="baseline",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "parse", {}),
+        ],
+    )
+    baseline = create_baseline(bl_rid, config)
+
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "parse", {}),
+            (EventType.TOOL_CALL, "enrich", {}),
+            (EventType.TOOL_CALL, "enrich", {}),
+        ],
+    )
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+    text = format_diff_text(d)
+
+    assert "step_count:" in text
+    assert "baseline: search -> parse" in text
+    assert "current: search -> parse -> enrich -> enrich" in text
+    assert "+ enrich (new)" in text
+    assert "~ enrich repeated: 0 -> 2 calls" in text
+
+
+def test_diff_tool_path_identifies_removed_and_reordered_calls(temp_data_dir):
+    config = load_config()
+    bl_rid = _make_run(
+        config,
+        name="baseline",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "parse", {}),
+            (EventType.TOOL_CALL, "summarize", {}),
+        ],
+    )
+    baseline = create_baseline(bl_rid, config)
+
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[
+            (EventType.TOOL_CALL, "parse", {}),
+            (EventType.TOOL_CALL, "search", {}),
+        ],
+    )
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+    text = format_diff_text(d)
+
+    assert "- summarize (removed)" in text
+    assert "order changed for shared tool calls" in text
+
+
+def test_diff_tool_path_truncates_long_sequences(temp_data_dir):
+    from maida.diff import format_diff_markdown
+
+    config = load_config()
+    bl_rid = _make_run(
+        config,
+        name="baseline",
+        events=[(EventType.TOOL_CALL, f"tool_{i}", {}) for i in range(16)],
+    )
+    baseline = create_baseline(bl_rid, config)
+
+    run_id = _make_run(
+        config,
+        name="current",
+        events=[(EventType.TOOL_CALL, f"tool_{i}", {}) for i in range(20)],
+    )
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+    md = format_diff_markdown(d)
+
+    assert "... (8 more) ..." in md
+    assert "tool_19" in md
+    assert "tool_8 -> tool_9 -> tool_10" not in md
+
+
 def test_diff_returns_resolved_left_trace_id(temp_data_dir):
     config = load_config()
     run_a = "a0eebc99" + "a" * 24
