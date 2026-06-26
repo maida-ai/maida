@@ -551,15 +551,8 @@ def _validate_counts(trace_id: str, counts: object) -> None:
 
 
 def _validate_meta(trace_id: str, meta: dict) -> None:
-    declared_spec = meta.get("spec_version")
-    if declared_spec is not None and declared_spec != SPEC_VERSION:
-        raise RunValidationError(
-            trace_id,
-            "meta.json declares unsupported spec_version "
-            f"{_safe_version_display(declared_spec)!r}; expected {SPEC_VERSION!r}",
-        )
-
     required = (
+        "spec_version",
         "trace_id",
         "run_name",
         "started_at",
@@ -568,6 +561,17 @@ def _validate_meta(trace_id: str, meta: dict) -> None:
         "status",
         "counts",
     )
+    for field in required:
+        if field not in meta:
+            raise RunValidationError(trace_id, f"meta.json is missing field {field!r}")
+
+    declared_spec = meta["spec_version"]
+    if declared_spec != SPEC_VERSION:
+        raise RunValidationError(
+            trace_id,
+            "meta.json declares unsupported spec_version "
+            f"{_safe_version_display(declared_spec)!r}; expected {SPEC_VERSION!r}",
+        )
     for field in required:
         if field not in meta:
             raise RunValidationError(trace_id, f"meta.json is missing field {field!r}")
@@ -697,6 +701,7 @@ def _validate_spans(
 ) -> None:
     root_count = 0
     required = (
+        "spec_version",
         "trace_id",
         "span_id",
         "parent_span_id",
@@ -711,8 +716,13 @@ def _validate_spans(
         "status_description",
     )
     for line_no, span in enumerate(spans, start=1):
-        declared_spec = span.get("spec_version")
-        if declared_spec is not None and declared_spec != SPEC_VERSION:
+        for field in required:
+            if field not in span:
+                raise RunValidationError(
+                    trace_id, f"spans.jsonl line {line_no} is missing field {field!r}"
+                )
+        declared_spec = span["spec_version"]
+        if declared_spec != SPEC_VERSION:
             raise RunValidationError(
                 trace_id,
                 f"spans.jsonl line {line_no} declares unsupported spec_version "

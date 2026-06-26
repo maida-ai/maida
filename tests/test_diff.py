@@ -31,6 +31,7 @@ def _write_trace_run(config, trace_id, run_name):
     run_dir = config.data_dir / "runs" / trace_id
     run_dir.mkdir(parents=True, exist_ok=True)
     meta = {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "run_name": run_name,
         "started_at": "2026-01-01T00:00:00.000Z",
@@ -41,6 +42,7 @@ def _write_trace_run(config, trace_id, run_name):
     }
     (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     root_span = {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "span_id": "0" * 16,
         "parent_span_id": None,

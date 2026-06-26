@@ -19,6 +19,7 @@ def _write_run(config, trace_id, run_name="test"):
     run_dir = runs_base / trace_id
     run_dir.mkdir(parents=True, exist_ok=True)
     meta = {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "run_name": run_name,
         "started_at": "2026-01-01T12:00:00.000Z",
@@ -29,6 +30,7 @@ def _write_run(config, trace_id, run_name="test"):
     }
     (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     root_span = {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "span_id": "0" * 16,
         "parent_span_id": None,
@@ -50,6 +52,7 @@ def _write_run_with_malformed_span(config, trace_id):
     run_dir = runs_base / trace_id
     run_dir.mkdir(parents=True, exist_ok=True)
     meta = {
+        "spec_version": "0.2",
         "trace_id": trace_id,
         "run_name": "bad",
         "started_at": "2026-01-01T12:00:00.000Z",

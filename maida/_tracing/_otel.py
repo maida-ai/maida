@@ -26,6 +26,7 @@ from opentelemetry.sdk.trace.export import (
 
 from maida._tracing._redact import _redact_and_truncate
 from maida.config import MaidaConfig, load_config
+from maida.constants import SPEC_VERSION
 
 _MAIDA_TRACER_NAME = "maida"
 _MAIDA_TRACER_VERSION = "0.1.0"
@@ -196,6 +197,7 @@ def span_to_dict(
     status_desc = _redact_and_truncate(status_desc, config)
 
     return {
+        "spec_version": SPEC_VERSION,
         "trace_id": format(sc.trace_id, "032x"),
         "span_id": format(sc.span_id, "016x"),
         "parent_span_id": format(parent_sc.span_id, "016x") if parent_sc else None,
@@ -272,6 +274,7 @@ class MaidaLocalSpanExporter(SpanExporter):
             self._write_meta(
                 meta_path,
                 {
+                    "spec_version": SPEC_VERSION,
                     "trace_id": span_dict["trace_id"],
                     "run_name": None,
                     "started_at": span_dict.get("start_time"),
@@ -298,6 +301,7 @@ class MaidaLocalSpanExporter(SpanExporter):
         elif span_dict.get("status_code") == "ERROR":
             status = "error"
         meta = {
+            "spec_version": SPEC_VERSION,
             "trace_id": span_dict["trace_id"],
             "run_name": attrs.get(MAIDA_RUN_NAME),
             "started_at": span_dict.get("start_time"),

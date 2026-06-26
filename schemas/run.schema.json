@@ -4,8 +4,9 @@
   "title": "Maida meta.json",
   "description": "Run metadata file (meta.json) for Maida trace format spec_version 0.2. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
   "type": "object",
-  "required": ["trace_id", "run_name", "started_at", "ended_at", "duration_ms", "status", "counts"],
+  "required": ["spec_version", "trace_id", "run_name", "started_at", "ended_at", "duration_ms", "status", "counts"],
   "properties": {
+    "spec_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
     "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
     "run_name": { "type": ["string", "null"] },
     "started_at": { "type": "string", "format": "date-time" },

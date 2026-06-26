@@ -47,7 +47,7 @@ def test_trace_format_documents_current_storage_contract():
         "## Run storage layout",
         "`<data_dir>/runs/<trace_id>/`",
         "`meta.json` and `spans.jsonl` are the required files",
-        "Local `meta.json` does not include `spec_version`",
+        '`spec_version` in `meta.json` (`"0.2"`) declares the storage contract version in-band',
         "`spans_to_events()` projection",
         "Stable for external tooling",
         "Internal and subject to change",
