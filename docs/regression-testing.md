@@ -44,11 +44,12 @@ maida baseline a1b2c3d4 --out baselines/support_agent_v1.json
 
 | Field | Description |
 |---|---|
-| `schema_version` | Baseline format version (`"0.1"`) |
+| `schema_version` | Baseline format version (`"0.2"`) |
 | `source_run_id` | The run this baseline was created from |
 | `source_run_name` | Run name (if set) |
 | `summary` | Aggregate metrics: total events, LLM calls, tool calls, errors, loop warnings, duration, tokens |
 | `tool_path` | Sorted list of unique tool names used |
+| `tool_call_sequence` | Ordered tool-call names, including repeated calls |
 | `tool_call_counts` | Per-tool invocation counts |
 | `llm_models_used` | Models seen in LLM_CALL events |
 | `event_type_sequence` | Ordered list of event types |
@@ -230,12 +231,18 @@ maida diff <RUN_A> <RUN_B>
 Run comparison: a1b2c3d4 vs e5f6a7b8
 
 Summary:
-  total_events: 38 -> 42 (+11%)
+  step_count: 38 -> 42 (+11%)
   tool_calls: 10 -> 14 (+40%)
   loop_warnings: 0 -> 2 (NEW)
 
-Tool path changes:
+Tool path:
+  baseline: search -> parse -> summarize
+  current: search -> parse -> web_search -> web_search -> summarize
+
+Tool call changes:
   + web_search (new)
+  ~ web_search repeated: 0 -> 2 calls
+  ! order changed for shared tool calls
 
 Event type distribution:
   LLM_CALL: 8 -> 8
@@ -243,7 +250,7 @@ Event type distribution:
   LOOP_WARNING: 0 -> 2 (NEW)
 ```
 
-The diff shows summary-level metric changes, new or removed tools, and shifts in the event type distribution.
+The diff shows summary-level metric changes, compact baseline/current tool paths, new or removed tools, repeated calls, reordered shared tools, and shifts in the event type distribution.
 
 ---
 

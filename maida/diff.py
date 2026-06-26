@@ -22,19 +22,47 @@ class RunDiff:
     event_count_diff: dict = field(default_factory=dict)
     new_tools: list[str] = field(default_factory=list)
     removed_tools: list[str] = field(default_factory=list)
+    repeated_tools: dict[str, tuple[int, int]] = field(default_factory=dict)
+    reordered_tools: bool = False
+    current_tool_sequence: list[str] = field(default_factory=list)
+    baseline_tool_sequence: list[str] = field(default_factory=list)
     model_changes: dict = field(default_factory=dict)
 
 
+def _as_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _as_int_counter(value: object) -> Counter[str]:
+    counter: Counter[str] = Counter()
+    if not isinstance(value, dict):
+        return counter
+    for key, count in value.items():
+        if isinstance(key, str) and isinstance(count, int) and count >= 0:
+            counter[key] = count
+    return counter
+
+
 def _metrics_from_baseline(baseline: dict) -> dict:
-    """Normalise a baseline dict into the same shape as ``extract_run_metrics``."""
+    """Normalise a baseline dict into the same shape as `extract_run_metrics`."""
+    tool_path = _as_string_list(baseline.get("tool_path"))
+    tool_call_sequence = _as_string_list(baseline.get("tool_call_sequence"))
+    exact_tool_sequence = isinstance(baseline.get("tool_call_sequence"), list)
+    if not tool_call_sequence:
+        tool_call_sequence = tool_path
     return {
         "summary": baseline.get("summary", {}),
-        "tool_path": baseline.get("tool_path", []),
+        "tool_path": tool_path,
+        "tool_call_sequence": tool_call_sequence,
+        "_tool_call_sequence_exact": exact_tool_sequence,
+        "_tool_call_counts_exact": isinstance(baseline.get("tool_call_counts"), dict),
         "tool_call_counts": baseline.get("tool_call_counts", {}),
         "llm_models_used": baseline.get("llm_models_used", []),
         "event_type_sequence": baseline.get("event_type_sequence", []),
         "guardrail_events": baseline.get("guardrail_events", []),
-        "final_status": baseline.get("final_status", ""),
+        "final_status": baseline.get("final_status", "unknown"),
     }
 
 
@@ -75,14 +103,53 @@ def compute_diff(
             summary_diff[key] = (va, vb)
 
     # --- tool path diff ---
-    tools_a = set(metrics_a["tool_path"])
-    tools_b = set(metrics_b["tool_path"])
-    tool_path_diff = {
-        "added": sorted(tools_a - tools_b),
-        "removed": sorted(tools_b - tools_a),
-        "common": sorted(tools_a & tools_b),
+    tools_a = set(_as_string_list(metrics_a.get("tool_path")))
+    tools_b = set(_as_string_list(metrics_b.get("tool_path")))
+    new_tools = sorted(tools_a - tools_b)
+    removed_tools = sorted(tools_b - tools_a)
+
+    current_tool_sequence = _as_string_list(metrics_a.get("tool_call_sequence"))
+    baseline_tool_sequence = _as_string_list(metrics_b.get("tool_call_sequence"))
+    counts_a = _as_int_counter(metrics_a.get("tool_call_counts")) or Counter(
+        current_tool_sequence
+    )
+    counts_b = _as_int_counter(metrics_b.get("tool_call_counts"))
+    counts_b_exact = bool(metrics_b.get("_tool_call_counts_exact", True))
+    repeated_tools = {
+        tool: (counts_b.get(tool, 0), current_count)
+        for tool, current_count in sorted(counts_a.items())
+        if current_count > 1
+        and (
+            tool not in tools_b
+            or (counts_b_exact and current_count > counts_b.get(tool, 0))
+        )
     }
 
+    common_tools = {
+        tool
+        for tool in counts_a
+        if counts_a[tool] and (counts_b.get(tool) or tool in tools_b)
+    }
+    exact_a = bool(metrics_a.get("_tool_call_sequence_exact"))
+    exact_b = bool(metrics_b.get("_tool_call_sequence_exact"))
+    current_common_sequence = [
+        tool for tool in current_tool_sequence if tool in common_tools
+    ]
+    baseline_common_sequence = [
+        tool for tool in baseline_tool_sequence if tool in common_tools
+    ]
+    reordered_tools = (
+        exact_a and exact_b and current_common_sequence != baseline_common_sequence
+    )
+
+    tool_path_diff = {
+        "new": new_tools,
+        "removed": removed_tools,
+        "repeated": repeated_tools,
+        "reordered": reordered_tools,
+        "current_sequence_exact": exact_a,
+        "baseline_sequence_exact": exact_b,
+    }
     # --- event count diff ---
     seq_a = Counter(metrics_a["event_type_sequence"])
     seq_b = Counter(metrics_b["event_type_sequence"])
@@ -103,8 +170,12 @@ def compute_diff(
         summary_diff=summary_diff,
         tool_path_diff=tool_path_diff,
         event_count_diff=event_count_diff,
-        new_tools=tool_path_diff["added"],
+        new_tools=tool_path_diff["new"],
         removed_tools=tool_path_diff["removed"],
+        repeated_tools=repeated_tools,
+        reordered_tools=reordered_tools,
+        current_tool_sequence=current_tool_sequence,
+        baseline_tool_sequence=baseline_tool_sequence,
         model_changes=model_changes,
     )
 
@@ -124,6 +195,57 @@ def _pct_change(a: int | float, b: int | float) -> str:
     return f"{delta:+.0f}%"
 
 
+_SUMMARY_LABELS = {"total_events": "step_count"}
+_SUMMARY_ORDER = [
+    "total_events",
+    "tool_calls",
+    "total_tokens",
+    "duration_ms",
+    "llm_calls",
+    "errors",
+    "loop_warnings",
+    "status",
+]
+_TOOL_PATH_PREVIEW_SIDE = 6
+
+
+def _summary_keys(summary_diff: dict) -> list[str]:
+    ordered = [key for key in _SUMMARY_ORDER if key in summary_diff]
+    ordered += sorted(key for key in summary_diff if key not in _SUMMARY_ORDER)
+    return ordered
+
+
+def _summary_label(key: str) -> str:
+    return _SUMMARY_LABELS.get(key, key)
+
+
+def _format_tool_sequence(sequence: list[str]) -> str:
+    preview_limit = _TOOL_PATH_PREVIEW_SIDE * 2
+    if len(sequence) <= preview_limit:
+        return " -> ".join(sequence) if sequence else "(none)"
+    head = sequence[:_TOOL_PATH_PREVIEW_SIDE]
+    tail = sequence[-_TOOL_PATH_PREVIEW_SIDE:]
+    hidden = len(sequence) - len(head) - len(tail)
+    return " -> ".join(head + [f"... ({hidden} more) ..."] + tail)
+
+
+def _has_tool_path_changes(diff: RunDiff) -> bool:
+    exact_sequences = bool(
+        diff.tool_path_diff.get("current_sequence_exact")
+        and diff.tool_path_diff.get("baseline_sequence_exact")
+    )
+    return bool(
+        diff.new_tools
+        or diff.removed_tools
+        or diff.repeated_tools
+        or diff.reordered_tools
+        or (
+            exact_sequences
+            and diff.current_tool_sequence != diff.baseline_tool_sequence
+        )
+    )
+
+
 def format_diff_text(diff: RunDiff) -> str:
     """Format a ``RunDiff`` as human-readable text."""
     lines: list[str] = [f"Run comparison: {diff.run_a_id[:8]} vs {diff.run_b_id[:8]}"]
@@ -131,22 +253,36 @@ def format_diff_text(diff: RunDiff) -> str:
     if diff.summary_diff:
         lines.append("")
         lines.append("Summary:")
-        for key, (va, vb) in sorted(diff.summary_diff.items()):
+        for key in _summary_keys(diff.summary_diff):
+            va, vb = diff.summary_diff[key]
+            label = _summary_label(key)
             if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
-                lines.append(f"  {key}: {vb} -> {va} ({_pct_change(va, vb)})")
+                lines.append(f"  {label}: {vb} -> {va} ({_pct_change(va, vb)})")
             else:
-                lines.append(f"  {key}: {vb} -> {va}")
+                lines.append(f"  {label}: {vb} -> {va}")
     else:
         lines.append("")
         lines.append("Summary: identical")
 
-    if diff.new_tools or diff.removed_tools:
+    if _has_tool_path_changes(diff):
         lines.append("")
-        lines.append("Tool path changes:")
+        lines.append("Tool path:")
+        lines.append(
+            f"  baseline: {_format_tool_sequence(diff.baseline_tool_sequence)}"
+        )
+        lines.append(f"  current: {_format_tool_sequence(diff.current_tool_sequence)}")
+        lines.append("")
+        lines.append("Tool call changes:")
         for t in diff.new_tools:
             lines.append(f"  + {t} (new)")
         for t in diff.removed_tools:
             lines.append(f"  - {t} (removed)")
+        for tool, (baseline_count, current_count) in diff.repeated_tools.items():
+            lines.append(
+                f"  ~ {tool} repeated: {baseline_count} -> {current_count} calls"
+            )
+        if diff.reordered_tools:
+            lines.append("  ! order changed for shared tool calls")
 
     if diff.event_count_diff:
         lines.append("")
@@ -170,15 +306,30 @@ def format_diff_markdown(diff: RunDiff) -> str:
 
     if diff.summary_diff:
         rows = ["| Metric | Baseline | Current | Change |", "|---|---|---|---|"]
-        for key, (va, vb) in sorted(diff.summary_diff.items()):
+        for key in _summary_keys(diff.summary_diff):
+            va, vb = diff.summary_diff[key]
+            label = _summary_label(key)
             if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
-                rows.append(f"| {key} | {vb} | {va} | {_pct_change(va, vb)} |")
+                rows.append(f"| {label} | {vb} | {va} | {_pct_change(va, vb)} |")
             else:
-                rows.append(f"| {key} | {vb} | {va} | changed |")
+                rows.append(f"| {label} | {vb} | {va} | changed |")
         sections.append("\n".join(rows))
+
+    if _has_tool_path_changes(diff):
+        sections.append(
+            "**Tool path:**\n"
+            f"- Baseline: `{_format_tool_sequence(diff.baseline_tool_sequence)}`\n"
+            f"- Current: `{_format_tool_sequence(diff.current_tool_sequence)}`"
+        )
 
     tool_lines = [f"- ➕ `{t}` — new tool, not in baseline" for t in diff.new_tools]
     tool_lines += [f"- ➖ `{t}` — no longer called" for t in diff.removed_tools]
+    tool_lines += [
+        f"- 🔁 `{tool}` — repeated {baseline_count} -> {current_count} calls"
+        for tool, (baseline_count, current_count) in diff.repeated_tools.items()
+    ]
+    if diff.reordered_tools:
+        tool_lines.append("- 🔀 Tool order changed for shared calls")
     if tool_lines:
         sections.append("**Tool changes:**\n" + "\n".join(tool_lines))
 

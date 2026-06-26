@@ -440,9 +440,8 @@ def format_report_markdown(
         lines.append(f"**All {len(report.results)} checks passed** \u00b7 {scope}")
 
     if failed:
-        seen_reason_codes = report.reason_codes
         lines += ["", "### Failed checks by reason"]
-        for reason_code in seen_reason_codes:
+        for reason_code in report.reason_codes:
             reason_failures = [r for r in failed if r.reason_code == reason_code]
             lines += [
                 "",

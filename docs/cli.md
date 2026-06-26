@@ -181,7 +181,7 @@ maida baseline a1b2c3d4 --out baselines/support_agent_v1.json
 
 **Exit codes:** `0` success; `2` run not found; `10` internal error.
 
-The output file is a JSON object containing `schema_version`, `source_run_id`, summary metrics, `tool_path`, `tool_call_counts`, `llm_models_used`, `event_type_sequence`, and `final_status`. Check it into version control to share the baseline with your team.
+The output file is a JSON object containing `schema_version`, `source_run_id`, summary metrics, `tool_path`, ordered `tool_call_sequence`, `tool_call_counts`, `llm_models_used`, `event_type_sequence`, and `final_status`. Check it into version control to share the baseline with your team.
 
 ---
 
@@ -275,6 +275,7 @@ maida diff --baseline .maida/baselines/my_agent.json
 
 **Text output sections:**
 
-- **Summary** — metric-by-metric comparison with percentage change (e.g. `tool_calls: 10 -> 14 (+40%)`)
-- **Tool path changes** — new (`+`) and removed (`-`) tools
+- **Summary** — metric-by-metric comparison with percentage change (e.g. `step_count: 38 -> 42 (+11%)`)
+- **Tool path** — compact baseline/current tool-call sequences, with long paths truncated in the middle
+- **Tool call changes** — new (`+`), removed (`-`), repeated (`~`), and reordered (`!`) tool calls
 - **Event type distribution** — per-event-type counts with percentage change
