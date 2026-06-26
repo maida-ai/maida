@@ -91,6 +91,26 @@ for that metric.
 
 ---
 
+## Reason codes
+
+`maida assert` emits stable reason codes in text, JSON, and Markdown output. Passing checks use `no_regression`; failed checks use one of the product-facing codes below.
+
+| Reason code | Check |
+|---|---|
+| `step_count_exceeded` | Step/event count exceeded the baseline envelope or hard cap |
+| `new_tool_path` | A tool appeared that was not present in the baseline |
+| `tool_call_count_exceeded` | Tool call count exceeded the baseline envelope or hard cap |
+| `loop_detected` | One or more `LOOP_WARNING` events were detected |
+| `cycle_detected` | Reserved (not yet emitted) for graph/cycle checks that detect cyclic behavior |
+| `terminal_state_missing` | The run did not end in the expected terminal status |
+| `guardrail_event_changed` | Guardrail-triggered events were detected |
+| `latency_envelope_exceeded` | Run duration exceeded the baseline envelope or hard cap |
+| `cost_envelope_exceeded` | Token usage exceeded the baseline envelope or hard cap |
+
+Machine-readable JSON includes a top-level `reason_codes` array containing the failed reason codes in result order, plus `reason_code` on every individual result. Markdown groups failed checks by reason code for PR comments.
+
+---
+
 ## Override rules
 
 When `maida assert` loads a policy file and also receives CLI flags, `merge_policy` applies these rules:

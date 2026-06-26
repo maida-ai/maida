@@ -7,6 +7,7 @@ results are collected into an ``AssertionReport`` with an overall pass/fail.
 
 import json
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -19,6 +20,21 @@ from maida.storage import load_run_for_analysis
 
 
 kDefaultTolerance = 0.5  # 50% global default
+
+
+class RegressionReasonCode(str, Enum):
+    """Stable reason codes for assertion decisions and PR comment grouping."""
+
+    NO_REGRESSION = "no_regression"
+    STEP_COUNT_EXCEEDED = "step_count_exceeded"
+    NEW_TOOL_PATH = "new_tool_path"
+    TOOL_CALL_COUNT_EXCEEDED = "tool_call_count_exceeded"
+    LOOP_DETECTED = "loop_detected"
+    CYCLE_DETECTED = "cycle_detected"  # reserved - not yet emitted
+    TERMINAL_STATE_MISSING = "terminal_state_missing"
+    GUARDRAIL_EVENT_CHANGED = "guardrail_event_changed"
+    LATENCY_ENVELOPE_EXCEEDED = "latency_envelope_exceeded"
+    COST_ENVELOPE_EXCEEDED = "cost_envelope_exceeded"
 
 
 @dataclass
@@ -57,6 +73,7 @@ class AssertionResult:
     check_name: str
     passed: bool
     message: str
+    reason_code: RegressionReasonCode = RegressionReasonCode.NO_REGRESSION
     expected: str | None = None
     actual: str | None = None
 
@@ -75,6 +92,27 @@ class AssertionReport:
         if not result.passed:
             self.passed = False
 
+    @property
+    def reason_codes(self) -> list[RegressionReasonCode]:
+        """Failure reason codes in result order, de-duplicated for machines."""
+        return list(
+            dict.fromkeys(
+                result.reason_code for result in self.results if not result.passed
+            )
+        )
+
+
+def _reason_code_for(
+    passed: bool, failure_code: RegressionReasonCode
+) -> RegressionReasonCode:
+    return RegressionReasonCode.NO_REGRESSION if passed else failure_code
+
+
+def _reason_code_text(reason_code: RegressionReasonCode | str) -> str:
+    if isinstance(reason_code, RegressionReasonCode):
+        return reason_code.value
+    return str(reason_code)
+
 
 def _check_threshold(
     actual: int | float,
@@ -82,6 +120,7 @@ def _check_threshold(
     tolerance: float,
     standalone_max: int | float | None,
     check_name: str,
+    reason_code: RegressionReasonCode,
     unit: str,
 ) -> AssertionResult | None:
     """Shared threshold/tolerance comparison for numeric metrics.
@@ -104,6 +143,7 @@ def _check_threshold(
                 f"{int(actual)} {unit} (baseline: {int(baseline_value)}, "
                 f"tolerance: {tolerance:.0%}, cap: {standalone_max})"
             ),
+            reason_code=_reason_code_for(passed, reason_code),
             expected=str(int(limit)),
             actual=str(int(actual)),
         )
@@ -121,6 +161,7 @@ def _check_threshold(
                 f"{int(actual)} {unit} (baseline: {int(baseline_value)}, "
                 f"tolerance: {tolerance:.0%})"
             ),
+            reason_code=_reason_code_for(passed, reason_code),
             expected=str(int(limit)),
             actual=str(int(actual)),
         )
@@ -131,6 +172,7 @@ def _check_threshold(
             check_name=check_name,
             passed=passed,
             message=f"{int(actual)} {unit} (max: {standalone_max})",
+            reason_code=_reason_code_for(passed, reason_code),
             expected=str(standalone_max),
             actual=str(int(actual)),
         )
@@ -175,6 +217,7 @@ def run_assertions(
         tolerance=policy.step_tolerance,
         standalone_max=policy.max_steps,
         check_name="step_count",
+        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
         unit="steps",
     )
     if r:
@@ -187,6 +230,7 @@ def run_assertions(
         tolerance=policy.tool_call_tolerance,
         standalone_max=policy.max_tool_calls,
         check_name="tool_calls",
+        reason_code=RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
         unit="tool calls",
     )
     if r:
@@ -204,6 +248,9 @@ def run_assertions(
                 passed=passed,
                 message=(
                     "no new tools" if passed else f"unexpected tools used: {new_tools}"
+                ),
+                reason_code=_reason_code_for(
+                    passed, RegressionReasonCode.NEW_TOOL_PATH
                 ),
                 expected="none",
                 actual=str(new_tools) if new_tools else "none",
@@ -223,6 +270,9 @@ def run_assertions(
                     if passed
                     else f"{loop_count} loop warning(s) detected"
                 ),
+                reason_code=_reason_code_for(
+                    passed, RegressionReasonCode.LOOP_DETECTED
+                ),
                 actual=str(loop_count),
             )
         )
@@ -240,6 +290,9 @@ def run_assertions(
                     if passed
                     else f"{gr_count} guardrail event(s) detected"
                 ),
+                reason_code=_reason_code_for(
+                    passed, RegressionReasonCode.GUARDRAIL_EVENT_CHANGED
+                ),
                 actual=str(gr_count),
             )
         )
@@ -251,6 +304,7 @@ def run_assertions(
         tolerance=policy.cost_tolerance,
         standalone_max=policy.max_cost_tokens,
         check_name="cost_tokens",
+        reason_code=RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
         unit="tokens",
     )
     if r:
@@ -263,6 +317,7 @@ def run_assertions(
         tolerance=policy.duration_tolerance,
         standalone_max=policy.max_duration_ms,
         check_name="duration",
+        reason_code=RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
         unit="ms",
     )
     if r:
@@ -280,6 +335,9 @@ def run_assertions(
                     f"status is '{actual_status}'"
                     if passed
                     else f"expected '{policy.expect_status}', got '{actual_status}'"
+                ),
+                reason_code=_reason_code_for(
+                    passed, RegressionReasonCode.TERMINAL_STATE_MISSING
                 ),
                 expected=policy.expect_status,
                 actual=actual_status,
@@ -307,7 +365,9 @@ def format_report_text(report: AssertionReport, diff: "RunDiff | None" = None) -
     lines: list[str] = []
     for r in report.results:
         mark = _PASS if r.passed else _FAIL
-        lines.append(f"  {mark} {r.check_name}: {r.message}")
+        lines.append(
+            f"  {mark} {r.check_name} [{_reason_code_text(r.reason_code)}]: {r.message}"
+        )
     total = len(report.results)
     failed = sum(1 for r in report.results if not r.passed)
     if total == 0:
@@ -330,10 +390,12 @@ def format_report_json(report: AssertionReport) -> str:
         "run_id": report.run_id,
         "baseline_run_id": report.baseline_run_id,
         "passed": report.passed,
+        "reason_codes": [_reason_code_text(code) for code in report.reason_codes],
         "results": [
             {
                 "check_name": r.check_name,
                 "passed": r.passed,
+                "reason_code": _reason_code_text(r.reason_code),
                 "message": r.message,
                 "expected": r.expected,
                 "actual": r.actual,
@@ -378,13 +440,23 @@ def format_report_markdown(
         lines.append(f"**All {len(report.results)} checks passed** \u00b7 {scope}")
 
     if failed:
-        lines += ["", "| Check | Expected | Actual | Details |", "|---|---|---|---|"]
-        for r in failed:
-            expected = r.expected or "\u2014"
-            actual = r.actual or "\u2014"
-            lines.append(
-                f"| \u274c `{r.check_name}` | {expected} | {actual} | {r.message} |"
-            )
+        seen_reason_codes = report.reason_codes
+        lines += ["", "### Failed checks by reason"]
+        for reason_code in seen_reason_codes:
+            reason_failures = [r for r in failed if r.reason_code == reason_code]
+            lines += [
+                "",
+                f"#### `{_reason_code_text(reason_code)}`",
+                "",
+                "| Check | Expected | Actual | Details |",
+                "|---|---|---|---|",
+            ]
+            for r in reason_failures:
+                expected = r.expected or "\u2014"
+                actual = r.actual or "\u2014"
+                lines.append(
+                    f"| \u274c `{r.check_name}` | {expected} | {actual} | {r.message} |"
+                )
 
     if passed:
         lines += [
