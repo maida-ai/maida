@@ -52,7 +52,7 @@ maida init [--github] [--force]
 
 **Files written:**
 
-- `.maida/policy.yaml` — commented starter policy (`no_loops`, `no_guardrails`, `no_new_tools`, `expect_status: ok`, 50% tolerances)
+- `.maida/policy.yaml` — commented starter policy with 50% baseline tolerances; strict checks such as `no_loops`, `no_guardrails`, `no_new_tools`, and `expect_status: ok` are shown as opt-ins
 - `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment
 
 **Exit codes:** `0` success; `10` internal error.

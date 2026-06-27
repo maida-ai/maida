@@ -751,11 +751,24 @@ def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
     assert "Next steps:" in result.output
 
     # generated policy must load through the real policy loader
+    policy_text = policy_path.read_text(encoding="utf-8")
     policy = load_policy(policy_path)
-    assert policy.no_loops is True
-    assert policy.no_new_tools is True
-    assert policy.expect_status == "ok"
+    assert policy.no_loops is False
+    assert policy.no_guardrails is False
+    assert policy.no_new_tools is False
+    assert policy.expect_status is None
     assert policy.step_tolerance == 0.5
+    assert policy.tool_call_tolerance == 0.5
+    assert policy.cost_tolerance == 0.5
+    assert policy.duration_tolerance == 0.5
+    for strict_key in (
+        "no_loops: true",
+        "no_guardrails: true",
+        "no_new_tools: true",
+        "expect_status: ok",
+    ):
+        assert f"\n  # {strict_key}\n" in policy_text
+        assert f"\n  {strict_key}" not in policy_text
 
 
 def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch):
