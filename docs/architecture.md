@@ -33,7 +33,7 @@ Maida also projects spans into a flat event view for baselines, diffs, assertion
 | `TOOL_CALL` | `record_tool_call()` | `tool_name`, `args`, `result`, `status`, `error` |
 | `STATE_UPDATE` | `record_state()` | `state`, `diff` |
 | `ERROR` | `@trace` (on exception) | `error_type`, `message`, `stack` |
-| `LOOP_WARNING` | Automatic detection | `pattern`, `repetitions`, `window_size`, `evidence_event_ids` |
+| `LOOP_WARNING` | Automatic detection | `pattern`, `pattern_type`, `pattern_length`, `repetitions`, `window_size`, `evidence_event_ids` |
 
 The span records are written as one JSON object per line and flushed after each write.
 
@@ -129,8 +129,8 @@ All integrations are optional dependencies; the core package does not depend on 
 ## Loop detection
 
 - **Input:** A sliding window of the last N events (default N=12; `MAIDA_LOOP_WINDOW`).
-- **Signature:** Each event is reduced to a string: for `LLM_CALL` -> `"LLM_CALL:"+model`, for `TOOL_CALL` -> `"TOOL_CALL:"+tool_name`, else `event_type`.
-- **Rule:** Look for a contiguous block of signatures that repeats K times (default K=3; `MAIDA_LOOP_REPETITIONS`) at the end of the window. If found, emit one `LOOP_WARNING` per distinct pattern per run (deduplicated by pattern + repetitions).
-- **Payload:** `pattern` (e.g. "LLM_CALL:gpt-4 -> TOOL_CALL:search"), `repetitions`, `window_size`, `evidence_event_ids`.
+- **Signature:** Each event is reduced to a string: for `LLM_CALL` -> `"LLM_CALL:"+model`, for `TOOL_CALL` -> `"TOOL_CALL:"+tool_name` plus a compact structural args shape when args are present, else `event_type`. Tool argument values are not compared, so noisy IDs or timestamps do not hide repeated structural calls.
+- **Rule:** Look for a contiguous block of signatures that repeats K times (default K=3; `MAIDA_LOOP_REPETITIONS`) at the end of the window. A block of one signature is reported as `pattern_type: "repeated_call"`; a longer block is reported as `pattern_type: "cycle"`. If found, emit one `LOOP_WARNING` per distinct pattern per run (deduplicated by pattern + repetitions).
+- **Payload:** `pattern` (e.g. "LLM_CALL:gpt-4 -> TOOL_CALL:search"), `pattern_type`, `pattern_length`, `repetitions`, `window_size`, `evidence_event_ids`.
 
-No ML; purely pattern-based on event type and name to give quick feedback on repetitive agent behavior.
+No ML; purely pattern-based on event type, name, and compact tool-argument structure to give quick feedback on repetitive agent behavior.

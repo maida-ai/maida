@@ -120,3 +120,183 @@ def test_loop_warning_does_not_trigger_when_below_repetitions():
         _make_event("e-1", "TOOL_CALL", {"tool_name": "search_db"}),
     ]
     assert detect_loop(events, window=12, repetitions=3) is None
+
+
+def test_detect_loop_repeated_tool_calls_with_similar_structural_args():
+    """Same tool with the same argument shape is detected without comparing raw values."""
+    events = [
+        _make_event(
+            f"e-{i}",
+            "TOOL_CALL",
+            {
+                "tool_name": "search_db",
+                "args": {
+                    "query": query,
+                    "filters": {"limit": 5 + i, "include_archived": False},
+                },
+            },
+        )
+        for i, query in enumerate(("alpha", "beta", "gamma"))
+    ]
+
+    payload = detect_loop(events, window=12, repetitions=3)
+
+    assert payload is not None
+    assert payload["pattern_type"] == "repeated_call"
+    assert payload["pattern_length"] == 1
+    assert (
+        payload["pattern"]
+        == "TOOL_CALL:search_db args:{filters:{include_archived:bool,limit:int},query:str}"
+    )
+
+
+def test_detect_loop_alternating_tool_cycle():
+    """Alternating A-B-A-B tool calls are reported as a compact cycle signature."""
+    events = [
+        _make_event("e-0", "TOOL_CALL", {"tool_name": "search"}),
+        _make_event("e-1", "TOOL_CALL", {"tool_name": "summarize"}),
+        _make_event("e-2", "TOOL_CALL", {"tool_name": "search"}),
+        _make_event("e-3", "TOOL_CALL", {"tool_name": "summarize"}),
+    ]
+
+    payload = detect_loop(events, window=12, repetitions=2)
+
+    assert payload is not None
+    assert payload["pattern_type"] == "cycle"
+    assert payload["pattern_length"] == 2
+    assert payload["pattern"] == "TOOL_CALL:search -> TOOL_CALL:summarize"
+
+
+def test_detect_loop_alternating_tool_cycle_at_default_repetitions():
+    """Alternating A-B cycles are detected at the default repetition threshold."""
+    events = [
+        _make_event(f"e-{i}", "TOOL_CALL", {"tool_name": name})
+        for i, name in enumerate(
+            ("search", "summarize", "search", "summarize", "search", "summarize")
+        )
+    ]
+
+    payload = detect_loop(events, window=12, repetitions=3)
+
+    assert payload is not None
+    assert payload["pattern_type"] == "cycle"
+    assert payload["pattern_length"] == 2
+    assert payload["repetitions"] == 3
+    assert payload["pattern"] == "TOOL_CALL:search -> TOOL_CALL:summarize"
+    assert payload["evidence_event_ids"] == [f"e-{i}" for i in range(6)]
+
+
+def test_detect_loop_noisy_argument_values_do_not_break_structural_match():
+    """Changing timestamps and request IDs should not hide a repeated structural loop."""
+    events = [
+        _make_event(
+            f"e-{i}",
+            "TOOL_CALL",
+            {
+                "tool_name": "fetch_status",
+                "args": {
+                    "request_id": f"req-{i}",
+                    "timestamp": f"2026-06-27T00:00:0{i}Z",
+                    "payload": {"retry": i, "source": "agent"},
+                },
+            },
+        )
+        for i in range(3)
+    ]
+
+    payload = detect_loop(events, window=12, repetitions=3)
+
+    assert payload is not None
+    assert (
+        payload["pattern"]
+        == "TOOL_CALL:fetch_status args:{payload:{retry:int,source:str},request_id:str,timestamp:str}"
+    )
+
+
+def test_detect_loop_truncates_deep_structural_arg_signatures():
+    """Deep argument structures are compacted before they can dominate signatures."""
+    events = [
+        _make_event(
+            f"e-{i}",
+            "TOOL_CALL",
+            {
+                "tool_name": "inspect_tree",
+                "args": {
+                    "root": {
+                        "branch": {
+                            "leaf": {
+                                "hidden": {
+                                    "value": f"payload-{i}",
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        )
+        for i in range(3)
+    ]
+
+    payload = detect_loop(events, window=12, repetitions=3)
+
+    assert payload is not None
+    assert payload["pattern_type"] == "repeated_call"
+    assert (
+        payload["pattern"]
+        == "TOOL_CALL:inspect_tree args:{root:{branch:{leaf:{hidden:...}}}}"
+    )
+    assert "value" not in payload["pattern"]
+    assert "payload-" not in payload["pattern"]
+
+
+def test_detect_loop_different_argument_shapes_are_not_same_loop():
+    """Same tool can repeat harmlessly when calls use different structural args."""
+    events = [
+        _make_event(
+            "e-0", "TOOL_CALL", {"tool_name": "search", "args": {"query": "a"}}
+        ),
+        _make_event(
+            "e-1",
+            "TOOL_CALL",
+            {"tool_name": "search", "args": {"query": "b", "page": 2}},
+        ),
+        _make_event(
+            "e-2",
+            "TOOL_CALL",
+            {"tool_name": "search", "args": {"query": "c", "sort": "date"}},
+        ),
+    ]
+
+    assert detect_loop(events, window=12, repetitions=3) is None
+
+
+def test_detect_loop_legitimate_repetition_can_pass_under_policy():
+    """Policy can allow limited repetition by requiring more repeats before warning."""
+    events = [
+        _make_event(f"e-{i}", "TOOL_CALL", {"tool_name": "poll_status"})
+        for i in range(3)
+    ]
+
+    assert detect_loop(events, window=12, repetitions=4) is None
+
+
+def test_detect_loop_uses_tail_window_for_long_traces():
+    """Long traces are evaluated against the configured tail window only."""
+    prefix = [
+        _make_event(f"prefix-{i}", "TOOL_CALL", {"tool_name": f"step_{i}"})
+        for i in range(30)
+    ]
+    loop = [
+        _make_event(
+            f"loop-{i}",
+            "TOOL_CALL",
+            {"tool_name": "retry_lookup", "args": {"query": f"q-{i}"}},
+        )
+        for i in range(3)
+    ]
+
+    payload = detect_loop(prefix + loop, window=6, repetitions=3)
+
+    assert payload is not None
+    assert payload["window_size"] == 6
+    assert payload["evidence_event_ids"] == ["loop-0", "loop-1", "loop-2"]

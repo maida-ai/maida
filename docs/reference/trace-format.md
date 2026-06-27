@@ -177,12 +177,16 @@ Error payloads use a consistent shape (same for standalone ERROR events and nest
 ```json
 {
   "pattern": "string",
+  "pattern_type": "repeated_call | cycle",
+  "pattern_length": 1,
   "repetitions": 3,
   "window_size": 6,
   "evidence_event_ids": ["event_uuid_1", "event_uuid_2"]
 }
 ```
 
+- `pattern` is a compact loop signature. Tool calls include structural argument shape when args are present, but do not include raw argument values.
+- `pattern_type` is `repeated_call` for a one-event repeated signature and `cycle` for a multi-event repeating block such as A-B-A-B.
 - Emitted at most once per run per distinct pattern (deduplicated).
 - If `stop_on_loop` guardrails are enabled, `LOOP_WARNING` is still written first and is then followed by `ERROR` and `RUN_END(status="error")`.
 
