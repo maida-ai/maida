@@ -308,7 +308,10 @@ def record_tool_call(
     counts["tool_calls"] = counts.get("tool_calls", 0) + 1
     ev = new_event(EventType.TOOL_CALL, run_id, name, {"tool_name": name})
     _append_event_and_check_guardrails(run_id, ev, config, counts)
-    window.append({"event_type": "TOOL_CALL", "payload": {"tool_name": name}})
+    payload = {"tool_name": name}
+    if args is not None:
+        payload["args"] = _redact_and_truncate(args, config)
+    window.append({"event_type": "TOOL_CALL", "payload": payload})
     if len(window) > config.loop_window:
         window[:] = window[-config.loop_window :]
     _maybe_emit_loop_warning(run_id, counts, config, window, emitted)

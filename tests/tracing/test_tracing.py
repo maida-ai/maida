@@ -108,6 +108,39 @@ def test_loop_warning_emitted_once_for_repeated_pattern(temp_data_dir):
     assert payload.get("repetitions") == 3
 
 
+def test_loop_warning_runtime_pattern_includes_structural_tool_args(temp_data_dir):
+    """Runtime loop warnings include compact structural args for repeated tool calls."""
+
+    @trace(name="structural-tool-loop")
+    def _run():
+        for i in range(3):
+            record_tool_call(
+                "search_db",
+                args={
+                    "query": f"case-{i}",
+                    "filters": {"limit": i + 1, "include_archived": False},
+                },
+                result={"ok": True},
+            )
+
+    _run()
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    events = spans_to_events(load_spans(run_id, config))
+    loop_warnings = [
+        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
+    ]
+
+    assert len(loop_warnings) == 1
+    payload = loop_warnings[0].get("payload", {})
+    assert payload.get("pattern_type") == "repeated_call"
+    assert payload.get("pattern_length") == 1
+    assert (
+        payload.get("pattern")
+        == "TOOL_CALL:search_db args:{filters:{include_archived:bool,limit:int},query:str}"
+    )
+
+
 def test_tool_call_records_error_status_and_error_object_on_exception(temp_data_dir):
     """Tool that raises records TOOL_CALL with status=error and error object (type, message)."""
 

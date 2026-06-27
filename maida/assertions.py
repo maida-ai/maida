@@ -114,6 +114,23 @@ def _reason_code_text(reason_code: RegressionReasonCode | str) -> str:
     return str(reason_code)
 
 
+def _loop_signature_summary(events: list[dict], limit: int = 3) -> str:
+    loop_events = [e for e in events if e.get("event_type") == "LOOP_WARNING"]
+    summaries = []
+    for event in loop_events[:limit]:
+        payload = event.get("payload") or {}
+        pattern = payload.get("pattern") or "unknown"
+        pattern_type = payload.get("pattern_type") or "loop"
+        repetitions = payload.get("repetitions")
+        if repetitions is None:
+            summaries.append(f"{pattern_type}: {pattern}")
+        else:
+            summaries.append(f"{pattern_type} x{repetitions}: {pattern}")
+    if len(loop_events) > limit:
+        summaries.append(f"+{len(loop_events) - limit} more")
+    return "; ".join(summaries)
+
+
 def _check_threshold(
     actual: int | float,
     baseline_value: int | float | None,
@@ -261,15 +278,17 @@ def run_assertions(
     if policy.no_loops:
         loop_count = summary["loop_warnings"]
         passed = loop_count == 0
+        signature_summary = _loop_signature_summary(events) if not passed else ""
+        message = "no loop warnings detected"
+        if not passed:
+            message = f"{loop_count} loop warning(s) detected"
+            if signature_summary:
+                message += f": {signature_summary}"
         report.add(
             AssertionResult(
                 check_name="no_loops",
                 passed=passed,
-                message=(
-                    "no loop warnings detected"
-                    if passed
-                    else f"{loop_count} loop warning(s) detected"
-                ),
+                message=message,
                 reason_code=_reason_code_for(
                     passed, RegressionReasonCode.LOOP_DETECTED
                 ),
