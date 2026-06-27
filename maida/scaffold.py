@@ -6,23 +6,30 @@ POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
 
 POLICY_TEMPLATE = """\
-# Maida policy — enforced by `maida assert` locally and in CI.
+# Maida policy - enforced by `maida assert` locally and in CI.
 # Reference: https://github.com/maida-ai/maida/blob/main/docs/reference/policy.md
+#
+# Starter behavior is intentionally forgiving:
+# - With a baseline, numeric checks allow modest growth.
+# - Without a baseline, these tolerance checks do nothing.
+# - Strict checks are commented out; uncomment them when you want CI to fail.
 assert:
-  # Fail if the run loops (repeated tool/LLM call patterns).
-  no_loops: true
-  # Fail if a development guardrail (max calls, duration, ...) fired.
-  no_guardrails: true
-  # Fail when the run uses tools the baseline has never seen.
-  # (Only enforced when a baseline is provided.)
-  no_new_tools: true
-  # The run must finish with this status.
-  expect_status: ok
-  # Allowed growth vs the baseline (fractional: 0.5 = +50%).
+  # Allowed growth vs baseline (0.5 = +50%).
   step_tolerance: 0.5
   tool_call_tolerance: 0.5
   cost_tolerance: 0.5
   duration_tolerance: 0.5
+
+  # Strict checks (uncomment to opt in):
+  # Fail on repeated loop patterns.
+  # no_loops: true
+  # Fail if a guardrail stopped the run.
+  # no_guardrails: true
+  # Fail on tools not present in the baseline.
+  # no_new_tools: true
+  # Fail unless the run ended with status "ok".
+  # expect_status: ok
+
   # Hard caps, independent of any baseline (uncomment to enable):
   # max_steps: 80
   # max_tool_calls: 40
