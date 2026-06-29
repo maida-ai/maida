@@ -206,6 +206,8 @@ maida assert --baseline baseline.json --format markdown
 ```
 
 The report leads with the verdict, groups failed checks by stable reason code, collapses passing checks, and — when a baseline is provided — embeds the structural diff and a copy-pasteable local-repro snippet.
+For `--no-loops`, repeated single-call warnings use `loop_detected`; multi-event
+cycle warnings, such as A-B-A-B patterns, use `cycle_detected`.
 
 ---
 

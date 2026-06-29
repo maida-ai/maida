@@ -30,7 +30,7 @@ class RegressionReasonCode(str, Enum):
     NEW_TOOL_PATH = "new_tool_path"
     TOOL_CALL_COUNT_EXCEEDED = "tool_call_count_exceeded"
     LOOP_DETECTED = "loop_detected"
-    CYCLE_DETECTED = "cycle_detected"  # reserved - not yet emitted
+    CYCLE_DETECTED = "cycle_detected"
     TERMINAL_STATE_MISSING = "terminal_state_missing"
     GUARDRAIL_EVENT_CHANGED = "guardrail_event_changed"
     LATENCY_ENVELOPE_EXCEEDED = "latency_envelope_exceeded"
@@ -129,6 +129,17 @@ def _loop_signature_summary(events: list[dict], limit: int = 3) -> str:
     if len(loop_events) > limit:
         summaries.append(f"+{len(loop_events) - limit} more")
     return "; ".join(summaries)
+
+
+def _loop_reason_code(events: list[dict]) -> RegressionReasonCode:
+    """Return the most specific reason code for recorded loop warnings."""
+    for event in events:
+        if event.get("event_type") != "LOOP_WARNING":
+            continue
+        payload = event.get("payload") or {}
+        if payload.get("pattern_type") == "cycle":
+            return RegressionReasonCode.CYCLE_DETECTED
+    return RegressionReasonCode.LOOP_DETECTED
 
 
 def _check_threshold(
@@ -289,9 +300,7 @@ def run_assertions(
                 check_name="no_loops",
                 passed=passed,
                 message=message,
-                reason_code=_reason_code_for(
-                    passed, RegressionReasonCode.LOOP_DETECTED
-                ),
+                reason_code=_reason_code_for(passed, _loop_reason_code(events)),
                 actual=str(loop_count),
             )
         )

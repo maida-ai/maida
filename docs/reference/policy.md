@@ -100,8 +100,8 @@ for that metric.
 | `step_count_exceeded` | Step/event count exceeded the baseline envelope or hard cap |
 | `new_tool_path` | A tool appeared that was not present in the baseline |
 | `tool_call_count_exceeded` | Tool call count exceeded the baseline envelope or hard cap |
-| `loop_detected` | One or more `LOOP_WARNING` events were detected |
-| `cycle_detected` | Reserved (not yet emitted) for graph/cycle checks that detect cyclic behavior |
+| `loop_detected` | One or more repeated-call `LOOP_WARNING` events were detected |
+| `cycle_detected` | One or more multi-event cycle `LOOP_WARNING` events were detected |
 | `terminal_state_missing` | The run did not end in the expected terminal status |
 | `guardrail_event_changed` | Guardrail-triggered events were detected |
 | `latency_envelope_exceeded` | Run duration exceeded the baseline envelope or hard cap |
