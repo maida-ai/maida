@@ -5,6 +5,7 @@ Covers: list, export, view, baseline, assert, diff commands.
 """
 
 import json
+import os
 import socket
 import threading
 import time
@@ -721,13 +722,55 @@ def test_demo_regression_story(empty_data_dir, tmp_path, monkeypatch):
     assert len(runs) == 2
 
     # the gate must fail and explain itself
+    assert "Local-only canned data: no API keys, no network calls, no repo clone." in (
+        result.output
+    )
+    assert (
+        "Story: baseline -> regressed refactor -> failed gate -> PR-comment preview."
+        in result.output
+    )
+    assert "baseline behavior: lookup_customer -> search_kb -> send_reply" in (
+        result.output
+    )
+    assert "regression: demo-gpt-4-mini loops on search_kb, then escalates" in (
+        result.output
+    )
+    assert "finished with status ok; behavior still changed" in result.output
     assert "FAILED" in result.output
     assert "escalate_to_human" in result.output
     assert "loop warning" in result.output
+    assert "duration [no_regression]: 120 ms (baseline: 120" in result.output
+    assert "duration_ms:" not in result.output
     # and preview the PR comment
     assert "PR comment preview" in result.output
     assert "Maida gate: agent behavior regressed" in result.output
     assert "What changed vs baseline" in result.output
+
+
+def test_demo_regression_is_local_only_and_forces_demo_loop_settings(
+    empty_data_dir,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("MAIDA_LOOP_WINDOW", "99")
+    monkeypatch.setenv("MAIDA_LOOP_REPETITIONS", "99")
+
+    def fail_network(*args, **kwargs):
+        raise AssertionError("demo attempted a network call")
+
+    monkeypatch.setattr(socket, "create_connection", fail_network)
+
+    result = runner.invoke(app, ["demo", "--regression"], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert "no API keys, no network calls, no repo clone" in result.output
+    assert "loop warning" in result.output
+    assert not (tmp_path / ".git").exists()
+    assert os.environ["MAIDA_LOOP_WINDOW"] == "99"
+    assert os.environ["MAIDA_LOOP_REPETITIONS"] == "99"
 
 
 def test_demo_regression_no_secret_on_disk(empty_data_dir, tmp_path, monkeypatch):

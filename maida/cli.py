@@ -10,6 +10,7 @@ import socket
 import threading
 import time
 import webbrowser
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -28,7 +29,12 @@ from maida.assertions import (
 from maida.baseline import create_baseline, load_baseline, save_baseline
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
-from maida.demo import ensure_demo_env, run_good_agent, run_refactored_agent
+from maida.demo import (
+    ensure_demo_env,
+    restore_demo_env,
+    run_good_agent,
+    run_refactored_agent,
+)
 from maida.diff import compute_diff, format_diff_text
 from maida.policy import load_policy, merge_policy
 from maida.scaffold import (
@@ -42,6 +48,7 @@ from maida.server import create_app
 
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
+_DEMO_TRACE_DURATION_MS = 120
 
 app = typer.Typer(help="Maida CLI: list runs, export, or view in browser.")
 
@@ -466,6 +473,57 @@ def assert_cmd(
         raise Exit(EXIT_INTERNAL)
 
 
+def _iso_add_ms(start_time: str | None, duration_ms: int) -> str | None:
+    if not start_time:
+        return None
+    try:
+        started = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    ended = (started + timedelta(milliseconds=duration_ms)).astimezone(timezone.utc)
+    return ended.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def _normalize_demo_trace_duration(
+    trace_id: str,
+    config,
+    duration_ms: int = _DEMO_TRACE_DURATION_MS,
+) -> None:
+    """Make canned demo duration output stable without touching user traces."""
+    paths = storage.get_run_paths(trace_id, config)
+    meta_path = Path(paths["meta_json"])
+    spans_path = Path(paths["spans_jsonl"])
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["duration_ms"] = duration_ms
+    ended_at = _iso_add_ms(meta.get("started_at"), duration_ms)
+    if ended_at is not None:
+        meta["ended_at"] = ended_at
+    meta_path.write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    spans = []
+    for line in spans_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        span = json.loads(line)
+        if span.get("parent_span_id") is None:
+            span["duration_ms"] = duration_ms
+            end_time = _iso_add_ms(span.get("start_time"), duration_ms)
+            if end_time is not None:
+                span["end_time"] = end_time
+        spans.append(span)
+
+    spans_path.write_text(
+        "".join(
+            json.dumps(span, ensure_ascii=False, default=str) + "\n" for span in spans
+        ),
+        encoding="utf-8",
+    )
+
+
 def _demo_single_run(config) -> None:
     """Run the good demo agent once and print summary + next steps."""
     typer.echo("Running the bundled demo agent (simulated; nothing leaves")
@@ -492,11 +550,17 @@ def _demo_single_run(config) -> None:
 def _demo_regression(config) -> None:
     """Baseline a good run, run a regressed one, and show the failing gate."""
     typer.echo("Maida regression demo: everything below is simulated and local.")
+    typer.echo("Local-only canned data: no API keys, no network calls, no repo clone.")
+    typer.echo(
+        "Story: baseline -> regressed refactor -> failed gate -> PR-comment preview."
+    )
     typer.echo("")
 
     typer.echo("── Step 1/3 · Run the known-good agent and capture a baseline")
+    typer.echo("   baseline behavior: lookup_customer -> search_kb -> send_reply")
     run_good_agent()
     good_id = storage.resolve_latest_trace_id(config)
+    _normalize_demo_trace_duration(good_id, config)
     bl = create_baseline(good_id, config)
     bl_path = LOCAL_DIR_NAME / "baselines" / "demo-support-agent.json"
     save_baseline(bl, bl_path)
@@ -504,12 +568,17 @@ def _demo_regression(config) -> None:
     typer.echo("")
 
     typer.echo('── Step 2/3 · A "refactor" ships: new prompt, cheaper model')
+    typer.echo("   regression: demo-gpt-4-mini loops on search_kb, then escalates")
     run_refactored_agent()
     bad_id = storage.resolve_latest_trace_id(config)
-    typer.echo(f"   ✓ new run {bad_id[:8]} · finished with status ok — looks fine!")
+    _normalize_demo_trace_duration(bad_id, config)
+    typer.echo(
+        f"   ✓ new run {bad_id[:8]} · finished with status ok; behavior still changed"
+    )
     typer.echo("")
 
     typer.echo("── Step 3/3 · Gate the new run against the baseline")
+    typer.echo("   policy: no new tools, no loops, status ok, and cost near baseline")
     policy = AssertionPolicy(
         no_new_tools=True,
         no_loops=True,
@@ -585,12 +654,15 @@ def demo_cmd(
 ) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""
     try:
-        ensure_demo_env()
-        config = load_config()
-        if regression:
-            _demo_regression(config)
-        else:
-            _demo_single_run(config)
+        previous_demo_env = ensure_demo_env()
+        try:
+            config = load_config()
+            if regression:
+                _demo_regression(config)
+            else:
+                _demo_single_run(config)
+        finally:
+            restore_demo_env(previous_demo_env)
     except Exit:
         raise
     except storage.RunValidationError as e:
