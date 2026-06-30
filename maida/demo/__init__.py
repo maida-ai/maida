@@ -3,6 +3,7 @@
 from maida.demo._agents import (
     DEMO_RUN_NAME,
     ensure_demo_env,
+    restore_demo_env,
     run_good_agent,
     run_refactored_agent,
 )
@@ -10,6 +11,7 @@ from maida.demo._agents import (
 __all__ = [
     "DEMO_RUN_NAME",
     "ensure_demo_env",
+    "restore_demo_env",
     "run_good_agent",
     "run_refactored_agent",
 ]

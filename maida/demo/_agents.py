@@ -12,18 +12,33 @@ import time
 from maida import record_llm_call, record_state, record_tool_call, traced_run
 
 DEMO_RUN_NAME = "demo-support-agent"
+_DEMO_ENV_DEFAULTS = {
+    "MAIDA_LOOP_WINDOW": "12",
+    "MAIDA_LOOP_REPETITIONS": "3",
+}
 
 # Tiny simulated work so durations are non-zero and the timeline reads well.
 _WORK_S = 0.004
 
 
-def ensure_demo_env() -> None:
-    """Make loop detection predictable even if the user has custom config.
+def ensure_demo_env() -> dict[str, str | None]:
+    """Force deterministic demo loop settings and return prior env values.
 
-    Explicitly set env vars are respected (``setdefault`` only).
+    The CLI restores these values after the demo command finishes. Keeping this
+    override narrow makes the canned regression story independent of user config.
     """
-    os.environ.setdefault("MAIDA_LOOP_WINDOW", "12")
-    os.environ.setdefault("MAIDA_LOOP_REPETITIONS", "3")
+    previous = {key: os.environ.get(key) for key in _DEMO_ENV_DEFAULTS}
+    os.environ.update(_DEMO_ENV_DEFAULTS)
+    return previous
+
+
+def restore_demo_env(previous: dict[str, str | None]) -> None:
+    """Restore environment variables saved by ``ensure_demo_env``."""
+    for key, value in previous.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 def run_good_agent() -> None:
