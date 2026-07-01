@@ -250,6 +250,26 @@ def test_baseline_with_null_tool_path_is_treated_as_empty(temp_data_dir):
     assert d.removed_tools == []
 
 
+def test_diff_tracks_guardrail_and_terminal_status_changes(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="current-ok", events=[])
+    baseline = {
+        "source_run_id": "old-error-baseline",
+        "summary": {"status": "error"},
+        "tool_path": [],
+        "tool_call_counts": {},
+        "llm_models_used": [],
+        "event_type_sequence": [],
+        "guardrail_events": [{"event_type": "ERROR"}],
+        "final_status": "error",
+    }
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+
+    assert d.guardrail_event_diff == (0, 1)
+    assert d.terminal_status_diff == ("ok", "error")
+
+
 def test_diff_tool_path_reports_step_delta_and_tool_changes(temp_data_dir):
     config = load_config()
     bl_rid = _make_run(
@@ -427,8 +447,8 @@ def test_format_diff_markdown_includes_changes(temp_data_dir):
     )
     diff = compute_diff(run_id, baseline=baseline, config=config)
     md = format_diff_markdown(diff)
-    assert "### What changed vs baseline" in md
-    assert "| Metric | Baseline | Current | Change |" in md
+    assert "### Top behavior changes" in md
+    assert "| Behavior | Baseline | Current | Change |" in md
     assert "➕ `escalate`" in md
     assert "**Model changes:**" in md
     assert "➕ `model-b`" in md
