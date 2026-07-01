@@ -47,13 +47,13 @@ maida init [--github] [--force]
 
 | Option | Description |
 |--------|-------------|
-| `--github` | Also write `.github/workflows/maida.yml` using the [maida-assert action](https://github.com/maida-ai/maida-assert) |
+| `--github` | Also write `.github/workflows/maida.yml` using the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) action |
 | `--force` | Overwrite existing files |
 
 **Files written:**
 
 - `.maida/policy.yaml` — commented starter policy with 50% baseline tolerances; strict checks such as `no_loops`, `no_guardrails`, `no_new_tools`, and `expect_status: ok` are shown as opt-ins
-- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment
+- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment; pins `actions/checkout@v7` and `maida-ai/maida-assert@V4`
 
 **Exit codes:** `0` success; `10` internal error.
 

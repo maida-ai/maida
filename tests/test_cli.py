@@ -19,6 +19,7 @@ from maida.cli import _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
 from maida.policy import load_policy
+from maida.scaffold import CHECKOUT_ACTION_REF, MAIDA_ASSERT_ACTION_REF
 from maida.storage import list_runs
 from tests.conftest import get_latest_run_id
 
@@ -824,7 +825,10 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     wf = yaml.safe_load(wf_path.read_text())
     job = wf["jobs"]["agent-check"]
     uses = [step.get("uses", "") for step in job["steps"]]
-    assert any(u.startswith("maida-ai/maida-assert@") for u in uses)
+    assert CHECKOUT_ACTION_REF in uses
+    assert MAIDA_ASSERT_ACTION_REF in uses
+    assert "actions/checkout@v4" not in uses
+    assert "maida-ai/maida-assert@v2" not in uses
     assert wf["permissions"]["pull-requests"] == "write"
 
 

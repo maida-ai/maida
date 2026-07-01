@@ -4,6 +4,8 @@ from pathlib import Path
 
 POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
+CHECKOUT_ACTION_REF = "actions/checkout@v7"
+MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@V4"
 
 POLICY_TEMPLATE = """\
 # Maida policy - enforced by `maida assert` locally and in CI.
@@ -37,7 +39,7 @@ assert:
   # max_duration_ms: 60000
 """
 
-WORKFLOW_TEMPLATE = """\
+WORKFLOW_TEMPLATE = f"""\
 name: Agent Regression Check
 on: [pull_request]
 
@@ -49,8 +51,8 @@ jobs:
   agent-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: maida-ai/maida-assert@v2
+      - uses: {CHECKOUT_ACTION_REF}
+      - uses: {MAIDA_ASSERT_ACTION_REF}
         with:
           # TODO: point at the script that runs your traced agent
           # (it must use @trace or traced_run so a run is recorded).
