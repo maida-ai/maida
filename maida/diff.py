@@ -27,6 +27,8 @@ class RunDiff:
     current_tool_sequence: list[str] = field(default_factory=list)
     baseline_tool_sequence: list[str] = field(default_factory=list)
     model_changes: dict = field(default_factory=dict)
+    guardrail_event_diff: tuple[int, int] | None = None
+    terminal_status_diff: tuple[str, str] | None = None
 
 
 def _as_string_list(value: object) -> list[str]:
@@ -164,6 +166,17 @@ def compute_diff(
         "removed": sorted(models_b - models_a),
     }
 
+    # --- guardrail event + terminal status changes ---
+    guardrails_a = metrics_a.get("guardrail_events") or []
+    guardrails_b = metrics_b.get("guardrail_events") or []
+    guardrail_event_diff = None
+    if len(guardrails_a) != len(guardrails_b):
+        guardrail_event_diff = (len(guardrails_a), len(guardrails_b))
+
+    status_a = str(metrics_a.get("final_status") or sum_a.get("status") or "unknown")
+    status_b = str(metrics_b.get("final_status") or sum_b.get("status") or "unknown")
+    terminal_status_diff = (status_a, status_b) if status_a != status_b else None
+
     return RunDiff(
         run_a_id=full_a,
         run_b_id=b_id,
@@ -177,6 +190,8 @@ def compute_diff(
         current_tool_sequence=current_tool_sequence,
         baseline_tool_sequence=baseline_tool_sequence,
         model_changes=model_changes,
+        guardrail_event_diff=guardrail_event_diff,
+        terminal_status_diff=terminal_status_diff,
     )
 
 
@@ -207,6 +222,27 @@ _SUMMARY_ORDER = [
     "status",
 ]
 _TOOL_PATH_PREVIEW_SIDE = 6
+_PRIMARY_BEHAVIOR_ORDER = [
+    "total_events",
+    "tool_path",
+    "loop_warnings",
+    "guardrail_events",
+    "status",
+    "duration_ms",
+    "total_tokens",
+]
+_PRIMARY_BEHAVIOR_LABELS = {
+    "total_events": "Steps",
+    "tool_path": "Tool path",
+    "loop_warnings": "Loops/cycles",
+    "guardrail_events": "Guardrail events",
+    "status": "Terminal state",
+    "duration_ms": "Latency envelope",
+    "total_tokens": "Cost envelope",
+    "tool_calls": "Tool calls",
+    "llm_calls": "LLM calls",
+    "errors": "Errors",
+}
 
 
 def _summary_keys(summary_diff: dict) -> list[str]:
@@ -244,6 +280,117 @@ def _has_tool_path_changes(diff: RunDiff) -> bool:
             and diff.current_tool_sequence != diff.baseline_tool_sequence
         )
     )
+
+
+def _table_cell(value: object) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def _format_behavior_value(key: str, value: object) -> str:
+    if key == "duration_ms" and isinstance(value, (int, float)):
+        return f"{int(value)} ms"
+    if key == "total_tokens" and isinstance(value, (int, float)):
+        return f"{int(value)} tokens"
+    return str(value)
+
+
+def _tool_path_change_summary(diff: RunDiff) -> str:
+    parts: list[str] = []
+    if diff.new_tools:
+        parts.append(f"{len(diff.new_tools)} new")
+    if diff.removed_tools:
+        parts.append(f"{len(diff.removed_tools)} removed")
+    if diff.repeated_tools:
+        parts.append("repeated calls")
+    if diff.reordered_tools:
+        parts.append("order changed")
+    if not parts:
+        parts.append("sequence changed")
+    return "; ".join(parts)
+
+
+def _model_change_summary(diff: RunDiff) -> tuple[str, str, str] | None:
+    added = diff.model_changes.get("added", [])
+    removed = diff.model_changes.get("removed", [])
+    if not added and not removed:
+        return None
+    baseline = ", ".join(removed) if removed else "(unchanged)"
+    current = ", ".join(added) if added else "(unchanged)"
+    parts: list[str] = []
+    if added:
+        parts.append(f"{len(added)} added")
+    if removed:
+        parts.append(f"{len(removed)} removed")
+    return ("Models", baseline, current, "; ".join(parts))
+
+
+def _behavior_change_rows(diff: RunDiff) -> list[tuple[str, str, str, str]]:
+    rows: list[tuple[str, str, str, str]] = []
+    emitted: set[str] = set()
+
+    def add_summary_row(key: str) -> None:
+        if key not in diff.summary_diff:
+            return
+        current, baseline = diff.summary_diff[key]
+        label = _PRIMARY_BEHAVIOR_LABELS.get(key, _summary_label(key))
+        if isinstance(current, (int, float)) and isinstance(baseline, (int, float)):
+            change = _pct_change(current, baseline)
+        else:
+            change = "changed"
+        rows.append(
+            (
+                label,
+                _format_behavior_value(key, baseline),
+                _format_behavior_value(key, current),
+                change,
+            )
+        )
+        emitted.add(key)
+
+    for key in _PRIMARY_BEHAVIOR_ORDER:
+        if key == "tool_path":
+            if _has_tool_path_changes(diff):
+                rows.append(
+                    (
+                        "Tool path",
+                        _format_tool_sequence(diff.baseline_tool_sequence),
+                        _format_tool_sequence(diff.current_tool_sequence),
+                        _tool_path_change_summary(diff),
+                    )
+                )
+                emitted.add(key)
+            continue
+        if key == "guardrail_events":
+            if diff.guardrail_event_diff is not None:
+                current, baseline = diff.guardrail_event_diff
+                rows.append(
+                    (
+                        "Guardrail events",
+                        str(baseline),
+                        str(current),
+                        _pct_change(current, baseline),
+                    )
+                )
+                emitted.add(key)
+            continue
+        if key == "status":
+            if diff.terminal_status_diff is not None:
+                current, baseline = diff.terminal_status_diff
+                rows.append(("Terminal state", baseline, current, "changed"))
+                emitted.add(key)
+            continue
+        add_summary_row(key)
+
+    model_row = _model_change_summary(diff)
+    if model_row is not None:
+        rows.append(model_row)
+
+    for key in _summary_keys(diff.summary_diff):
+        if key in emitted:
+            continue
+        add_summary_row(key)
+
+    return rows
 
 
 def format_diff_text(diff: RunDiff) -> str:
@@ -293,6 +440,19 @@ def format_diff_text(diff: RunDiff) -> str:
             else:
                 lines.append(f"  {et}: {cb} -> {ca} ({_pct_change(ca, cb)})")
 
+    if diff.guardrail_event_diff is not None:
+        current, baseline = diff.guardrail_event_diff
+        lines.append("")
+        lines.append(
+            f"Guardrail events: {baseline} -> {current} "
+            f"({_pct_change(current, baseline)})"
+        )
+
+    if diff.terminal_status_diff is not None and "status" not in diff.summary_diff:
+        current, baseline = diff.terminal_status_diff
+        lines.append("")
+        lines.append(f"Terminal state: {baseline} -> {current}")
+
     return "\n".join(lines)
 
 
@@ -304,15 +464,17 @@ def format_diff_markdown(diff: RunDiff) -> str:
     """
     sections: list[str] = []
 
-    if diff.summary_diff:
-        rows = ["| Metric | Baseline | Current | Change |", "|---|---|---|---|"]
-        for key in _summary_keys(diff.summary_diff):
-            va, vb = diff.summary_diff[key]
-            label = _summary_label(key)
-            if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
-                rows.append(f"| {label} | {vb} | {va} | {_pct_change(va, vb)} |")
-            else:
-                rows.append(f"| {label} | {vb} | {va} | changed |")
+    behavior_rows = _behavior_change_rows(diff)
+    if behavior_rows:
+        rows = ["| Behavior | Baseline | Current | Change |", "|---|---|---|---|"]
+        for behavior, baseline, current, change in behavior_rows:
+            rows.append(
+                "| "
+                f"{_table_cell(behavior)} | "
+                f"{_table_cell(baseline)} | "
+                f"{_table_cell(current)} | "
+                f"{_table_cell(change)} |"
+            )
         sections.append("\n".join(rows))
 
     if _has_tool_path_changes(diff):
@@ -342,4 +504,4 @@ def format_diff_markdown(diff: RunDiff) -> str:
 
     if not sections:
         return ""
-    return "### What changed vs baseline\n\n" + "\n\n".join(sections)
+    return "### Top behavior changes\n\n" + "\n\n".join(sections)

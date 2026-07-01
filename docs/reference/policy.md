@@ -107,7 +107,7 @@ for that metric.
 | `latency_envelope_exceeded` | Run duration exceeded the baseline envelope or hard cap |
 | `cost_envelope_exceeded` | Token usage exceeded the baseline envelope or hard cap |
 
-Machine-readable JSON includes a top-level `reason_codes` array containing the failed reason codes in result order, plus `reason_code` on every individual result. Markdown groups failed checks by reason code for PR comments.
+Machine-readable JSON includes a top-level `reason_codes` array containing the failed reason codes in result order, plus `reason_code` on every individual result. Markdown starts with a verdict, shows top behavior changes when a baseline diff is available, and groups failed checks by reason code for PR comments.
 
 ---
 

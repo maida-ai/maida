@@ -177,11 +177,25 @@ maida assert --baseline baseline.json --format markdown
 ```
 
 ```markdown
-## ❌ Maida gate: agent behavior regressed
+## ❌ Maida verdict: fail
 
-**1 of 4 checks failed** · run `a1b2c3d4` vs baseline `e5f6a7b8`
+**2 of 5 checks failed** · run `a1b2c3d4` vs baseline `e5f6a7b8`
 
-### Failed checks by reason
+### Top behavior changes
+
+| Behavior | Baseline | Current | Change |
+|---|---|---|---|
+| Steps | 38 | 42 | +11% |
+| Tool path | search -> parse -> summarize | search -> parse -> web_search -> web_search -> summarize | 1 new; repeated calls |
+| Loops/cycles | 0 | 2 | NEW |
+| Terminal state | ok | error | changed |
+| Cost envelope | 1000 tokens | 1400 tokens | +40% |
+
+**Tool changes:**
+- ➕ `web_search` — new tool, not in baseline
+- 🔁 `web_search` — repeated 0 -> 2 calls
+
+### Failed checks by reason code
 
 #### `loop_detected`
 
@@ -189,23 +203,25 @@ maida assert --baseline baseline.json --format markdown
 |---|---|---|---|
 | ❌ `no_loops` | — | 2 | 2 loop warning(s) detected |
 
+#### `terminal_state_missing`
+
+| Check | Expected | Actual | Details |
+|---|---|---|---|
+| ❌ `expect_status` | ok | error | expected 'ok', got 'error' |
+
 <details>
 <summary>✅ 3 passing checks</summary>
 ...
 </details>
 
-### What changed vs baseline
+### Next steps
 
-| Metric | Baseline | Current | Change |
-|---|---|---|---|
-| tool_calls | 10 | 14 | +40% |
-| loop_warnings | 0 | 2 | NEW |
-
-**Tool changes:**
-- ➕ `web_search` — new tool, not in baseline
+- Inspect the full diff: `maida diff a1b2c3d4 --baseline baseline.json`
+- Open the trace locally: `maida view a1b2c3d4`
+- If this is expected, update the baseline or policy; otherwise fix the agent behavior and rerun the gate.
 ```
 
-The report leads with the verdict, groups failed checks by stable reason code, collapses passing checks, and — when a baseline is provided — embeds the structural diff and a copy-pasteable local-repro snippet.
+The report leads with the verdict, shows top behavior changes, groups failed checks by stable reason code, collapses passing checks, and includes concise next steps plus a copy-pasteable local-repro snippet.
 For `--no-loops`, repeated single-call warnings use `loop_detected`; multi-event
 cycle warnings, such as A-B-A-B patterns, use `cycle_detected`.
 
