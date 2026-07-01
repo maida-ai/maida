@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from maida.scaffold import CHECKOUT_ACTION_REF, MAIDA_ASSERT_ACTION_REF
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -62,3 +63,24 @@ def test_trace_format_documents_current_storage_contract():
     missing = [snippet for snippet in required_snippets if snippet not in text]
 
     assert missing == []
+
+
+def test_action_version_references_match_scaffold():
+    docs = [
+        "README.md",
+        "docs/cli.md",
+        "docs/regression-testing.md",
+    ]
+    combined = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8") for rel_path in docs
+    )
+
+    assert MAIDA_ASSERT_ACTION_REF in combined
+    assert "maida-ai/maida-assert@v2" not in combined
+    assert "maida-ai/maida-assert@V2" not in combined
+
+    workflow_text = (ROOT / "maida/scaffold.py").read_text(encoding="utf-8")
+    assert CHECKOUT_ACTION_REF in workflow_text
+    assert MAIDA_ASSERT_ACTION_REF in workflow_text
+    assert "actions/checkout@v4" not in workflow_text
+    assert "maida-ai/maida-assert@v2" not in workflow_text

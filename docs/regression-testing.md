@@ -258,7 +258,7 @@ The diff shows summary-level metric changes, compact baseline/current tool paths
 
 ## GitHub Actions example
 
-The easiest path is the [maida-assert action](https://github.com/maida-ai/maida-assert) — scaffold it with `maida init --github`. It runs your traced agent, asserts the run, and posts the regression report as a sticky PR comment.
+The easiest path is the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) action — scaffold it with `maida init --github`. It runs your traced agent, asserts the run, and posts the regression report as a sticky PR comment.
 
 To wire it up by hand instead, run your agent in CI, then assert against the checked-in baseline (`maida assert` picks up the latest run automatically):
 
