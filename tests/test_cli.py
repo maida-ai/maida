@@ -486,7 +486,7 @@ def test_assert_markdown_format(empty_data_dir):
         app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"]
     )
     assert result.exit_code == 0
-    assert "Maida gate" in result.output
+    assert "Maida verdict" in result.output
 
 
 def test_assert_with_baseline(empty_data_dir):
@@ -744,8 +744,8 @@ def test_demo_regression_story(empty_data_dir, tmp_path, monkeypatch):
     assert "duration_ms:" not in result.output
     # and preview the PR comment
     assert "PR comment preview" in result.output
-    assert "Maida gate: agent behavior regressed" in result.output
-    assert "What changed vs baseline" in result.output
+    assert "Maida verdict: fail" in result.output
+    assert "Top behavior changes" in result.output
 
 
 def test_demo_regression_is_local_only_and_forces_demo_loop_settings(

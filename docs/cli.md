@@ -236,7 +236,7 @@ maida assert --baseline baseline.json --format markdown
 
 **Exit codes:** `0` all checks passed; `1` one or more checks failed; `2` run or baseline not found; `10` internal error.
 
-Each assertion result includes a stable `reason_code`; JSON output also includes a top-level `reason_codes` array for failed checks. Markdown output groups failed checks by reason code so PR comments can cluster related failures. When a baseline is provided, the markdown report embeds a **What changed vs baseline** section (metric deltas, new/removed tools, model changes) plus a local-repro snippet. The text report appends the structural diff on failure.
+Each assertion result includes a stable `reason_code`; JSON output also includes a top-level `reason_codes` array for failed checks. Markdown output starts with a pass/fail verdict, shows **Top behavior changes** when a baseline diff is available, groups failed checks by reason code, and includes concise next steps plus a local-repro snippet. The text report appends the structural diff on failure.
 
 ---
 

@@ -243,7 +243,7 @@ maida assert <TRACE_ID> --max-steps 80 --no-loops          # standalone threshol
 maida assert --baseline baseline.json --format markdown    # for CI summaries / PR comments
 ```
 
-Exit code `0` = pass, `1` = fail. With a baseline, the markdown report includes a "What changed vs baseline" section (new tools, metric deltas, model changes) so a failing check explains itself. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
+Exit code `0` = pass, `1` = fail. With a baseline, the markdown report starts with the verdict and includes top behavior changes (steps, tool path, loops/cycles, guardrails, terminal state, latency/cost, and models) plus next steps so a failing check explains itself. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
 
 ### Diff two runs
 

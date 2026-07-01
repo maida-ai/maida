@@ -383,6 +383,43 @@ _PASS = "\u2713"  # ✓
 _FAIL = "\u2717"  # ✗
 
 
+def _markdown_table_cell(value: object) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def _markdown_scope(report: AssertionReport) -> str:
+    scope = f"run `{report.run_id[:8]}`"
+    if report.baseline_run_id:
+        scope += f" vs baseline `{str(report.baseline_run_id)[:8]}`"
+    return scope
+
+
+def _markdown_next_steps(
+    report: AssertionReport,
+    *,
+    short_run: str,
+    baseline_path: str | None,
+) -> list[str]:
+    if report.passed:
+        return [
+            f"- No gate action needed; inspect the trace with `maida view {short_run}` if desired.",
+        ]
+
+    steps: list[str] = []
+    if baseline_path:
+        steps.append(
+            "- Inspect the full diff: "
+            f"`maida diff {short_run} --baseline {baseline_path}`"
+        )
+    else:
+        steps.append("- Review the failed checks and policy thresholds above.")
+    steps += [
+        f"- Open the trace locally: `maida view {short_run}`",
+        "- If this is expected, update the baseline or policy; otherwise fix the agent behavior and rerun the gate.",
+    ]
+    return steps
+
+
 def format_report_text(report: AssertionReport, diff: "RunDiff | None" = None) -> str:
     """Format report as human-readable text for CLI output.
 
@@ -441,23 +478,21 @@ def format_report_markdown(
 ) -> str:
     """Format report as Markdown for GitHub PR comments.
 
-    Failed checks come first so reviewers see the regression immediately;
-    passing checks are collapsed. When *diff* is provided, a "What changed
-    vs baseline" section explains the structural difference, and
-    *baseline_path* (when known) makes the local-repro snippet copy-pasteable.
+    The comment starts with a verdict, then surfaces top behavior changes,
+    failed checks grouped by reason code, concise next steps, and a collapsed
+    local-repro block. Passing checks are collapsed to keep the default comment
+    readable.
     """
     failed = [r for r in report.results if not r.passed]
     passed = [r for r in report.results if r.passed]
     short_run = report.run_id[:8]
 
     if report.passed:
-        lines = ["## \u2705 Maida gate: no behavioral regression", ""]
+        lines = ["## \u2705 Maida verdict: pass", ""]
     else:
-        lines = ["## \u274c Maida gate: agent behavior regressed", ""]
+        lines = ["## \u274c Maida verdict: fail", ""]
 
-    scope = f"run `{short_run}`"
-    if report.baseline_run_id:
-        scope += f" vs baseline `{str(report.baseline_run_id)[:8]}`"
+    scope = _markdown_scope(report)
     if not report.results:
         lines.append(f"**No checks enabled** \u00b7 {scope}")
     elif failed:
@@ -467,8 +502,23 @@ def format_report_markdown(
     else:
         lines.append(f"**All {len(report.results)} checks passed** \u00b7 {scope}")
 
+    diff_md = format_diff_markdown(diff) if diff is not None else ""
+    if diff_md:
+        if report.passed:
+            lines += [
+                "",
+                "<details>",
+                "<summary>Top behavior changes within tolerance</summary>",
+                "",
+                diff_md,
+                "",
+                "</details>",
+            ]
+        else:
+            lines += ["", diff_md]
+
     if failed:
-        lines += ["", "### Failed checks by reason"]
+        lines += ["", "### Failed checks by reason code"]
         for reason_code in report.reason_codes:
             reason_failures = [r for r in failed if r.reason_code == reason_code]
             lines += [
@@ -482,7 +532,11 @@ def format_report_markdown(
                 expected = r.expected or "\u2014"
                 actual = r.actual or "\u2014"
                 lines.append(
-                    f"| \u274c `{r.check_name}` | {expected} | {actual} | {r.message} |"
+                    "| \u274c "
+                    f"`{_markdown_table_cell(r.check_name)}` | "
+                    f"{_markdown_table_cell(expected)} | "
+                    f"{_markdown_table_cell(actual)} | "
+                    f"{_markdown_table_cell(r.message)} |"
                 )
 
     if passed:
@@ -495,24 +549,19 @@ def format_report_markdown(
             "|---|---|",
         ]
         for r in passed:
-            lines.append(f"| \u2705 `{r.check_name}` | {r.message} |")
+            lines.append(
+                "| \u2705 "
+                f"`{_markdown_table_cell(r.check_name)}` | "
+                f"{_markdown_table_cell(r.message)} |"
+            )
         lines += ["", "</details>"]
 
-    if diff is not None:
-        diff_md = format_diff_markdown(diff)
-        if diff_md:
-            if report.passed:
-                lines += [
-                    "",
-                    "<details>",
-                    "<summary>What changed vs baseline (within tolerance)</summary>",
-                    "",
-                    diff_md,
-                    "",
-                    "</details>",
-                ]
-            else:
-                lines += ["", diff_md]
+    lines += [
+        "",
+        "### Next steps",
+        "",
+        *_markdown_next_steps(report, short_run=short_run, baseline_path=baseline_path),
+    ]
 
     repro = ["pip install maida-ai"]
     if baseline_path:

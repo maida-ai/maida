@@ -1,12 +1,15 @@
 """Tests for maida.assertions: policy checks, exit codes, report formatting."""
 
 import json
+from textwrap import dedent
 
 import pytest
 
 from maida import record_llm_call, record_tool_call, traced_run
 from maida.assertions import (
     AssertionPolicy,
+    AssertionReport,
+    AssertionResult,
     RegressionReasonCode,
     _check_threshold,
     format_report_json,
@@ -522,10 +525,11 @@ def test_format_report_markdown_pass_layout(temp_data_dir):
     policy = AssertionPolicy(max_steps=100)
     report = run_assertions(run_id, policy, config=config)
     md = format_report_markdown(report)
-    assert "## ✅ Maida gate: no behavioral regression" in md
+    assert "## ✅ Maida verdict: pass" in md
     assert "<details>" in md  # passing checks are collapsed
     assert "passing checks" in md
     assert "`no_regression`:" not in md
+    assert "### Next steps" in md
     assert "Reproduce locally" in md
     assert "maida.ai" in md
 
@@ -537,13 +541,15 @@ def test_format_report_markdown_failed_checks_first(temp_data_dir):
     policy = AssertionPolicy(max_steps=2, no_loops=True)
     report = run_assertions(run_id, policy, config=config)
     md = format_report_markdown(report)
-    assert "## ❌ Maida gate: agent behavior regressed" in md
+    assert "## ❌ Maida verdict: fail" in md
     assert "1 of 2 checks failed" in md
     # failed table with expected/actual comes before the collapsed passing block
     assert md.index("#### `step_count_exceeded`") < md.index("<details>")
+    assert "### Failed checks by reason code" in md
     assert "| Check | Expected | Actual | Details |" in md
     assert "| ❌ `step_count` |" in md
     assert "✅ `no_loops`" in md
+    assert "### Next steps" in md
 
 
 def test_format_report_markdown_groups_failures_by_reason_code(temp_data_dir):
@@ -591,7 +597,7 @@ def test_format_report_markdown_includes_diff_section(temp_data_dir):
 
     diff = compute_diff(run_id, baseline=baseline, config=config)
     md = format_report_markdown(report, diff=diff, baseline_path="bl.json")
-    assert "### What changed vs baseline" in md
+    assert "### Top behavior changes" in md
     assert "`new_tool`" in md
     assert "maida diff" in md
     assert "--baseline bl.json" in md
@@ -603,7 +609,200 @@ def test_format_report_markdown_no_diff_section_without_diff(temp_data_dir):
     policy = AssertionPolicy(max_steps=100)
     report = run_assertions(run_id, policy, config=config)
     md = format_report_markdown(report)
-    assert "What changed vs baseline" not in md
+    assert "Top behavior changes" not in md
+
+
+def test_format_report_markdown_pass_snapshot():
+    report = AssertionReport(run_id="a" * 32, baseline_run_id=None)
+    report.add(
+        AssertionResult(
+            check_name="step_count",
+            passed=True,
+            message="8 steps (max: 12)",
+            expected="12",
+            actual="8",
+        )
+    )
+
+    md = format_report_markdown(report)
+
+    assert (
+        md
+        == dedent(
+            """\
+        ## ✅ Maida verdict: pass
+
+        **All 1 checks passed** · run `aaaaaaaa`
+
+        <details>
+        <summary>✅ 1 passing checks</summary>
+
+        | Check | Details |
+        |---|---|
+        | ✅ `step_count` | 8 steps (max: 12) |
+
+        </details>
+
+        ### Next steps
+
+        - No gate action needed; inspect the trace with `maida view aaaaaaaa` if desired.
+
+        <details>
+        <summary>Reproduce locally</summary>
+
+        ```bash
+        pip install maida-ai
+        maida view aaaaaaaa
+        ```
+
+        </details>
+
+        ---
+        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*
+        """
+        ).strip()
+    )
+
+
+def test_format_report_markdown_failure_behavior_diff_snapshot():
+    from maida.diff import RunDiff
+
+    report = AssertionReport(run_id="a" * 32, baseline_run_id="b" * 32)
+    report.add(
+        AssertionResult(
+            check_name="step_count",
+            passed=False,
+            message="18 steps (baseline: 8, tolerance: 50%)",
+            reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+            expected="12",
+            actual="18",
+        )
+    )
+    report.add(
+        AssertionResult(
+            check_name="no_loops",
+            passed=False,
+            message="2 loop warning(s) detected: cycle x2 search -> summarize",
+            reason_code=RegressionReasonCode.CYCLE_DETECTED,
+            actual="2",
+        )
+    )
+    report.add(
+        AssertionResult(
+            check_name="cost_tokens",
+            passed=True,
+            message="450 tokens (baseline: 100, tolerance: 400%)",
+        )
+    )
+    diff = RunDiff(
+        run_a_id="a" * 32,
+        run_b_id="b" * 32,
+        summary_diff={
+            "total_events": (18, 8),
+            "loop_warnings": (2, 0),
+            "status": ("error", "ok"),
+            "duration_ms": (2500, 1000),
+            "total_tokens": (450, 100),
+        },
+        tool_path_diff={
+            "new": ["web_search"],
+            "removed": [],
+            "repeated": {"web_search": (0, 2)},
+            "reordered": True,
+            "current_sequence_exact": True,
+            "baseline_sequence_exact": True,
+        },
+        new_tools=["web_search"],
+        repeated_tools={"web_search": (0, 2)},
+        reordered_tools=True,
+        current_tool_sequence=["search", "web_search", "web_search", "summarize"],
+        baseline_tool_sequence=["search", "summarize"],
+        model_changes={"added": ["gpt-4.1-mini"], "removed": ["gpt-4.1"]},
+        guardrail_event_diff=(1, 0),
+        terminal_status_diff=("error", "ok"),
+    )
+
+    md = format_report_markdown(report, diff=diff, baseline_path="baseline.json")
+
+    assert (
+        md
+        == dedent(
+            """\
+        ## ❌ Maida verdict: fail
+
+        **2 of 3 checks failed** · run `aaaaaaaa` vs baseline `bbbbbbbb`
+
+        ### Top behavior changes
+
+        | Behavior | Baseline | Current | Change |
+        |---|---|---|---|
+        | Steps | 8 | 18 | +125% |
+        | Tool path | search -> summarize | search -> web_search -> web_search -> summarize | 1 new; repeated calls; order changed |
+        | Loops/cycles | 0 | 2 | NEW |
+        | Guardrail events | 0 | 1 | NEW |
+        | Terminal state | ok | error | changed |
+        | Latency envelope | 1000 ms | 2500 ms | +150% |
+        | Cost envelope | 100 tokens | 450 tokens | +350% |
+        | Models | gpt-4.1 | gpt-4.1-mini | 1 added; 1 removed |
+
+        **Tool path:**
+        - Baseline: `search -> summarize`
+        - Current: `search -> web_search -> web_search -> summarize`
+
+        **Tool changes:**
+        - ➕ `web_search` — new tool, not in baseline
+        - 🔁 `web_search` — repeated 0 -> 2 calls
+        - 🔀 Tool order changed for shared calls
+
+        **Model changes:**
+        - ➕ `gpt-4.1-mini`
+        - ➖ `gpt-4.1`
+
+        ### Failed checks by reason code
+
+        #### `step_count_exceeded`
+
+        | Check | Expected | Actual | Details |
+        |---|---|---|---|
+        | ❌ `step_count` | 12 | 18 | 18 steps (baseline: 8, tolerance: 50%) |
+
+        #### `cycle_detected`
+
+        | Check | Expected | Actual | Details |
+        |---|---|---|---|
+        | ❌ `no_loops` | — | 2 | 2 loop warning(s) detected: cycle x2 search -> summarize |
+
+        <details>
+        <summary>✅ 1 passing checks</summary>
+
+        | Check | Details |
+        |---|---|
+        | ✅ `cost_tokens` | 450 tokens (baseline: 100, tolerance: 400%) |
+
+        </details>
+
+        ### Next steps
+
+        - Inspect the full diff: `maida diff aaaaaaaa --baseline baseline.json`
+        - Open the trace locally: `maida view aaaaaaaa`
+        - If this is expected, update the baseline or policy; otherwise fix the agent behavior and rerun the gate.
+
+        <details>
+        <summary>Reproduce locally</summary>
+
+        ```bash
+        pip install maida-ai
+        maida diff aaaaaaaa --baseline baseline.json
+        maida view aaaaaaaa
+        ```
+
+        </details>
+
+        ---
+        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*
+        """
+        ).strip()
+    )
 
 
 def test_format_report_text_appends_diff_on_failure(temp_data_dir):
