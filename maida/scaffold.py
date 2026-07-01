@@ -44,21 +44,24 @@ name: Agent Regression Check
 on: [pull_request]
 
 permissions:
-  contents: read
-  pull-requests: write  # lets the action post the regression report
+  contents: read          # checkout only needs read access
+  pull-requests: write    # maida-assert posts a sticky PR comment
 
 jobs:
   agent-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: {CHECKOUT_ACTION_REF}
-      - uses: {MAIDA_ASSERT_ACTION_REF}
+      - name: Check out repository
+        uses: {CHECKOUT_ACTION_REF}
+
+      - name: Run Maida regression gate
+        uses: {MAIDA_ASSERT_ACTION_REF}
         with:
-          # TODO: point at the script that runs your traced agent
-          # (it must use @trace or traced_run so a run is recorded).
+          # Replace this with the script that runs your traced agent.
+          # It must use @trace or traced_run so Maida records a run.
           agent-script: my_agent.py
           policy: .maida/policy.yaml
-          # Once you commit a baseline (maida baseline --out ...), enable:
+          # After committing a baseline, uncomment and point this at it:
           # baseline: .maida/baselines/my_agent.json
 """
 

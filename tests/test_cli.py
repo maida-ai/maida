@@ -819,17 +819,41 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--github"])
     assert result.exit_code == 0
+    policy_path = tmp_path / ".maida" / "policy.yaml"
     wf_path = tmp_path / ".github" / "workflows" / "maida.yml"
+    assert policy_path.is_file()
     assert wf_path.is_file()
 
-    wf = yaml.safe_load(wf_path.read_text())
+    workflow_text = wf_path.read_text(encoding="utf-8")
+    policy = load_policy(policy_path)
+    assert policy.step_tolerance == 0.5
+    assert policy.no_new_tools is False
+
+    wf = yaml.safe_load(workflow_text)
+    assert set(wf["permissions"]) == {"contents", "pull-requests"}
+    assert wf["permissions"]["contents"] == "read"
+    assert wf["permissions"]["pull-requests"] == "write"
+
     job = wf["jobs"]["agent-check"]
+    assert set(wf["jobs"]) == {"agent-check"}
+    assert job["runs-on"] == "ubuntu-latest"
+    assert len(job["steps"]) == 2
+    assert job["steps"][0]["name"] == "Check out repository"
+    assert job["steps"][1]["name"] == "Run Maida regression gate"
+
     uses = [step.get("uses", "") for step in job["steps"]]
     assert CHECKOUT_ACTION_REF in uses
     assert MAIDA_ASSERT_ACTION_REF in uses
     assert "actions/checkout@v4" not in uses
     assert "maida-ai/maida-assert@v2" not in uses
-    assert wf["permissions"]["pull-requests"] == "write"
+
+    action_inputs = job["steps"][1]["with"]
+    assert action_inputs["agent-script"] == "my_agent.py"
+    assert action_inputs["policy"] == ".maida/policy.yaml"
+    assert "baseline" not in action_inputs
+    assert "Replace this with the script that runs your traced agent." in workflow_text
+    assert "After committing a baseline" in workflow_text
+    assert "secrets." not in workflow_text.lower()
 
 
 def test_init_skips_existing_without_force(empty_data_dir, tmp_path, monkeypatch):
