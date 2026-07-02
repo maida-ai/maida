@@ -54,8 +54,11 @@ def _metrics_from_baseline(baseline: dict) -> dict:
     exact_tool_sequence = isinstance(baseline.get("tool_call_sequence"), list)
     if not tool_call_sequence:
         tool_call_sequence = tool_path
+    summary = dict(baseline.get("summary") or {})
+    final_status = baseline.get("final_status") or summary.get("status") or "unknown"
+    summary["status"] = final_status
     return {
-        "summary": baseline.get("summary", {}),
+        "summary": summary,
         "tool_path": tool_path,
         "tool_call_sequence": tool_call_sequence,
         "_tool_call_sequence_exact": exact_tool_sequence,
@@ -64,7 +67,7 @@ def _metrics_from_baseline(baseline: dict) -> dict:
         "llm_models_used": baseline.get("llm_models_used", []),
         "event_type_sequence": baseline.get("event_type_sequence", []),
         "guardrail_events": baseline.get("guardrail_events", []),
-        "final_status": baseline.get("final_status", "unknown"),
+        "final_status": final_status,
     }
 
 

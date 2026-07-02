@@ -250,6 +250,26 @@ def test_baseline_with_null_tool_path_is_treated_as_empty(temp_data_dir):
     assert d.removed_tools == []
 
 
+def test_baseline_status_is_canonicalized_for_diff(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="current-ok", events=[])
+    baseline = {
+        "source_run_id": "inconsistent-baseline",
+        "summary": {"status": "ok"},
+        "tool_path": [],
+        "tool_call_counts": {},
+        "llm_models_used": [],
+        "event_type_sequence": [],
+        "guardrail_events": [],
+        "final_status": "error",
+    }
+
+    d = compute_diff(run_id, baseline=baseline, config=config)
+
+    assert d.summary_diff["status"] == ("ok", "error")
+    assert d.terminal_status_diff == ("ok", "error")
+
+
 def test_diff_tracks_guardrail_and_terminal_status_changes(temp_data_dir):
     config = load_config()
     run_id = _make_run(config, name="current-ok", events=[])
