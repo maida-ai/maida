@@ -457,6 +457,58 @@ def test_assert_exit_two_missing_baseline(empty_data_dir):
     assert result.exit_code == 2
 
 
+def test_assert_exit_two_missing_run(empty_data_dir):
+    result = runner.invoke(app, ["assert", "missing-run", "--max-steps", "10"])
+
+    assert result.exit_code == 2
+    assert "Run not found:" in result.stderr
+
+
+def test_assert_exit_ten_on_internal_error(monkeypatch, empty_data_dir):
+    config = load_config()
+    with traced_run(name="assert_test"):
+        record_tool_call("t", args={}, result=None)
+    from tests.conftest import get_latest_run_id
+
+    run_id = get_latest_run_id(config)
+
+    def raise_internal_error(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("maida.cli.run_assertions", raise_internal_error)
+
+    result = runner.invoke(app, ["assert", run_id, "--max-steps", "10"])
+
+    assert result.exit_code == 10
+    assert "error: boom" in result.stderr
+
+
+def test_assert_markdown_uses_report_formatter(monkeypatch, empty_data_dir):
+    config = load_config()
+    with traced_run(name="assert_test"):
+        record_tool_call("t", args={}, result=None)
+    from tests.conftest import get_latest_run_id
+
+    run_id = get_latest_run_id(config)
+    seen = {}
+
+    def fake_format_report_markdown(report, *, diff=None, baseline_path=None):
+        seen["run_id"] = report.run_id
+        seen["diff"] = diff
+        seen["baseline_path"] = baseline_path
+        return "CLI markdown report"
+
+    monkeypatch.setattr("maida.cli.format_report_markdown", fake_format_report_markdown)
+
+    result = runner.invoke(
+        app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"]
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == "CLI markdown report\n"
+    assert seen == {"run_id": run_id, "diff": None, "baseline_path": None}
+
+
 def test_assert_json_format(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
