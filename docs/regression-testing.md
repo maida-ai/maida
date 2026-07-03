@@ -82,11 +82,15 @@ maida assert <TRACE_ID> --max-steps 80 --max-tool-calls 30 --no-loops
 
 ### Combining baseline and thresholds
 
-When both a baseline and a `max_*` threshold are set, the effective limit is the **lesser** of the two:
+When both a baseline and thresholds are set, the effective limit is the **lesser** of the tolerance-based upper bound and the hard cap. A **lower bound** is also enforced to catch regressions where the metric falls below the baseline:
 
 ```
-limit = min(baseline_value * (1 + tolerance), max_value)
+upper_limit = min(baseline * (1 + tolerance), max_value)
+lower_limit = max(1, baseline * (1 - tolerance))
+passes when lower_limit <= actual <= upper_limit
 ```
+
+When a baseline is available, a minimum of **1** is always required — a metric dropping to zero when the baseline had non-zero activity is always a regression. You can raise this floor further with `min_*` thresholds.
 
 See the [Policy YAML reference](reference/policy.md#how-thresholds-work) for the full decision table.
 

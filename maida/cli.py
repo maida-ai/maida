@@ -358,11 +358,17 @@ def assert_cmd(
     max_steps: int | None = typer.Option(
         None, "--max-steps", help="Max total events allowed"
     ),
+    min_steps: int | None = typer.Option(
+        None, "--min-steps", help="Min total events required"
+    ),
     step_tolerance: float | None = typer.Option(
         None, "--step-tolerance", help="Fractional tolerance for step count"
     ),
     max_tool_calls: int | None = typer.Option(
         None, "--max-tool-calls", help="Max tool calls allowed"
+    ),
+    min_tool_calls: int | None = typer.Option(
+        None, "--min-tool-calls", help="Min tool calls required"
     ),
     tool_call_tolerance: float | None = typer.Option(
         None, "--tool-call-tolerance", help="Fractional tolerance for tool calls"
@@ -379,11 +385,17 @@ def assert_cmd(
     max_cost_tokens: int | None = typer.Option(
         None, "--max-cost-tokens", help="Max total tokens allowed"
     ),
+    min_cost_tokens: int | None = typer.Option(
+        None, "--min-cost-tokens", help="Min total tokens required"
+    ),
     cost_tolerance: float | None = typer.Option(
         None, "--cost-tolerance", help="Fractional tolerance for token cost"
     ),
     max_duration_ms: int | None = typer.Option(
         None, "--max-duration-ms", help="Max run duration in ms"
+    ),
+    min_duration_ms: int | None = typer.Option(
+        None, "--min-duration-ms", help="Min run duration in ms"
     ),
     duration_tolerance: float | None = typer.Option(
         None, "--duration-tolerance", help="Fractional tolerance for duration"
@@ -415,15 +427,19 @@ def assert_cmd(
 
         cli_overrides = {
             "max_steps": max_steps,
+            "min_steps": min_steps,
             "step_tolerance": step_tolerance,
             "max_tool_calls": max_tool_calls,
+            "min_tool_calls": min_tool_calls,
             "tool_call_tolerance": tool_call_tolerance,
             "no_new_tools": no_new_tools,
             "no_loops": no_loops,
             "no_guardrails": no_guardrails,
             "max_cost_tokens": max_cost_tokens,
+            "min_cost_tokens": min_cost_tokens,
             "cost_tolerance": cost_tolerance,
             "max_duration_ms": max_duration_ms,
+            "min_duration_ms": min_duration_ms,
             "duration_tolerance": duration_tolerance,
             "expect_status": expect_status,
         }
