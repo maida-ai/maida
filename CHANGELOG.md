@@ -6,7 +6,7 @@
 
 - **`maida demo`** - bundled simulated agent: `pip install maida-ai && maida demo` produces a traced run with no repo clone, no network, and no API keys.
 - **`maida demo --regression`** - the full gate story in one command: baseline a known-good run, run a "refactored" agent that loops, calls a new tool, and burns more tokens, then show the failing report with a PR-comment preview.
-- **`maida init`** - scaffolds a commented starter `.maida/policy.yaml`, and with `--github` a ready-to-edit workflow using `maida-ai/maida-assert@v2`.
+- **`maida init`** - scaffolds a commented starter `.maida/policy.yaml`, and with `--github` a ready-to-edit workflow using `maida-ai/maida-assert@V4`.
 - **Latest-run defaults** - `maida assert`, `maida baseline`, `maida export`, and `maida diff` no longer require a run ID; they default to the most recent run (announced on stderr so stdout stays machine-readable).
 - **Richer gate reports** - the markdown report (the PR comment) now leads with a verdict, lists failed checks first with expected vs actual values, collapses passing checks, embeds a "What changed vs baseline" structural diff, and ends with a local-repro snippet. The text report appends the same diff on failure.
 
