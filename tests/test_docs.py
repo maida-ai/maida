@@ -67,6 +67,7 @@ def test_trace_format_documents_current_storage_contract():
 
 def test_action_version_references_match_scaffold():
     docs = [
+        "CHANGELOG.md",
         "README.md",
         "docs/cli.md",
         "docs/regression-testing.md",
