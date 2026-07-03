@@ -120,7 +120,6 @@ def _valid_meta(trace_id, *, run_name="validated"):
 
 def _valid_root_span(trace_id, *, span_id="1" * 16, run_name="validated"):
     return {
-        "spec_version": "0.2",
         "trace_id": trace_id,
         "span_id": span_id,
         "parent_span_id": None,

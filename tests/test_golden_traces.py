@@ -44,7 +44,6 @@ REQUIRED_META_FIELDS = {
     "counts",
 }
 REQUIRED_SPAN_FIELDS = {
-    "spec_version",
     "trace_id",
     "span_id",
     "parent_span_id",

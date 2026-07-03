@@ -701,7 +701,6 @@ def _validate_spans(
 ) -> None:
     root_count = 0
     required = (
-        "spec_version",
         "trace_id",
         "span_id",
         "parent_span_id",
@@ -716,18 +715,6 @@ def _validate_spans(
         "status_description",
     )
     for line_no, span in enumerate(spans, start=1):
-        for field in required:
-            if field not in span:
-                raise RunValidationError(
-                    trace_id, f"spans.jsonl line {line_no} is missing field {field!r}"
-                )
-        declared_spec = span["spec_version"]
-        if declared_spec != SPEC_VERSION:
-            raise RunValidationError(
-                trace_id,
-                f"spans.jsonl line {line_no} declares unsupported spec_version "
-                f"{_safe_version_display(declared_spec)!r}; expected {SPEC_VERSION!r}",
-            )
         for field in required:
             if field not in span:
                 raise RunValidationError(

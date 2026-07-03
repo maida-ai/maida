@@ -197,7 +197,6 @@ def span_to_dict(
     status_desc = _redact_and_truncate(status_desc, config)
 
     return {
-        "spec_version": SPEC_VERSION,
         "trace_id": format(sc.trace_id, "032x"),
         "span_id": format(sc.span_id, "016x"),
         "parent_span_id": format(parent_sc.span_id, "016x") if parent_sc else None,

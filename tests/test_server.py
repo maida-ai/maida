@@ -30,7 +30,6 @@ def _write_run(config, trace_id, run_name="test"):
     }
     (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     root_span = {
-        "spec_version": "0.2",
         "trace_id": trace_id,
         "span_id": "0" * 16,
         "parent_span_id": None,
