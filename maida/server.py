@@ -51,9 +51,12 @@ def create_app() -> FastAPI:
     def get_run_meta(trace_id: str, config: MaidaConfig = Depends(_get_config)) -> dict:
         trace_id = _validated_trace_id(trace_id)
         try:
-            return storage.load_run_meta(trace_id, config)
+            meta, _ = storage.load_validated_run(trace_id, config)
+            return meta
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
+        except storage.RunValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @app.get("/api/runs/{trace_id}/spans")
     def get_run_spans(
@@ -95,9 +98,12 @@ def create_app() -> FastAPI:
     ) -> dict:
         trace_id = _validated_trace_id(trace_id)
         try:
-            return storage.load_run_meta(trace_id, config)
+            meta, _ = storage.load_validated_run(trace_id, config)
+            return meta
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
+        except storage.RunValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @app.post("/api/runs/{trace_id}/rename")
     def rename_run(
