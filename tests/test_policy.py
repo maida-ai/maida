@@ -127,3 +127,52 @@ def test_merge_ignores_unknown_keys():
     merged = merge_policy(file_policy, cli)
     assert merged.max_steps == 10
     assert not hasattr(merged, "unknown_field")
+
+
+# ---------------------------------------------------------------------------
+# ignored_checks
+# ---------------------------------------------------------------------------
+
+
+def test_load_policy_with_ignored_checks(tmp_path):
+    p = tmp_path / "policy.yaml"
+    p.write_text("assert:\n  ignored_checks:\n    - step_count\n    - cost_tokens\n")
+    policy = load_policy(p)
+    assert policy.ignored_checks == ["step_count", "cost_tokens"]
+
+
+def test_load_policy_ignored_checks_empty_list(tmp_path):
+    p = tmp_path / "policy.yaml"
+    p.write_text("assert:\n  ignored_checks: []\n")
+    policy = load_policy(p)
+    assert policy.ignored_checks == []
+
+
+def test_merge_ignored_checks_union_with_cli():
+    file_policy = AssertionPolicy(ignored_checks=["step_count", "no_loops"])
+    cli = {"ignored_checks": ["cost_tokens"]}
+    merged = merge_policy(file_policy, cli)
+    assert sorted(merged.ignored_checks) == sorted(
+        ["step_count", "no_loops", "cost_tokens"]
+    )
+
+
+def test_merge_ignored_checks_file_only():
+    file_policy = AssertionPolicy(ignored_checks=["step_count"])
+    cli = {"ignored_checks": None}
+    merged = merge_policy(file_policy, cli)
+    assert merged.ignored_checks == ["step_count"]
+
+
+def test_merge_ignored_checks_cli_only():
+    file_policy = AssertionPolicy()
+    cli = {"ignored_checks": ["duration"]}
+    merged = merge_policy(file_policy, cli)
+    assert merged.ignored_checks == ["duration"]
+
+
+def test_merge_ignored_checks_dedup():
+    file_policy = AssertionPolicy(ignored_checks=["step_count"])
+    cli = {"ignored_checks": ["step_count", "no_loops"]}
+    merged = merge_policy(file_policy, cli)
+    assert merged.ignored_checks == ["no_loops", "step_count"]

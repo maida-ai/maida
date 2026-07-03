@@ -65,6 +65,9 @@ class AssertionPolicy:
     no_guardrails: bool = False  # Fail if any guardrail was triggered
     expect_status: str | None = None  # Expected run status (ok or error)
 
+    # Explicitly ignored checks (skipped even when thresholds/baseline are set)
+    ignored_checks: list[str] = field(default_factory=list)
+
 
 @dataclass
 class AssertionResult:
@@ -76,6 +79,7 @@ class AssertionResult:
     reason_code: RegressionReasonCode = RegressionReasonCode.NO_REGRESSION
     expected: str | None = None
     actual: str | None = None
+    ignored: bool = False
 
 
 @dataclass
@@ -238,34 +242,65 @@ def run_assertions(
         baseline_run_id=(baseline or {}).get("source_run_id"),
     )
 
+    _ignored = set(policy.ignored_checks)
+
     # --- step count ---
-    r = _check_threshold(
-        actual=summary["total_events"],
-        baseline_value=b_summary["total_events"] if b_summary else None,
-        tolerance=policy.step_tolerance,
-        standalone_max=policy.max_steps,
-        check_name="step_count",
-        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
-        unit="steps",
-    )
-    if r:
-        report.add(r)
+    if "step_count" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="step_count",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    else:
+        r = _check_threshold(
+            actual=summary["total_events"],
+            baseline_value=b_summary["total_events"] if b_summary else None,
+            tolerance=policy.step_tolerance,
+            standalone_max=policy.max_steps,
+            check_name="step_count",
+            reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+            unit="steps",
+        )
+        if r:
+            report.add(r)
 
     # --- tool calls ---
-    r = _check_threshold(
-        actual=summary["tool_calls"],
-        baseline_value=b_summary["tool_calls"] if b_summary else None,
-        tolerance=policy.tool_call_tolerance,
-        standalone_max=policy.max_tool_calls,
-        check_name="tool_calls",
-        reason_code=RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
-        unit="tool calls",
-    )
-    if r:
-        report.add(r)
+    if "tool_calls" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="tool_calls",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    else:
+        r = _check_threshold(
+            actual=summary["tool_calls"],
+            baseline_value=b_summary["tool_calls"] if b_summary else None,
+            tolerance=policy.tool_call_tolerance,
+            standalone_max=policy.max_tool_calls,
+            check_name="tool_calls",
+            reason_code=RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
+            unit="tool calls",
+        )
+        if r:
+            report.add(r)
 
     # --- no new tools ---
-    if policy.no_new_tools and baseline is not None:
+    if "new_tools" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="new_tools",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    elif policy.no_new_tools and baseline is not None:
         baseline_tools = set(baseline.get("tool_path") or [])
         run_tools = set(metrics["tool_path"])
         new_tools = sorted(run_tools - baseline_tools)
@@ -286,7 +321,16 @@ def run_assertions(
         )
 
     # --- no loops ---
-    if policy.no_loops:
+    if "no_loops" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="no_loops",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    elif policy.no_loops:
         loop_count = summary["loop_warnings"]
         passed = loop_count == 0
         signature_summary = _loop_signature_summary(events) if not passed else ""
@@ -306,7 +350,16 @@ def run_assertions(
         )
 
     # --- no guardrails ---
-    if policy.no_guardrails:
+    if "no_guardrails" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="no_guardrails",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    elif policy.no_guardrails:
         gr_count = len(metrics["guardrail_events"])
         passed = gr_count == 0
         report.add(
@@ -326,33 +379,62 @@ def run_assertions(
         )
 
     # --- cost tokens ---
-    r = _check_threshold(
-        actual=summary["total_tokens"],
-        baseline_value=b_summary["total_tokens"] if b_summary else None,
-        tolerance=policy.cost_tolerance,
-        standalone_max=policy.max_cost_tokens,
-        check_name="cost_tokens",
-        reason_code=RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
-        unit="tokens",
-    )
-    if r:
-        report.add(r)
+    if "cost_tokens" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="cost_tokens",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    else:
+        r = _check_threshold(
+            actual=summary["total_tokens"],
+            baseline_value=b_summary["total_tokens"] if b_summary else None,
+            tolerance=policy.cost_tolerance,
+            standalone_max=policy.max_cost_tokens,
+            check_name="cost_tokens",
+            reason_code=RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
+            unit="tokens",
+        )
+        if r:
+            report.add(r)
 
     # --- duration ---
-    r = _check_threshold(
-        actual=summary["duration_ms"],
-        baseline_value=b_summary["duration_ms"] if b_summary else None,
-        tolerance=policy.duration_tolerance,
-        standalone_max=policy.max_duration_ms,
-        check_name="duration",
-        reason_code=RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
-        unit="ms",
-    )
-    if r:
-        report.add(r)
+    if "duration" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="duration",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    else:
+        r = _check_threshold(
+            actual=summary["duration_ms"],
+            baseline_value=b_summary["duration_ms"] if b_summary else None,
+            tolerance=policy.duration_tolerance,
+            standalone_max=policy.max_duration_ms,
+            check_name="duration",
+            reason_code=RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
+            unit="ms",
+        )
+        if r:
+            report.add(r)
 
     # --- expect status ---
-    if policy.expect_status is not None:
+    if "expect_status" in _ignored:
+        report.add(
+            AssertionResult(
+                check_name="expect_status",
+                passed=True,
+                message="check ignored",
+                ignored=True,
+            )
+        )
+    elif policy.expect_status is not None:
         actual_status = meta.get("status", "")
         passed = actual_status == policy.expect_status
         report.add(
@@ -429,20 +511,31 @@ def format_report_text(report: AssertionReport, diff: "RunDiff | None" = None) -
     """
     lines: list[str] = []
     for r in report.results:
-        mark = _PASS if r.passed else _FAIL
-        lines.append(
-            f"  {mark} {r.check_name} [{_reason_code_text(r.reason_code)}]: {r.message}"
-        )
+        if r.ignored:
+            lines.append(f"  - {r.check_name} [ignored]")
+        else:
+            mark = _PASS if r.passed else _FAIL
+            lines.append(
+                f"  {mark} {r.check_name} [{_reason_code_text(r.reason_code)}]: {r.message}"
+            )
     total = len(report.results)
     failed = sum(1 for r in report.results if not r.passed)
+    ignored_count = sum(1 for r in report.results if r.ignored)
+    active = total - ignored_count
     if total == 0:
         lines.append("  (no checks enabled)")
     verdict = "PASSED" if report.passed else "FAILED"
     lines.append("")
-    if failed:
-        lines.append(f"RESULT: {verdict} ({failed} of {total} checks failed)")
+    parts = []
+    if active == 0:
+        parts.append(f"RESULT: {verdict} (all checks ignored)")
+    elif failed:
+        parts.append(f"RESULT: {verdict} ({failed} of {active} active checks failed)")
     else:
-        lines.append(f"RESULT: {verdict} ({total} checks passed)")
+        parts.append(f"RESULT: {verdict} ({active} active checks passed)")
+    if ignored_count:
+        parts.append(f"({ignored_count} ignored)")
+    lines.append(" ".join(parts))
     if diff is not None and not report.passed:
         lines.append("")
         lines.append(format_diff_text(diff))
@@ -464,6 +557,7 @@ def format_report_json(report: AssertionReport) -> str:
                 "message": r.message,
                 "expected": r.expected,
                 "actual": r.actual,
+                "ignored": r.ignored,
             }
             for r in report.results
         ],
@@ -484,7 +578,8 @@ def format_report_markdown(
     readable.
     """
     failed = [r for r in report.results if not r.passed]
-    passed = [r for r in report.results if r.passed]
+    passed = [r for r in report.results if r.passed and not r.ignored]
+    ignored = [r for r in report.results if r.ignored]
     short_run = report.run_id[:8]
 
     if report.passed:
@@ -500,7 +595,11 @@ def format_report_markdown(
             f"**{len(failed)} of {len(report.results)} checks failed** \u00b7 {scope}"
         )
     else:
-        lines.append(f"**All {len(report.results)} checks passed** \u00b7 {scope}")
+        active = len(report.results) - len(ignored)
+        parts = [f"**All {active} checks passed** \u00b7 {scope}"]
+        if ignored:
+            parts.append(f"({len(ignored)} ignored)")
+        lines.append(" ".join(parts))
 
     diff_md = format_diff_markdown(diff) if diff is not None else ""
     if diff_md:
@@ -554,6 +653,19 @@ def format_report_markdown(
                 f"`{_markdown_table_cell(r.check_name)}` | "
                 f"{_markdown_table_cell(r.message)} |"
             )
+        lines += ["", "</details>"]
+
+    if ignored:
+        lines += [
+            "",
+            "<details>",
+            f"<summary>\u2796 {len(ignored)} ignored checks</summary>",
+            "",
+            "| Check |",
+            "|---|",
+        ]
+        for r in ignored:
+            lines.append(f"| \u2796 `{_markdown_table_cell(r.check_name)}` |")
         lines += ["", "</details>"]
 
     lines += [

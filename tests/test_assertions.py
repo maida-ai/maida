@@ -466,6 +466,157 @@ def test_all_checks_disabled_passes(temp_data_dir):
 
 
 # ---------------------------------------------------------------------------
+# Ignored checks
+# ---------------------------------------------------------------------------
+
+
+def test_ignored_step_count_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_steps=1, ignored_checks=["step_count"])
+    report = run_assertions(run_id, policy, config=config)
+    step = next(r for r in report.results if r.check_name == "step_count")
+    assert step.ignored is True
+    assert step.passed is True
+    assert report.passed is True
+
+
+def test_ignored_tool_calls_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_tool_calls=1, ignored_checks=["tool_calls"])
+    report = run_assertions(run_id, policy, config=config)
+    result = next(r for r in report.results if r.check_name == "tool_calls")
+    assert result.ignored is True
+
+
+def test_ignored_cost_tokens_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    events = [
+        (
+            EventType.LLM_CALL,
+            "gpt-4",
+            {
+                "usage": {
+                    "prompt_tokens": 9999,
+                    "completion_tokens": 9999,
+                    "total_tokens": 19998,
+                }
+            },
+        )
+    ]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(max_cost_tokens=1, ignored_checks=["cost_tokens"])
+    report = run_assertions(run_id, policy, config=config)
+    result = next(r for r in report.results if r.check_name == "cost_tokens")
+    assert result.ignored is True
+
+
+def test_ignored_duration_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[])
+    policy = AssertionPolicy(max_duration_ms=1, ignored_checks=["duration"])
+    report = run_assertions(run_id, policy, config=config)
+    result = next(r for r in report.results if r.check_name == "duration")
+    assert result.ignored is True
+
+
+def test_ignored_new_tools_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    bl_events = [(EventType.TOOL_CALL, "existing_tool", {})]
+    bl_rid = _make_run(config, events=bl_events, name="baseline")
+    bl = create_baseline(bl_rid, config)
+    run_events = [(EventType.TOOL_CALL, "new_tool", {})]
+    run_id = _make_run(config, events=run_events, name="check")
+    policy = AssertionPolicy(no_new_tools=True, ignored_checks=["new_tools"])
+    report = run_assertions(run_id, policy, baseline=bl, config=config)
+    result = next(r for r in report.results if r.check_name == "new_tools")
+    assert result.ignored is True
+
+
+def test_ignored_no_loops_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    events = [
+        (EventType.TOOL_CALL, "t", {}),
+        (EventType.LLM_CALL, "m", {}),
+        (EventType.TOOL_CALL, "t", {}),
+        (EventType.LLM_CALL, "m", {}),
+        (EventType.TOOL_CALL, "t", {}),
+        (EventType.LLM_CALL, "m", {}),
+    ]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(no_loops=True, ignored_checks=["no_loops"])
+    report = run_assertions(run_id, policy, config=config)
+    result = next(r for r in report.results if r.check_name == "no_loops")
+    assert result.ignored is True
+
+
+def test_ignored_no_guardrails_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[])
+    policy = AssertionPolicy(no_guardrails=True, ignored_checks=["no_guardrails"])
+    report = run_assertions(run_id, policy, config=config)
+    result = next(r for r in report.results if r.check_name == "no_guardrails")
+    assert result.ignored is True
+
+
+def test_ignored_expect_status_produces_ignored_result(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[], status="error")
+    policy = AssertionPolicy(expect_status="ok", ignored_checks=["expect_status"])
+    report = run_assertions(run_id, policy, config=config)
+    result = next(r for r in report.results if r.check_name == "expect_status")
+    assert result.ignored is True
+
+
+def test_ignored_check_reports_passed(temp_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]
+    run_id = _make_run(config, events=events)
+    policy = AssertionPolicy(
+        max_steps=1, max_tool_calls=1, ignored_checks=["step_count", "tool_calls"]
+    )
+    report = run_assertions(run_id, policy, config=config)
+    assert report.passed is True
+    for r in report.results:
+        assert r.ignored is True
+
+
+def test_ignored_checks_in_report_text(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[])
+    policy = AssertionPolicy(max_steps=100, ignored_checks=["step_count"])
+    report = run_assertions(run_id, policy, config=config)
+    text = format_report_text(report)
+    assert "[ignored]" in text
+    assert "step_count" in text
+    assert "1 ignored" in text
+
+
+def test_ignored_checks_in_report_json(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[])
+    policy = AssertionPolicy(max_steps=100, ignored_checks=["step_count"])
+    report = run_assertions(run_id, policy, config=config)
+    data = json.loads(format_report_json(report))
+    step = next(r for r in data["results"] if r["check_name"] == "step_count")
+    assert step["ignored"] is True
+    assert step["passed"] is True
+
+
+def test_ignored_checks_in_report_markdown(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[])
+    policy = AssertionPolicy(max_steps=100, ignored_checks=["step_count"])
+    report = run_assertions(run_id, policy, config=config)
+    md = format_report_markdown(report)
+    assert "ignored checks" in md.lower()
+    assert "step_count" in md
+
+
+# ---------------------------------------------------------------------------
 # Report formatters
 # ---------------------------------------------------------------------------
 

@@ -32,7 +32,7 @@ Requires **PyYAML** (`pip install pyyaml` or included in `maida[yaml]`). If PyYA
 
 ## Assertion fields
 
-All fields are optional. A check is **disabled** unless at least one relevant value is set (via baseline, policy file, or CLI flag).
+All fields are optional. A check is **disabled** unless at least one relevant value is set (via baseline, policy file, or CLI flag).  A check can also be **explicitly ignored** via `ignored_checks` — this skips the check even when thresholds or a baseline are present.
 
 ### Numeric thresholds
 
@@ -60,6 +60,32 @@ All fields are optional. A check is **disabled** unless at least one relevant va
 | YAML key | Type | Default | CLI flag | Description |
 |---|---|---|---|---|
 | `expect_status` | `string` or `null` | `null` | `--expect-status` | Expected run status: `"ok"` or `"error"` |
+
+### Ignored checks
+
+| YAML key | Type | Default | CLI flag | Description |
+|---|---|---|---|---|
+| `ignored_checks` | `list[string]` | `[]` | `--ignore-check` (repeatable) | Explicitly skip these checks regardless of thresholds or baseline |
+
+A check listed in `ignored_checks` is skipped entirely — it does not run any comparison and does not count as a failure. This is useful for temporarily disabling noisy checks without removing policy configuration.
+
+**Available check names:** `step_count`, `tool_calls`, `cost_tokens`, `duration`, `new_tools`, `no_loops`, `no_guardrails`, `expect_status`
+
+**CLI merge:** When `--ignore-check` is provided on the CLI, its values are **unioned** with the file's `ignored_checks` list (both sets apply).
+
+```yaml
+assert:
+  max_steps: 80
+  no_loops: true
+  ignored_checks:
+    - step_count
+    - cost_tokens
+```
+
+The equivalent CLI invocation would be:
+```bash
+maida assert <run> --ignore-check step_count --ignore-check cost_tokens
+```
 
 ---
 
