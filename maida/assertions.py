@@ -594,9 +594,13 @@ def format_report_markdown(
         lines.append(
             f"**{len(failed)} of {len(report.results)} checks failed** \u00b7 {scope}"
         )
-    else:
-        active = len(report.results) - len(ignored)
+    elif active := len(report.results) - len(ignored):
         parts = [f"**All {active} checks passed** \u00b7 {scope}"]
+        if ignored:
+            parts.append(f"({len(ignored)} ignored)")
+        lines.append(" ".join(parts))
+    else:
+        parts = [f"**All checks ignored** \u00b7 {scope}"]
         if ignored:
             parts.append(f"({len(ignored)} ignored)")
         lines.append(" ".join(parts))
