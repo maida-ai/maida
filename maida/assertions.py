@@ -8,7 +8,7 @@ results are collected into an ``AssertionReport`` with an overall pass/fail.
 import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from maida.diff import RunDiff
@@ -266,217 +266,153 @@ def run_assertions(
             f"Known checks: {', '.join(sorted(KNOWN_CHECK_NAMES))}"
         )
 
-    # --- step count ---
-    r = _check_threshold(
-        actual=summary["total_events"],
-        baseline_value=b_summary["total_events"] if b_summary else None,
-        tolerance=policy.step_tolerance,
-        standalone_max=policy.max_steps,
-        check_name="step_count",
-        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
-        unit="steps",
-    )
-    if r and "step_count" in _ignored:
-        report.add(
-            AssertionResult(
-                check_name="step_count",
-                passed=True,
-                message="check ignored",
-                ignored=True,
-            )
+    # --- per-check runner helpers (return None when check is not enabled) ---
+    def _threshold(
+        name: str,
+        actual: int | float,
+        baseline_val: int | float | None,
+        tolerance: float,
+        max_val: int | float | None,
+        reason: RegressionReasonCode,
+        unit: str,
+    ) -> Callable[[], AssertionResult | None]:
+        return lambda: _check_threshold(
+            actual, baseline_val, tolerance, max_val, name, reason, unit
         )
-    elif r:
-        report.add(r)
 
-    # --- tool calls ---
-    r = _check_threshold(
-        actual=summary["tool_calls"],
-        baseline_value=b_summary["tool_calls"] if b_summary else None,
-        tolerance=policy.tool_call_tolerance,
-        standalone_max=policy.max_tool_calls,
-        check_name="tool_calls",
-        reason_code=RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
-        unit="tool calls",
-    )
-    if r and "tool_calls" in _ignored:
-        report.add(
-            AssertionResult(
-                check_name="tool_calls",
-                passed=True,
-                message="check ignored",
-                ignored=True,
-            )
+    def _check_new_tools() -> AssertionResult | None:
+        if not (policy.no_new_tools and baseline is not None):
+            return None
+        bl_tools = set(baseline.get("tool_path") or [])
+        run_tools = set(metrics["tool_path"])
+        new_tools = sorted(run_tools - bl_tools)
+        passed = len(new_tools) == 0
+        return AssertionResult(
+            check_name="new_tools",
+            passed=passed,
+            message=(
+                "no new tools" if passed else f"unexpected tools used: {new_tools}"
+            ),
+            reason_code=_reason_code_for(passed, RegressionReasonCode.NEW_TOOL_PATH),
+            expected="none",
+            actual=str(new_tools) if new_tools else "none",
         )
-    elif r:
-        report.add(r)
 
-    # --- no new tools ---
-    if policy.no_new_tools and baseline is not None:
-        if "new_tools" in _ignored:
+    def _check_no_loops() -> AssertionResult | None:
+        if not policy.no_loops:
+            return None
+        loop_count = summary["loop_warnings"]
+        passed = loop_count == 0
+        sig = _loop_signature_summary(events) if not passed else ""
+        message = "no loop warnings detected"
+        if not passed:
+            message = f"{loop_count} loop warning(s) detected"
+            if sig:
+                message += f": {sig}"
+        return AssertionResult(
+            check_name="no_loops",
+            passed=passed,
+            message=message,
+            reason_code=_reason_code_for(passed, _loop_reason_code(events)),
+            actual=str(loop_count),
+        )
+
+    def _check_no_guardrails() -> AssertionResult | None:
+        if not policy.no_guardrails:
+            return None
+        gr_count = len(metrics["guardrail_events"])
+        passed = gr_count == 0
+        return AssertionResult(
+            check_name="no_guardrails",
+            passed=passed,
+            message=(
+                "no guardrail events"
+                if passed
+                else f"{gr_count} guardrail event(s) detected"
+            ),
+            reason_code=_reason_code_for(
+                passed, RegressionReasonCode.GUARDRAIL_EVENT_CHANGED
+            ),
+            actual=str(gr_count),
+        )
+
+    def _check_expect_status() -> AssertionResult | None:
+        if policy.expect_status is None:
+            return None
+        actual_status = meta.get("status", "")
+        passed = actual_status == policy.expect_status
+        return AssertionResult(
+            check_name="expect_status",
+            passed=passed,
+            message=(
+                f"status is '{actual_status}'"
+                if passed
+                else f"expected '{policy.expect_status}', got '{actual_status}'"
+            ),
+            reason_code=_reason_code_for(
+                passed, RegressionReasonCode.TERMINAL_STATE_MISSING
+            ),
+            expected=policy.expect_status,
+            actual=actual_status,
+        )
+
+    # --- unified runner dispatch ---
+    runners: dict[str, Callable[[], AssertionResult | None]] = {
+        "step_count": _threshold(
+            "step_count",
+            summary["total_events"],
+            b_summary["total_events"] if b_summary else None,
+            policy.step_tolerance,
+            policy.max_steps,
+            RegressionReasonCode.STEP_COUNT_EXCEEDED,
+            "steps",
+        ),
+        "tool_calls": _threshold(
+            "tool_calls",
+            summary["tool_calls"],
+            b_summary["tool_calls"] if b_summary else None,
+            policy.tool_call_tolerance,
+            policy.max_tool_calls,
+            RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
+            "tool calls",
+        ),
+        "new_tools": _check_new_tools,
+        "no_loops": _check_no_loops,
+        "no_guardrails": _check_no_guardrails,
+        "cost_tokens": _threshold(
+            "cost_tokens",
+            summary["total_tokens"],
+            b_summary["total_tokens"] if b_summary else None,
+            policy.cost_tolerance,
+            policy.max_cost_tokens,
+            RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
+            "tokens",
+        ),
+        "duration": _threshold(
+            "duration",
+            summary["duration_ms"],
+            b_summary["duration_ms"] if b_summary else None,
+            policy.duration_tolerance,
+            policy.max_duration_ms,
+            RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
+            "ms",
+        ),
+        "expect_status": _check_expect_status,
+    }
+
+    for name, runner in runners.items():
+        r = runner()
+        if r and name in _ignored:
             report.add(
                 AssertionResult(
-                    check_name="new_tools",
+                    check_name=name,
                     passed=True,
                     message="check ignored",
                     ignored=True,
                 )
             )
-        else:
-            baseline_tools = set(baseline.get("tool_path") or [])
-            run_tools = set(metrics["tool_path"])
-            new_tools = sorted(run_tools - baseline_tools)
-            passed = len(new_tools) == 0
-            report.add(
-                AssertionResult(
-                    check_name="new_tools",
-                    passed=passed,
-                    message=(
-                        "no new tools"
-                        if passed
-                        else f"unexpected tools used: {new_tools}"
-                    ),
-                    reason_code=_reason_code_for(
-                        passed, RegressionReasonCode.NEW_TOOL_PATH
-                    ),
-                    expected="none",
-                    actual=str(new_tools) if new_tools else "none",
-                )
-            )
-
-    # --- no loops ---
-    if policy.no_loops:
-        if "no_loops" in _ignored:
-            report.add(
-                AssertionResult(
-                    check_name="no_loops",
-                    passed=True,
-                    message="check ignored",
-                    ignored=True,
-                )
-            )
-        else:
-            loop_count = summary["loop_warnings"]
-            passed = loop_count == 0
-            signature_summary = _loop_signature_summary(events) if not passed else ""
-            message = "no loop warnings detected"
-            if not passed:
-                message = f"{loop_count} loop warning(s) detected"
-                if signature_summary:
-                    message += f": {signature_summary}"
-            report.add(
-                AssertionResult(
-                    check_name="no_loops",
-                    passed=passed,
-                    message=message,
-                    reason_code=_reason_code_for(passed, _loop_reason_code(events)),
-                    actual=str(loop_count),
-                )
-            )
-
-    # --- no guardrails ---
-    if policy.no_guardrails:
-        if "no_guardrails" in _ignored:
-            report.add(
-                AssertionResult(
-                    check_name="no_guardrails",
-                    passed=True,
-                    message="check ignored",
-                    ignored=True,
-                )
-            )
-        else:
-            gr_count = len(metrics["guardrail_events"])
-            passed = gr_count == 0
-            report.add(
-                AssertionResult(
-                    check_name="no_guardrails",
-                    passed=passed,
-                    message=(
-                        "no guardrail events"
-                        if passed
-                        else f"{gr_count} guardrail event(s) detected"
-                    ),
-                    reason_code=_reason_code_for(
-                        passed, RegressionReasonCode.GUARDRAIL_EVENT_CHANGED
-                    ),
-                    actual=str(gr_count),
-                )
-            )
-
-    # --- cost tokens ---
-    r = _check_threshold(
-        actual=summary["total_tokens"],
-        baseline_value=b_summary["total_tokens"] if b_summary else None,
-        tolerance=policy.cost_tolerance,
-        standalone_max=policy.max_cost_tokens,
-        check_name="cost_tokens",
-        reason_code=RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
-        unit="tokens",
-    )
-    if r and "cost_tokens" in _ignored:
-        report.add(
-            AssertionResult(
-                check_name="cost_tokens",
-                passed=True,
-                message="check ignored",
-                ignored=True,
-            )
-        )
-    elif r:
-        report.add(r)
-
-    # --- duration ---
-    r = _check_threshold(
-        actual=summary["duration_ms"],
-        baseline_value=b_summary["duration_ms"] if b_summary else None,
-        tolerance=policy.duration_tolerance,
-        standalone_max=policy.max_duration_ms,
-        check_name="duration",
-        reason_code=RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
-        unit="ms",
-    )
-    if r and "duration" in _ignored:
-        report.add(
-            AssertionResult(
-                check_name="duration",
-                passed=True,
-                message="check ignored",
-                ignored=True,
-            )
-        )
-    elif r:
-        report.add(r)
-
-    # --- expect status ---
-    if policy.expect_status is not None:
-        if "expect_status" in _ignored:
-            report.add(
-                AssertionResult(
-                    check_name="expect_status",
-                    passed=True,
-                    message="check ignored",
-                    ignored=True,
-                )
-            )
-        else:
-            actual_status = meta.get("status", "")
-            passed = actual_status == policy.expect_status
-            report.add(
-                AssertionResult(
-                    check_name="expect_status",
-                    passed=passed,
-                    message=(
-                        f"status is '{actual_status}'"
-                        if passed
-                        else f"expected '{policy.expect_status}', got '{actual_status}'"
-                    ),
-                    reason_code=_reason_code_for(
-                        passed, RegressionReasonCode.TERMINAL_STATE_MISSING
-                    ),
-                    expected=policy.expect_status,
-                    actual=actual_status,
-                )
-            )
+        elif r:
+            report.add(r)
 
     return report
 
