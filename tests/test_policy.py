@@ -141,6 +141,13 @@ def test_load_policy_with_ignored_checks(tmp_path):
     assert policy.ignored_checks == ["step_count", "cost_tokens"]
 
 
+def test_load_policy_ignored_checks_null(tmp_path):
+    p = tmp_path / "policy.yaml"
+    p.write_text("assert:\n  ignored_checks:\n")
+    policy = load_policy(p)
+    assert policy.ignored_checks == []
+
+
 def test_load_policy_ignored_checks_empty_list(tmp_path):
     p = tmp_path / "policy.yaml"
     p.write_text("assert:\n  ignored_checks: []\n")

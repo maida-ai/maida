@@ -81,6 +81,10 @@ class AssertionPolicy:
     # Explicitly ignored checks (skipped even when thresholds/baseline are set)
     ignored_checks: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        if self.ignored_checks is None:
+            self.ignored_checks = []
+
 
 @dataclass
 class AssertionResult:
