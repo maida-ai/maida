@@ -127,6 +127,22 @@ def test_server_returns_404_for_valid_but_missing_run_id(temp_data_dir):
     assert "not found" in (r.json().get("detail") or "").lower()
 
 
+def test_server_meta_returns_422_for_invalid_run_format(temp_data_dir):
+    """GET /api/runs/{run_id} with malformed spans returns 422, not 200."""
+    config = load_config()
+    trace_id = "cc" + "b" * 30
+    _write_run_with_malformed_span(config, trace_id)
+    client = TestClient(create_app())
+
+    r = client.get(f"/api/runs/{trace_id}")
+
+    assert r.status_code == 422
+    detail = r.json().get("detail") or ""
+    assert "spans.jsonl line 1" in detail
+    assert "Next step:" in detail
+    assert "sk-test-DO-NOT-LEAK" not in detail
+
+
 def test_server_returns_200_for_valid_run_id(temp_data_dir):
     """Valid trace_id with existing run returns 200 and metadata."""
     config = load_config()
