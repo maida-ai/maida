@@ -571,6 +571,14 @@ def test_ignored_expect_status_produces_ignored_result(temp_data_dir):
     assert result.ignored is True
 
 
+def test_unknown_ignored_check_raises_error(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[])
+    policy = AssertionPolicy(ignored_checks=["step_counts"])
+    with pytest.raises(ValueError, match="Unknown check name"):
+        run_assertions(run_id, policy, config=config)
+
+
 def test_ignored_check_reports_passed(temp_data_dir):
     config = load_config()
     events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]

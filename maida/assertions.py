@@ -21,6 +21,19 @@ from maida.storage import load_run_for_analysis
 
 kDefaultTolerance = 0.5  # 50% global default
 
+KNOWN_CHECK_NAMES = frozenset(
+    {
+        "step_count",
+        "tool_calls",
+        "new_tools",
+        "no_loops",
+        "no_guardrails",
+        "cost_tokens",
+        "duration",
+        "expect_status",
+    }
+)
+
 
 class RegressionReasonCode(str, Enum):
     """Stable reason codes for assertion decisions and PR comment grouping."""
@@ -243,6 +256,11 @@ def run_assertions(
     )
 
     _ignored = set(policy.ignored_checks)
+    if unknown := _ignored - KNOWN_CHECK_NAMES:
+        raise ValueError(
+            f"Unknown check name(s) in ignored_checks: {', '.join(sorted(unknown))}. "
+            f"Known checks: {', '.join(sorted(KNOWN_CHECK_NAMES))}"
+        )
 
     # --- step count ---
     if "step_count" in _ignored:
