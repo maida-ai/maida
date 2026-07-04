@@ -65,15 +65,19 @@ def merge_policy(
     """
     merged = AssertionPolicy(
         max_steps=file_policy.max_steps,
+        min_steps=file_policy.min_steps,
         step_tolerance=file_policy.step_tolerance,
         max_tool_calls=file_policy.max_tool_calls,
+        min_tool_calls=file_policy.min_tool_calls,
         tool_call_tolerance=file_policy.tool_call_tolerance,
         no_new_tools=file_policy.no_new_tools,
         no_loops=file_policy.no_loops,
         no_guardrails=file_policy.no_guardrails,
         max_cost_tokens=file_policy.max_cost_tokens,
+        min_cost_tokens=file_policy.min_cost_tokens,
         cost_tolerance=file_policy.cost_tolerance,
         max_duration_ms=file_policy.max_duration_ms,
+        min_duration_ms=file_policy.min_duration_ms,
         duration_tolerance=file_policy.duration_tolerance,
         expect_status=file_policy.expect_status,
     )

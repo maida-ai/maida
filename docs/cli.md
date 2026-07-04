@@ -203,15 +203,19 @@ maida assert [TRACE_ID] [options]
 | `--baseline`, `-b` | - | Baseline JSON file to compare against |
 | `--policy` | `.maida/policy.yaml` (auto-detected) | Policy YAML file with assertion thresholds |
 | `--max-steps` | - | Max total events allowed |
+| `--min-steps` | - | Min total events required |
 | `--step-tolerance` | `0.5` | Fractional tolerance for step count |
 | `--max-tool-calls` | - | Max tool calls allowed |
+| `--min-tool-calls` | - | Min tool calls required |
 | `--tool-call-tolerance` | `0.5` | Fractional tolerance for tool calls |
 | `--no-new-tools` | `false` | Fail if run uses tools not in baseline |
 | `--no-loops` | `false` | Fail if any LOOP_WARNING present |
 | `--no-guardrails` | `false` | Fail if any guardrail was triggered |
 | `--max-cost-tokens` | - | Max total tokens allowed |
+| `--min-cost-tokens` | - | Min total tokens required |
 | `--cost-tolerance` | `0.5` | Fractional tolerance for token cost |
 | `--max-duration-ms` | - | Max run duration in ms |
+| `--min-duration-ms` | - | Min run duration in ms |
 | `--duration-tolerance` | `0.5` | Fractional tolerance for duration |
 | `--expect-status` | - | Expected run status (`ok` or `error`) |
 | `--format`, `-f` | `text` | Output format: `text`, `json`, or `markdown` |

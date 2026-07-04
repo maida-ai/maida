@@ -35,6 +35,10 @@ class RegressionReasonCode(str, Enum):
     GUARDRAIL_EVENT_CHANGED = "guardrail_event_changed"
     LATENCY_ENVELOPE_EXCEEDED = "latency_envelope_exceeded"
     COST_ENVELOPE_EXCEEDED = "cost_envelope_exceeded"
+    STEP_COUNT_BELOW_MINIMUM = "step_count_below_minimum"
+    TOOL_CALL_COUNT_BELOW_MINIMUM = "tool_call_count_below_minimum"
+    COST_BELOW_MINIMUM = "cost_below_minimum"
+    DURATION_BELOW_MINIMUM = "duration_below_minimum"
 
 
 @dataclass
@@ -46,18 +50,26 @@ class AssertionPolicy:
 
     # Maximum allowed step count
     max_steps: int | None = None
+    # Minimum required step count
+    min_steps: int | None = None
     step_tolerance: float = kDefaultTolerance
 
     # Maximum allowed tool call count
     max_tool_calls: int | None = None
+    # Minimum required tool call count
+    min_tool_calls: int | None = None
     tool_call_tolerance: float = kDefaultTolerance
 
     # Maximum allowed cost tokens
     max_cost_tokens: int | None = None
+    # Minimum required cost tokens
+    min_cost_tokens: int | None = None
     cost_tolerance: float = kDefaultTolerance
 
     # Maximum allowed duration in milliseconds
     max_duration_ms: int | None = None
+    # Minimum required duration in milliseconds
+    min_duration_ms: int | None = None
     duration_tolerance: float = kDefaultTolerance
 
     no_new_tools: bool = False  # Fail if run uses tools not in baseline
@@ -146,66 +158,103 @@ def _check_threshold(
     actual: int | float,
     baseline_value: int | float | None,
     tolerance: float,
-    standalone_max: int | float | None,
-    check_name: str,
-    reason_code: RegressionReasonCode,
-    unit: str,
+    standalone_max: int | float | None = None,
+    standalone_min: int | float | None = None,
+    check_name: str = "",
+    reason_code_exceeded: RegressionReasonCode = RegressionReasonCode.NO_REGRESSION,
+    reason_code_below_minimum: RegressionReasonCode = RegressionReasonCode.NO_REGRESSION,
+    unit: str = "",
 ) -> AssertionResult | None:
     """Shared threshold/tolerance comparison for numeric metrics.
 
-    Returns an ``AssertionResult`` if any check was enabled, else ``None``.
+    Computes both upper and lower bounds from the baseline value and
+    tolerance, then applies optional standalone hard caps/floors.  Returns
+    ``None`` when no check is configured (no baseline and no standalone
+    limit).
     """
-    if baseline_value is not None and standalone_max is not None:
+    has_baseline = baseline_value is not None
+    has_upper = has_baseline or standalone_max is not None
+    has_lower = standalone_min is not None or (
+        has_baseline and baseline_value > 0  # noqa: PLR0914
+    )
+
+    if not has_upper and not has_lower:
+        return None
+
+    # --- upper limit ---
+    upper_limit: float | None = None
+    if has_baseline:
         if baseline_value > 0:
-            limit = min(
-                baseline_value * (1 + tolerance),
-                float(standalone_max),
-            )
+            upper_limit = float(baseline_value) * (1 + tolerance)
+            if standalone_max is not None:
+                upper_limit = min(upper_limit, float(standalone_max))
         else:
-            limit = float(standalone_max)
-        passed = actual <= limit
-        return AssertionResult(
-            check_name=check_name,
-            passed=passed,
-            message=(
-                f"{int(actual)} {unit} (baseline: {int(baseline_value)}, "
-                f"tolerance: {tolerance:.0%}, cap: {standalone_max})"
-            ),
-            reason_code=_reason_code_for(passed, reason_code),
-            expected=str(int(limit)),
-            actual=str(int(actual)),
-        )
+            # baseline is 0 — tolerance-based bound is 0;
+            # standalone_max is the effective cap
+            upper_limit = float(standalone_max) if standalone_max is not None else 0.0
+    elif standalone_max is not None:
+        upper_limit = float(standalone_max)
 
-    if baseline_value is not None:
-        if baseline_value > 0:
-            limit = baseline_value * (1 + tolerance)
+    # --- lower limit ---
+    lower_limit: float | None = None
+    if has_baseline and baseline_value > 0:
+        lower_limit = max(1.0, float(baseline_value) * (1 - tolerance))
+        if standalone_min is not None:
+            lower_limit = max(lower_limit, float(standalone_min))
+    elif standalone_min is not None:
+        lower_limit = float(standalone_min)
+
+    # --- check ---
+    exceeded_upper = upper_limit is not None and actual > upper_limit
+    below_lower = lower_limit is not None and actual < lower_limit
+    passed = not exceeded_upper and not below_lower
+
+    if not passed:
+        if exceeded_upper:
+            reason_code = reason_code_exceeded
+            expected = str(int(upper_limit))
         else:
-            limit = float(standalone_max) if standalone_max is not None else 0.0
-        passed = actual <= limit
-        return AssertionResult(
-            check_name=check_name,
-            passed=passed,
-            message=(
-                f"{int(actual)} {unit} (baseline: {int(baseline_value)}, "
-                f"tolerance: {tolerance:.0%})"
-            ),
-            reason_code=_reason_code_for(passed, reason_code),
-            expected=str(int(limit)),
-            actual=str(int(actual)),
-        )
+            reason_code = reason_code_below_minimum
+            expected = str(int(lower_limit))
+    else:
+        reason_code = RegressionReasonCode.NO_REGRESSION
+        expected = str(int(upper_limit if upper_limit is not None else lower_limit))
 
-    if standalone_max is not None:
-        passed = actual <= standalone_max
-        return AssertionResult(
-            check_name=check_name,
-            passed=passed,
-            message=f"{int(actual)} {unit} (max: {standalone_max})",
-            reason_code=_reason_code_for(passed, reason_code),
-            expected=str(standalone_max),
-            actual=str(int(actual)),
-        )
+    # --- message ---
+    details: list[str] = []
+    if has_baseline:
+        details.append(f"baseline: {int(baseline_value)}")
+        details.append(f"tolerance: {tolerance:.0%}")
+        if lower_limit is not None and upper_limit is not None:
+            details.append(f"range: {int(lower_limit)}–{int(upper_limit)}")
+            if standalone_max is not None:
+                details.append(f"cap: {standalone_max}")
+            if standalone_min is not None:
+                details.append(f"floor: {standalone_min}")
+        elif upper_limit is not None:
+            details.append(f"max: {int(upper_limit)}")
+            if standalone_max is not None:
+                details.append(f"cap: {standalone_max}")
+        elif lower_limit is not None:
+            details.append(f"min: {int(lower_limit)}")
+            if standalone_min is not None:
+                details.append(f"floor: {standalone_min}")
+    else:
+        if upper_limit is not None:
+            details.append(f"max: {int(upper_limit)}")
+        if lower_limit is not None:
+            details.append(f"min: {int(lower_limit)}")
 
-    return None
+    message = f"{int(actual)} {unit} ({', '.join(details)})"
+
+    return AssertionResult(
+        check_name=check_name,
+        passed=passed,
+        message=message,
+        reason_code=reason_code,
+        expected=expected,
+        actual=str(int(actual)),
+    )
 
 
 def run_assertions(
@@ -244,8 +293,10 @@ def run_assertions(
         baseline_value=b_summary["total_events"] if b_summary else None,
         tolerance=policy.step_tolerance,
         standalone_max=policy.max_steps,
+        standalone_min=policy.min_steps,
         check_name="step_count",
-        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
         unit="steps",
     )
     if r:
@@ -257,8 +308,10 @@ def run_assertions(
         baseline_value=b_summary["tool_calls"] if b_summary else None,
         tolerance=policy.tool_call_tolerance,
         standalone_max=policy.max_tool_calls,
+        standalone_min=policy.min_tool_calls,
         check_name="tool_calls",
-        reason_code=RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
+        reason_code_exceeded=RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.TOOL_CALL_COUNT_BELOW_MINIMUM,
         unit="tool calls",
     )
     if r:
@@ -331,8 +384,10 @@ def run_assertions(
         baseline_value=b_summary["total_tokens"] if b_summary else None,
         tolerance=policy.cost_tolerance,
         standalone_max=policy.max_cost_tokens,
+        standalone_min=policy.min_cost_tokens,
         check_name="cost_tokens",
-        reason_code=RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
+        reason_code_exceeded=RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.COST_BELOW_MINIMUM,
         unit="tokens",
     )
     if r:
@@ -344,8 +399,10 @@ def run_assertions(
         baseline_value=b_summary["duration_ms"] if b_summary else None,
         tolerance=policy.duration_tolerance,
         standalone_max=policy.max_duration_ms,
+        standalone_min=policy.min_duration_ms,
         check_name="duration",
-        reason_code=RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
+        reason_code_exceeded=RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.DURATION_BELOW_MINIMUM,
         unit="ms",
     )
     if r:

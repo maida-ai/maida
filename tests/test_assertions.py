@@ -1,6 +1,7 @@
 """Tests for maida.assertions: policy checks, exit codes, report formatting."""
 
 import json
+import time
 from textwrap import dedent
 
 import pytest
@@ -35,6 +36,10 @@ def test_regression_reason_code_vocabulary_is_stable():
         "guardrail_event_changed",
         "latency_envelope_exceeded",
         "cost_envelope_exceeded",
+        "step_count_below_minimum",
+        "tool_call_count_below_minimum",
+        "cost_below_minimum",
+        "duration_below_minimum",
     }
 
 
@@ -196,7 +201,8 @@ def test_zero_baseline_with_standalone_cap_uses_cap_as_limit():
         tolerance=0.5,
         standalone_max=10,
         check_name="step_count",
-        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
         unit="steps",
     )
 
@@ -212,13 +218,144 @@ def test_zero_baseline_without_standalone_cap_allows_no_growth():
         tolerance=0.5,
         standalone_max=None,
         check_name="step_count",
-        reason_code=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
         unit="steps",
     )
 
     assert result is not None
     assert result.passed is False
     assert result.expected == "0"
+
+
+# ---------------------------------------------------------------------------
+# _check_threshold — lower bound
+# ---------------------------------------------------------------------------
+
+
+def test_lower_bound_passes_when_above_minimum():
+    result = _check_threshold(
+        actual=8,
+        baseline_value=10,
+        tolerance=0.5,
+        standalone_max=None,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is True
+    assert result.reason_code == RegressionReasonCode.NO_REGRESSION
+
+
+def test_lower_bound_fails_when_below_minimum():
+    result = _check_threshold(
+        actual=3,
+        baseline_value=10,
+        tolerance=0.5,
+        standalone_max=None,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is False
+    assert result.reason_code == RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM
+
+
+def test_lower_bound_floor_of_one():
+    result = _check_threshold(
+        actual=1,
+        baseline_value=2,
+        tolerance=0.8,
+        standalone_max=None,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is True
+
+
+def test_lower_bound_fails_at_zero():
+    result = _check_threshold(
+        actual=0,
+        baseline_value=2,
+        tolerance=0.8,
+        standalone_max=None,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is False
+    assert result.reason_code == RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM
+
+
+def test_standalone_min_is_respected():
+    result = _check_threshold(
+        actual=2,
+        baseline_value=10,
+        tolerance=0.5,
+        standalone_max=None,
+        standalone_min=5,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    # tolerance lower = max(1, 5) = 5, standalone_min = 5 → lower = 5
+    # actual=2 < 5 → fail
+    assert result is not None
+    assert result.passed is False
+    assert result.reason_code == RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM
+    assert "floor: 5" in result.message
+
+
+def test_upper_violation_takes_precedence_over_lower():
+    result = _check_threshold(
+        actual=20,
+        baseline_value=10,
+        tolerance=0.5,
+        standalone_max=12,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    # Both bounds violated (upper: 12, lower: 5), but upper should win
+    assert result is not None
+    assert result.passed is False
+    assert result.reason_code == RegressionReasonCode.STEP_COUNT_EXCEEDED
+
+
+def test_no_baseline_with_standalone_min():
+    result = _check_threshold(
+        actual=2,
+        baseline_value=None,
+        tolerance=0.5,
+        standalone_max=None,
+        standalone_min=5,
+        check_name="step_count",
+        reason_code_exceeded=RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        reason_code_below_minimum=RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM,
+        unit="steps",
+    )
+
+    assert result is not None
+    assert result.passed is False
+    assert result.reason_code == RegressionReasonCode.STEP_COUNT_BELOW_MINIMUM
+    assert result.expected == "5"
 
 
 # ---------------------------------------------------------------------------
@@ -235,8 +372,11 @@ def test_no_new_tools_passes_when_subset(temp_data_dir):
     bl_rid = _make_run(config, events=bl_events, name="baseline")
     bl = create_baseline(bl_rid, config)
 
-    run_events = [(EventType.TOOL_CALL, "search", {})]
-    run_id = _make_run(config, events=run_events, name="check")
+    # Create a run with a tiny delay so duration > 0 for lower-bound check
+    with traced_run(name="check"):
+        record_tool_call("search", args={}, result=None)
+        time.sleep(0.002)
+    run_id = get_latest_run_id(config)
 
     policy = AssertionPolicy(
         no_new_tools=True,
@@ -256,11 +396,12 @@ def test_no_new_tools_fails_on_new_tool(temp_data_dir):
     bl_rid = _make_run(config, events=bl_events, name="baseline")
     bl = create_baseline(bl_rid, config)
 
-    run_events = [
-        (EventType.TOOL_CALL, "search", {}),
-        (EventType.TOOL_CALL, "salesforce_api", {}),
-    ]
-    run_id = _make_run(config, events=run_events, name="check")
+    # Ensure run has non-zero duration for lower-bound check
+    with traced_run(name="check"):
+        record_tool_call("search", args={}, result=None)
+        record_tool_call("salesforce_api", args={}, result=None)
+        time.sleep(0.002)
+    run_id = get_latest_run_id(config)
 
     policy = AssertionPolicy(
         no_new_tools=True,

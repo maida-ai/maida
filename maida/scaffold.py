@@ -34,9 +34,13 @@ assert:
 
   # Hard caps, independent of any baseline (uncomment to enable):
   # max_steps: 80
+  # min_steps: 10
   # max_tool_calls: 40
+  # min_tool_calls: 5
   # max_cost_tokens: 20000
+  # min_cost_tokens: 100
   # max_duration_ms: 60000
+  # min_duration_ms: 1000
 """
 
 WORKFLOW_TEMPLATE = f"""\
