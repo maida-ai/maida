@@ -37,6 +37,11 @@ assert:
   # max_tool_calls: 40
   # max_cost_tokens: 20000
   # max_duration_ms: 60000
+
+  # Ignored checks (skip these even when thresholds are set):
+  # ignored_checks:
+  #   - step_count
+  #   - cost_tokens
 """
 
 WORKFLOW_TEMPLATE = f"""\

@@ -584,6 +584,34 @@ def test_assert_no_loops_flag(empty_data_dir):
     assert result.exit_code == 0
 
 
+def test_assert_ignore_check_flag(empty_data_dir):
+    config = load_config()
+    events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]
+    _make_run(config, name="check", events=events)
+    from tests.conftest import get_latest_run_id
+
+    run_id = get_latest_run_id(config)
+
+    # Run would fail with max_steps=1, but --ignore-check skips step_count
+    result = runner.invoke(
+        app,
+        [
+            "assert",
+            run_id,
+            "--max-steps",
+            "1",
+            "--ignore-check",
+            "step_count",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    step = next(r for r in data["results"] if r["check_name"] == "step_count")
+    assert step["ignored"] is True
+
+
 # ---------------------------------------------------------------------------
 # diff command
 # ---------------------------------------------------------------------------

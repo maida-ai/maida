@@ -76,6 +76,7 @@ def merge_policy(
         max_duration_ms=file_policy.max_duration_ms,
         duration_tolerance=file_policy.duration_tolerance,
         expect_status=file_policy.expect_status,
+        ignored_checks=list(file_policy.ignored_checks),
     )
     for key, value in cli_overrides.items():
         if not hasattr(merged, key):
@@ -84,5 +85,10 @@ def merge_policy(
             continue
         if isinstance(value, bool) and not value:
             continue
-        setattr(merged, key, value)
+        if key == "ignored_checks":
+            existing = set(getattr(merged, key) or [])
+            merged_set = existing | set(value)
+            setattr(merged, key, sorted(merged_set))
+        else:
+            setattr(merged, key, value)
     return merged

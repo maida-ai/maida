@@ -391,6 +391,9 @@ def assert_cmd(
     expect_status: str | None = typer.Option(
         None, "--expect-status", help="Expected run status (ok or error)"
     ),
+    ignore_check: list[str] = typer.Option(
+        [], "--ignore-check", help="Skip a check (repeatable)"
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, markdown"
     ),
@@ -426,6 +429,7 @@ def assert_cmd(
             "max_duration_ms": max_duration_ms,
             "duration_tolerance": duration_tolerance,
             "expect_status": expect_status,
+            "ignored_checks": ignore_check or None,
         }
         policy = merge_policy(policy, cli_overrides)
 
