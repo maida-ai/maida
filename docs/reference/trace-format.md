@@ -8,7 +8,7 @@ This page describes the **public trace format** for Maida (`spec_version: "0.2"`
 
 ## Run storage layout
 
-Maida stores local runs under the configured data directory. The default is `~/.maida`, and callers can override it with `MAIDA_DATA_DIR` or config. The canonical per-run directory is `<data_dir>/runs/<trace_id>/`, where `<trace_id>` is the lowercase 32-hex-character OpenTelemetry trace ID.
+Maida stores local runs under the configured data directory. The default is `~/.config/maida`, and callers can override it with `MAIDA_DATA_DIR` or config. The canonical per-run directory is `<data_dir>/runs/<trace_id>/`, where `<trace_id>` is the lowercase 32-hex-character OpenTelemetry trace ID.
 
 ```text
 <data_dir>/

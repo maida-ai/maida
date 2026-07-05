@@ -161,7 +161,7 @@ Highest wins:
 1. Function arguments passed to `@trace(...)` or `traced_run(...)`
 2. Environment variables
 3. Project YAML: `.maida/config.yaml`
-4. User YAML: `~/.maida/config.yaml`
+4. User YAML: `~/.config/maida/config.yaml` (falls back to `~/.maida/config.yaml`)
 5. Defaults
 
 ### Decorator and context manager
@@ -193,7 +193,7 @@ export MAIDA_MAX_DURATION_S=60
 ### YAML config
 
 ```yaml
-# .maida/config.yaml or ~/.maida/config.yaml
+# .maida/config.yaml or ~/.config/maida/config.yaml
 guardrails:
   stop_on_loop: true
   stop_on_loop_min_repetitions: 3

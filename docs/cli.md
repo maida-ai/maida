@@ -1,6 +1,6 @@
 # CLI
 
-The `maida` CLI runs the bundled demo, scaffolds a project, lists runs, starts the local viewer, exports runs to JSON, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+The `maida` CLI runs the bundled demo, scaffolds a project, lists runs, starts the local viewer, exports runs to JSON, and gates runs against baselines. Storage is under `~/.config/maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
 
 Commands that take a run ID (`assert`, `baseline`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
 

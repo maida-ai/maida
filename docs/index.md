@@ -28,7 +28,7 @@ maida demo
 maida view
 ```
 
-A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.maida/runs/<trace_id>/`.
+A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.config/maida/runs/<trace_id>/`.
 
 From there, capture a baseline with `maida baseline`, gate future runs with `maida assert`, and scaffold your own project with `maida init`. To watch the gate catch a regression end-to-end on canned data, run:
 

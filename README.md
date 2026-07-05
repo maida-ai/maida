@@ -152,7 +152,7 @@ Available guardrails:
 - `max_events`
 - `max_duration_s`
 
-You can set them in `@trace(...)`, `traced_run(...)`, `.maida/config.yaml`, `~/.maida/config.yaml`, or env vars like `MAIDA_MAX_LLM_CALLS=50`.
+You can set them in `@trace(...)`, `traced_run(...)`, `.maida/config.yaml`, `~/.config/maida/config.yaml` (default; falls back to `~/.maida/config.yaml`), or env vars like `MAIDA_MAX_LLM_CALLS=50`.
 
 See [docs/guardrails.md](docs/guardrails.md) for full examples, precedence, and trace behavior.
 
@@ -167,7 +167,7 @@ In the UI, you see:
 - **Live-refresh**: leave `maida view` running — new runs appear in the sidebar, events stream in real-time for running agents
 - **Filter chips**: All, LLM, Tools, Errors, State, Loops
 
-Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (OpenTelemetry span records) under `~/.maida/`. Nothing leaves your machine.
+Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (OpenTelemetry span records) under `~/.config/maida/`. Nothing leaves your machine.
 
 
 ## What Maida is
@@ -279,7 +279,7 @@ export MAIDA_REDACT_KEYS="api_key,token,authorization,cookie,secret,password"
 export MAIDA_MAX_FIELD_BYTES=20000       # truncation limit
 ```
 
-You can also configure redaction in `.maida/config.yaml` (project root) or `~/.maida/config.yaml`.
+You can also configure redaction in `.maida/config.yaml` (project root) or `~/.config/maida/config.yaml` (default; falls back to `~/.maida/config.yaml`).
 
 ## Guardrails
 
@@ -311,7 +311,7 @@ Precedence:
 1. Function arguments passed to `@trace(...)` or `traced_run(...)`
 2. Environment variables
 3. Project YAML: `.maida/config.yaml`
-4. User YAML: `~/.maida/config.yaml`
+4. User YAML: `~/.config/maida/config.yaml` (falls back to `~/.maida/config.yaml`)
 5. Defaults
 
 See [docs/guardrails.md](docs/guardrails.md) and [docs/reference/config.md](docs/reference/config.md).
@@ -322,7 +322,7 @@ See [docs/guardrails.md](docs/guardrails.md) and [docs/reference/config.md](docs
 All data is local. Plain files, easy to inspect or delete.
 
 ```
-~/.maida/
+~/.config/maida/
 └── runs/
     └── <trace_id>/
         ├── meta.json       # run metadata (status, counts, timing)

@@ -124,7 +124,7 @@ See [Guardrails](guardrails.md) for examples and [Configuration reference](refer
 
 ## Where data is stored
 
-- **Default:** `~/.maida/runs/<trace_id>/`
+- **Default:** `~/.config/maida/runs/<trace_id>/`
   - `meta.json` - run metadata (status, counts, started_at, ended_at)
   - `spans.jsonl` - one OpenTelemetry span JSON object per line (append-only)
 
@@ -138,7 +138,7 @@ Set the data directory so runs are stored somewhere else (e.g. project-local):
 export MAIDA_DATA_DIR=/path/to/my/data
 ```
 
-Config can also be set in `~/.maida/config.yaml` or `.maida/config.yaml` in the project root; environment variables take precedence. See the [configuration reference](reference/config.md) for the full list of options and precedence.
+Config can also be set in `~/.config/maida/config.yaml` (default; falls back to `~/.maida/config.yaml`) or `.maida/config.yaml` in the project root; environment variables take precedence. See the [configuration reference](reference/config.md) for the full list of options and precedence.
 
 ---
 
