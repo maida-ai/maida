@@ -117,14 +117,16 @@ def create_app() -> FastAPI:
         payload: RenameRunRequest,
         config: MaidaConfig = Depends(_get_config),
     ) -> dict:
+        trace_id = _validated_trace_id(trace_id)
         try:
+            storage.load_validated_run(trace_id, config)
             return storage.rename_run(trace_id, payload.run_name, config)
-        except ValueError as e:
-            msg = str(e)
-            detail = "invalid trace_id" if "invalid trace_id" in msg else msg
-            raise HTTPException(status_code=400, detail=detail)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="run not found")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid trace_id")
+        except storage.RunValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @app.delete("/api/runs/{trace_id}")
     def delete_run(
