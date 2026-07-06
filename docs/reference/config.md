@@ -10,7 +10,7 @@ Configuration is merged in this order (highest wins):
 
 1. **Environment variables**
 2. **Project config:** `.maida/config.yaml` in project root (current working directory when config is loaded)
-3. **User config:** `~/.maida/config.yaml`
+3. **User config:** `~/.config/maida/config.yaml` (falls back to `~/.maida/config.yaml`)
 4. **Defaults** (see below)
 
 ---
@@ -21,7 +21,7 @@ Configuration is merged in this order (highest wins):
 
 | Env | YAML key | Default | Description |
 |-----|----------|---------|-------------|
-| `MAIDA_DATA_DIR` | `data_dir` | `~/.maida` | Base directory for runs. Runs are stored under `<data_dir>/runs/<trace_id>/`. |
+| `MAIDA_DATA_DIR` | `data_dir` | `~/.config/maida` | Base directory for runs. Runs are stored under `<data_dir>/runs/<trace_id>/`. |
 
 **Example (env):**
 
@@ -32,7 +32,7 @@ export MAIDA_DATA_DIR=/path/to/my/maida/data
 **Example (YAML):**
 
 ```yaml
-# ~/.maida/config.yaml or .maida/config.yaml
+# ~/.config/maida/config.yaml or .maida/config.yaml
 data_dir: /path/to/my/maida/data
 ```
 
@@ -183,8 +183,8 @@ export MAIDA_IMPLICIT_RUN=1
 ## Full YAML example
 
 ```yaml
-# ~/.maida/config.yaml or .maida/config.yaml
-data_dir: ~/.maida
+# ~/.config/maida/config.yaml or .maida/config.yaml
+data_dir: ~/.config/maida
 redact: true
 redact_keys:
   - api_key
@@ -210,5 +210,5 @@ guardrails:
 ## Safe-by-default local traces
 
 - **Redaction is on by default** so that common secret keys are not written to disk.
-- **Data directory** defaults to `~/.maida` so traces stay on the machine.
+- **Data directory** defaults to `~/.config/maida` so traces stay on the machine.
 - No cloud or network is used for trace storage. Override only what you need (e.g. `MAIDA_DATA_DIR` for project-local storage, or `MAIDA_REDACT=0` for trusted local inspection with full payloads).

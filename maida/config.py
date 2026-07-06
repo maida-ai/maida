@@ -222,24 +222,31 @@ def _apply_env_to_guardrails(params: GuardrailParams) -> GuardrailParams:
     return params
 
 
+def _user_config_dir() -> tuple[Path, Path]:
+    """Return (xdg_base, legacy_base) for user config directories."""
+    return Path.home() / ".config" / "maida", Path.home() / ".maida"
+
+
 def load_config(project_root: Path | None = None) -> MaidaConfig:
     """
     Load MaidaConfig with precedence (highest first):
     1. Environment variables
     2. .maida/config.yaml in project root (if present)
-    3. ~/.maida/config.yaml
+    3. ~/.config/maida/config.yaml (falls back to ~/.maida/config.yaml)
     """
-    base = Path.home() / LOCAL_DIR_NAME
+    xdg_base, legacy_base = _user_config_dir()
     redact = _DEFAULT_REDACT
     redact_keys = _DEFAULT_REDACT_KEYS.copy()
     max_field_bytes = _DEFAULT_MAX_FIELD_BYTES
     loop_window = _DEFAULT_LOOP_WINDOW
     loop_repetitions = _DEFAULT_LOOP_REPETITIONS
-    data_dir = base
+    data_dir = xdg_base
 
-    # 3. User config
-    user_config_path = base / "config.yaml"
+    # 3. User config - try XDG first, then legacy ~/.maida
+    user_config_path = xdg_base / "config.yaml"
     user_cfg = _load_yaml(user_config_path)
+    if not user_cfg:
+        user_cfg = _load_yaml(legacy_base / "config.yaml")
     if user_cfg:
         redact = _apply_yaml(user_cfg, "redact", redact)
         redact_keys = _apply_yaml(user_cfg, "redact_keys", redact_keys)
