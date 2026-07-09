@@ -56,6 +56,7 @@ def test_trace_format_documents_current_storage_contract():
         "[`maida view`](../cli.md#maida-view)",
         "[`maida export`](../cli.md#maida-export)",
         "[`maida baseline`](../cli.md#maida-baseline)",
+        "[`maida accept`](../cli.md#maida-accept)",
         "[`maida assert`](../cli.md#maida-assert)",
         "[`maida diff`](../cli.md#maida-diff)",
     ]

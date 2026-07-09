@@ -760,6 +760,9 @@ def test_format_report_markdown_includes_diff_section(temp_data_dir):
     assert "`new_tool`" in md
     assert "maida diff" in md
     assert "--baseline bl.json" in md
+    assert "maida accept" in md
+    assert '--reason "..."' in md
+    assert "Review and commit the baseline diff" in md
 
 
 def test_format_report_markdown_no_diff_section_without_diff(temp_data_dir):
@@ -944,7 +947,8 @@ def test_format_report_markdown_failure_behavior_diff_snapshot():
 
         - Inspect the full diff: `maida diff aaaaaaaa --baseline baseline.json`
         - Open the trace locally: `maida view aaaaaaaa`
-        - If this is expected, update the baseline or policy; otherwise fix the agent behavior and rerun the gate.
+        - If this behavior change is intentional, accept it explicitly: `maida accept aaaaaaaa --baseline baseline.json --reason "..."`
+        - Review and commit the baseline diff; otherwise fix the agent behavior and rerun the gate.
 
         <details>
         <summary>Reproduce locally</summary>
