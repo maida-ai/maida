@@ -189,7 +189,7 @@ Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (Open
 
 ## CLI reference
 
-Commands that take a run ID (`assert`, `baseline`, `export`, `diff`) default to the **latest run** when the ID is omitted; a short prefix also works.
+Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) default to the **latest run** when the ID is omitted; a short prefix also works.
 
 ### Run the bundled demo
 
@@ -245,6 +245,17 @@ maida assert --baseline baseline.json --format markdown    # for CI summaries / 
 
 Exit code `0` = pass, `1` = fail. With a baseline, the markdown report starts with the verdict and includes top behavior changes (steps, tool path, loops/cycles, guardrails, terminal state, latency/cost, and models) plus next steps so a failing check explains itself. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
 
+### Accept an intentional baseline change
+
+```bash
+maida diff --baseline .maida/baselines/my_agent.json
+maida view
+maida accept --baseline .maida/baselines/my_agent.json --reason "expected tool flow change"
+git diff .maida/baselines/my_agent.json
+```
+
+Use `maida accept` only after inspecting the diff and trace. It updates the baseline from the selected run, records the acceptance reason and previous baseline hash in the JSON, and leaves the baseline diff reviewable in Git. If the run already matches the baseline, Maida exits successfully without rewriting the file.
+
 ### Diff two runs
 
 ```bash
@@ -260,6 +271,7 @@ Baselines, assertions, and diffs let you catch agent regressions locally or in C
 1. **Baseline** a known-good run (`maida baseline`)
 2. **Assert** future runs against it (`maida assert --baseline ...`)
 3. **Diff** failures to see what changed (`maida diff`)
+4. **Accept** intentional changes only after review (`maida accept --baseline ... --reason ...`)
 
 Control assertion thresholds via a committed `.maida/policy.yaml` file or CLI flags. Supports text, JSON, and markdown output formats.
 

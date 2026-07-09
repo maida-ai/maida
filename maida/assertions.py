@@ -457,8 +457,19 @@ def _markdown_next_steps(
         steps.append("- Review the failed checks and policy thresholds above.")
     steps += [
         f"- Open the trace locally: `maida view {short_run}`",
-        "- If this is expected, update the baseline or policy; otherwise fix the agent behavior and rerun the gate.",
     ]
+    if baseline_path:
+        steps.append(
+            "- If this behavior change is intentional, accept it explicitly: "
+            f'`maida accept {short_run} --baseline {baseline_path} --reason "..."`'
+        )
+        steps.append(
+            "- Review and commit the baseline diff; otherwise fix the agent behavior and rerun the gate."
+        )
+    else:
+        steps.append(
+            "- If this is expected, update the policy; otherwise fix the agent behavior and rerun the gate."
+        )
     return steps
 
 

@@ -1,8 +1,8 @@
 # CLI
 
-The `maida` CLI runs the bundled demo, scaffolds a project, lists runs, starts the local viewer, exports runs to JSON, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+The `maida` CLI runs the bundled demo, scaffolds a project, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
 
-Commands that take a run ID (`assert`, `baseline`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
+Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
 
 ---
 
@@ -182,6 +182,39 @@ maida baseline a1b2c3d4 --out baselines/support_agent_v1.json
 **Exit codes:** `0` success; `2` run not found; `10` internal error.
 
 The output file is a JSON object containing `schema_version`, `source_run_id`, summary metrics, `tool_path`, ordered `tool_call_sequence`, `tool_call_counts`, `llm_models_used`, `event_type_sequence`, and `final_status`. Check it into version control to share the baseline with your team.
+
+---
+
+## `maida accept`
+
+Updates an existing baseline from a completed run when a behavior change is intentional. Use it after inspecting `maida diff` and `maida view`; do not accept a regression just to make CI pass.
+
+**Usage:**
+
+```bash
+maida accept [TRACE_ID] --baseline PATH --reason TEXT
+```
+
+**Arguments / options:**
+
+| Argument/Option | Default | Description |
+|---|---|---|
+| `TRACE_ID` | *(latest run)* | OTel trace ID or prefix to accept |
+| `--baseline`, `-b` | *(required)* | Existing baseline JSON file to update |
+| `--reason`, `--message`, `-m` | *(required)* | Human-readable reason for accepting the change |
+
+**Examples:**
+
+```bash
+maida diff --baseline .maida/baselines/my_agent.json
+maida view
+maida accept --baseline .maida/baselines/my_agent.json --reason "expected retrieval tool split"
+git diff .maida/baselines/my_agent.json
+```
+
+**Exit codes:** `0` baseline updated or already matched; `2` run or baseline not found, invalid baseline, invalid run, or missing reason; `10` internal error.
+
+When the accepted run changes baseline behavior, the baseline JSON is rewritten with the same structural fields produced by `maida baseline` plus an `acceptance` object containing the reason, timestamp, Maida version, source run ID, previous baseline source run ID, and previous baseline SHA-256. If the selected run already matches the baseline structurally, Maida prints `no update written` and leaves the file untouched.
 
 ---
 

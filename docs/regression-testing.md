@@ -1,6 +1,6 @@
 # Regression testing
 
-Maida ships three CLI commands that turn traced runs into behavioral regression gates: **baseline**, **assert**, and **diff**. Together they let you capture a known-good run, check future runs against it, and drill into what changed when something breaks.
+Maida ships four CLI commands that turn traced runs into behavioral regression gates: **baseline**, **assert**, **diff**, and **accept**. Together they let you capture a known-good run, check future runs against it, drill into what changed when something breaks, and intentionally update the baseline after review.
 
 ---
 
@@ -18,9 +18,10 @@ Agent behavior is non-deterministic. A prompt tweak, model upgrade, or tool chan
 3. Run the agent again         python your_agent.py
 4. Assert against baseline     maida assert --baseline .maida/baselines/my_agent.json
 5. If it fails, diff           maida diff --baseline .maida/baselines/my_agent.json
+6. If expected, accept         maida accept --baseline .maida/baselines/my_agent.json --reason "..."
 ```
 
-`baseline`, `assert`, and `diff` default to the latest run when no run ID is given; pass an ID or short prefix to target a specific run.
+`baseline`, `assert`, `diff`, and `accept` default to the latest run when no run ID is given; pass an ID or short prefix to target a specific run.
 
 To see the whole workflow on canned data first, run `maida demo --regression`.
 
@@ -218,7 +219,8 @@ maida assert --baseline baseline.json --format markdown
 
 - Inspect the full diff: `maida diff a1b2c3d4 --baseline baseline.json`
 - Open the trace locally: `maida view a1b2c3d4`
-- If this is expected, update the baseline or policy; otherwise fix the agent behavior and rerun the gate.
+- If this behavior change is intentional, accept it explicitly: `maida accept a1b2c3d4 --baseline baseline.json --reason "..."`
+- Review and commit the baseline diff; otherwise fix the agent behavior and rerun the gate.
 ```
 
 The report leads with the verdict, shows top behavior changes, groups failed checks by stable reason code, collapses passing checks, and includes concise next steps plus a copy-pasteable local-repro snippet.
@@ -269,6 +271,21 @@ Event type distribution:
 ```
 
 The diff shows summary-level metric changes, compact baseline/current tool paths, new or removed tools, repeated calls, reordered shared tools, and shifts in the event type distribution.
+
+---
+
+## Step 5: Accept intentional changes
+
+If the diff and trace show an intentional behavior change, update the checked-in baseline explicitly:
+
+```bash
+maida accept --baseline .maida/baselines/my_agent.json --reason "expected retrieval tool split"
+git diff .maida/baselines/my_agent.json
+```
+
+`maida accept` rewrites the baseline from the selected run and records acceptance metadata in the JSON: reason, timestamp, Maida version, source run ID, previous baseline source run ID, and previous baseline SHA-256. If the selected run already matches the baseline structurally, it exits `0` and leaves the file untouched.
+
+Always inspect the trace and Git diff before committing the updated baseline. Accepting a baseline change means the new behavior is what future PRs will be gated against; if the change is not intentional, fix the agent and rerun `maida assert` instead.
 
 ---
 

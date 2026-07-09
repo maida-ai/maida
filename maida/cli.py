@@ -1,7 +1,7 @@
 """
 Typer CLI for Maida.
 
-Commands: list, export, view, baseline, assert, diff.
+Commands: list, export, view, baseline, accept, assert, diff.
 Entrypoint: main() for console script maida.cli:main.
 """
 

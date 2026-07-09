@@ -272,6 +272,7 @@ These commands read from or write to the storage contract documented here:
 - [`maida view`](../cli.md#maida-view) serves `meta.json`, `spans.jsonl`, and the projected event timeline through the local viewer API.
 - [`maida export`](../cli.md#maida-export) writes one JSON document containing `spec_version`, run metadata, and projected events.
 - [`maida baseline`](../cli.md#maida-baseline) reads a run and captures stable structural metrics for future comparison.
+- [`maida accept`](../cli.md#maida-accept) reads a run and rewrites an existing baseline after an intentional behavior change.
 - [`maida assert`](../cli.md#maida-assert) reads a run, baseline, and policy to evaluate behavioral regression checks.
 - [`maida diff`](../cli.md#maida-diff) reads two runs or a run plus baseline and reports structural differences.
 
