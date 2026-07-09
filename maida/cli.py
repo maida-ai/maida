@@ -26,6 +26,7 @@ from maida.assertions import (
     format_report_text,
     run_assertions,
 )
+from maida.acceptance import accept_baseline_update
 from maida.baseline import create_baseline, load_baseline, save_baseline
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
@@ -335,6 +336,85 @@ def baseline_cmd(
 
         save_baseline(bl, out)
         typer.echo(f"Baseline saved to {out}")
+    except Exit:
+        raise
+    except storage.UnsupportedTraceFormatError as e:
+        _exit_unsupported_trace_format(e)
+    except storage.RunValidationError as e:
+        _exit_run_validation_error(e)
+    except Exception as e:
+        typer.echo(f"error: {e}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
+@app.command("accept")
+def accept_cmd(
+    run_id: str | None = typer.Argument(
+        None, help="Run ID or prefix to accept (default: latest run)"
+    ),
+    baseline_path: Path = typer.Option(
+        ..., "--baseline", "-b", help="Baseline JSON file to update"
+    ),
+    reason: str | None = typer.Option(
+        None,
+        "--reason",
+        "--message",
+        "-m",
+        help="Required acceptance reason for the baseline update",
+    ),
+) -> None:
+    """Accept an intentional behavior change by updating a baseline."""
+    try:
+        if reason is None or not reason.strip():
+            typer.echo(
+                "Acceptance reason required: pass --reason TEXT or -m TEXT.",
+                err=True,
+            )
+            raise Exit(EXIT_NOT_FOUND)
+        reason = reason.strip()
+
+        config = load_config()
+        try:
+            run_id = _resolve_run_or_latest(run_id, config)
+        except FileNotFoundError as e:
+            typer.echo(f"Run not found: {run_id or e}", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+
+        try:
+            existing_baseline = load_baseline(baseline_path)
+        except FileNotFoundError:
+            typer.echo(f"Baseline not found: {baseline_path}", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        except json.JSONDecodeError:
+            typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+
+        if not isinstance(existing_baseline, dict):
+            typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+
+        result = accept_baseline_update(
+            run_id=run_id,
+            baseline_path=baseline_path,
+            existing_baseline=existing_baseline,
+            reason=reason,
+            maida_version=__version__,
+            config=config,
+        )
+
+        if result.updated:
+            typer.echo(f"Baseline updated: {baseline_path}")
+            typer.echo(f"Accepted run: {result.source_run_id[:8]}")
+            typer.echo(
+                f"Previous baseline: {str(result.previous_source_run_id or 'unknown')[:8]}"
+            )
+            typer.echo("")
+            typer.echo(format_diff_text(result.diff))
+        else:
+            typer.echo(
+                f"Baseline already matches run; no update written: {baseline_path}"
+            )
+            typer.echo(f"Matched run: {result.source_run_id[:8]}")
     except Exit:
         raise
     except storage.UnsupportedTraceFormatError as e:
