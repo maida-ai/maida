@@ -9,6 +9,8 @@ import os
 import socket
 import threading
 import time
+from hashlib import sha256
+
 import yaml
 
 import pytest
@@ -407,6 +409,261 @@ def test_baseline_missing_run_exit_two(empty_data_dir):
         app, ["baseline", "missing_run", "--out", str(empty_data_dir / "bl.json")]
     )
     assert result.exit_code == 2
+
+
+# ---------------------------------------------------------------------------
+# accept command
+# ---------------------------------------------------------------------------
+
+
+def test_accept_updates_baseline_with_metadata_and_diff(empty_data_dir):
+    config = load_config()
+    baseline_run = _make_run(
+        config,
+        name="agent",
+        events=[(EventType.TOOL_CALL, "search", {})],
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    result = runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    assert result.exit_code == 0
+    previous_hash = sha256(baseline_path.read_bytes()).hexdigest()
+
+    current_run = _make_run(
+        config,
+        name="agent",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "new_tool", {}),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--message",
+            "expected tool expansion",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Baseline updated:" in result.output
+    assert "new_tool" in result.output
+    data = json.loads(baseline_path.read_text())
+    assert data["source_run_id"] == current_run
+    assert data["summary"]["tool_calls"] == 2
+    assert data["tool_call_sequence"] == ["search", "new_tool"]
+    assert data["acceptance"]["reason"] == "expected tool expansion"
+    assert data["acceptance"]["source_run_id"] == current_run
+    assert data["acceptance"]["maida_version"]
+    assert data["acceptance"]["previous_baseline"] == {
+        "path": str(baseline_path),
+        "source_run_id": baseline_run,
+        "created_at": data["acceptance"]["previous_baseline"]["created_at"],
+        "schema_version": "0.2",
+        "sha256": previous_hash,
+    }
+
+
+def test_accept_reason_alias_updates_baseline(empty_data_dir):
+    config = load_config()
+    baseline_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    current_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
+    )
+
+    result = runner.invoke(
+        app,
+        ["accept", current_run, "--baseline", str(baseline_path), "-m", "renamed tool"],
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(baseline_path.read_text())
+    assert data["acceptance"]["reason"] == "renamed tool"
+
+
+def test_accept_defaults_to_latest_run(empty_data_dir):
+    config = load_config()
+    baseline_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    _make_run(config, name="older", events=[(EventType.TOOL_CALL, "older_tool", {})])
+    newest = _make_run(
+        config, name="newer", events=[(EventType.TOOL_CALL, "newest_tool", {})]
+    )
+
+    result = runner.invoke(
+        app,
+        ["accept", "--baseline", str(baseline_path), "--reason", "accept latest"],
+    )
+
+    assert result.exit_code == 0
+    assert "Using latest run:" in result.stderr
+    data = json.loads(baseline_path.read_text())
+    assert data["source_run_id"] == newest
+    assert data["tool_call_sequence"] == ["newest_tool"]
+
+
+def test_accept_noop_leaves_baseline_untouched(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", run_id, "--out", str(baseline_path)])
+    before = baseline_path.read_bytes()
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            run_id,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "same behavior",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "no update written" in result.output
+    assert baseline_path.read_bytes() == before
+
+
+def test_accept_missing_reason_exit_two(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="agent")
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", run_id, "--out", str(baseline_path)])
+
+    result = runner.invoke(app, ["accept", run_id, "--baseline", str(baseline_path)])
+
+    assert result.exit_code == 2
+    assert "Acceptance reason required" in result.stderr
+
+
+def test_accept_blank_reason_exit_two(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="agent")
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", run_id, "--out", str(baseline_path)])
+
+    result = runner.invoke(
+        app, ["accept", run_id, "--baseline", str(baseline_path), "--reason", "   "]
+    )
+
+    assert result.exit_code == 2
+    assert "Acceptance reason required" in result.stderr
+
+
+def test_accept_missing_baseline_exit_two(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="agent")
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            run_id,
+            "--baseline",
+            str(empty_data_dir / "missing.json"),
+            "--reason",
+            "expected",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Baseline not found:" in result.stderr
+
+
+def test_accept_missing_run_exit_two(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="agent")
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", run_id, "--out", str(baseline_path)])
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            "missing-run",
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Run not found:" in result.stderr
+
+
+def test_accept_malformed_baseline_exit_two(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="agent")
+    baseline_path = empty_data_dir / "baseline.json"
+    baseline_path.write_text("{not json", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["accept", run_id, "--baseline", str(baseline_path), "--reason", "expected"],
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid baseline file:" in result.stderr
+
+
+def test_accept_non_object_baseline_exit_two(empty_data_dir):
+    config = load_config()
+    run_id = _make_run(config, name="agent")
+    baseline_path = empty_data_dir / "baseline.json"
+    baseline_path.write_text("[]", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["accept", run_id, "--baseline", str(baseline_path), "--reason", "expected"],
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid baseline file:" in result.stderr
+
+
+def test_accept_malformed_run_exit_two(empty_data_dir):
+    bad_trace_id = "badbad11" + "a" * 24
+    baseline_trace_id = "face0011" + "b" * 24
+    _write_run_with_malformed_span(empty_data_dir, bad_trace_id)
+    _write_trace_run(empty_data_dir, baseline_trace_id, "baseline")
+    baseline_path = empty_data_dir / "baseline.json"
+    result = runner.invoke(
+        app, ["baseline", baseline_trace_id, "--out", str(baseline_path)]
+    )
+    assert result.exit_code == 0
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            bad_trace_id,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Run validation failed" in result.stderr
+    assert "spans.jsonl line 1" in result.stderr
+    assert "sk-test-DO-NOT-LEAK" not in result.stderr
 
 
 # ---------------------------------------------------------------------------
