@@ -86,3 +86,35 @@ def test_action_version_references_match_scaffold():
     assert MAIDA_ASSERT_ACTION_REF in workflow_text
     assert "actions/checkout@v4" not in workflow_text
     assert "maida-ai/maida-assert@v2" not in workflow_text
+
+
+def test_adapter_conformance_contract_covers_required_behavior():
+    text = " ".join(
+        (ROOT / "maida/integrations/CONTRIBUTING.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+
+    required_snippets = [
+        "## Adapter conformance contract",
+        "### Required normalized signals",
+        "`RUN_START`",
+        "`RUN_END`",
+        "`LLM_CALL`",
+        "`TOOL_CALL`",
+        "`ERROR`",
+        "`LOOP_WARNING`",
+        "terminal `RUN_END`",
+        "### Deterministic offline conformance tests",
+        "real provider calls",
+        "### Redaction and truncation",
+        "`__REDACTED__`",
+        "`__TRUNCATED__`",
+        "### Framework-specific metadata",
+        "`meta.<adapter_name>`",
+        "MUST NOT add framework-specific event types",
+    ]
+
+    missing = [snippet for snippet in required_snippets if snippet not in text]
+
+    assert missing == []

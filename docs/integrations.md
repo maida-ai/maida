@@ -167,4 +167,4 @@ Planned framework adapters (not yet implemented):
 1. **Agno** - optional adapter for Agno-based agents.
 2. Others as needed (e.g. AutoGen, custom loops).
 
-For guidance on adding new integrations (optional deps, mapping callbacks to `record_*`, tests), see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-integrations--adapters) in the repo root.
+For guidance on adding new integrations, start with [CONTRIBUTING.md](../CONTRIBUTING.md#adding-integrations--adapters) and satisfy the normative [adapter conformance contract](../maida/integrations/CONTRIBUTING.md#adapter-conformance-contract), including normalized signals, deterministic offline tests, payload safety, and namespaced framework metadata.
