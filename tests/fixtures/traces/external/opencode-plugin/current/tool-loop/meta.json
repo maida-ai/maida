@@ -1,0 +1,15 @@
+{
+  "spec_version": "0.2",
+  "trace_id": "70000000000000000000000000000002",
+  "run_name": "opencode:fixture-tool-loop",
+  "started_at": "2026-07-09T10:01:00.000Z",
+  "ended_at": "2026-07-09T10:01:00.500Z",
+  "duration_ms": 500,
+  "status": "ok",
+  "counts": {
+    "llm_calls": 0,
+    "tool_calls": 3,
+    "errors": 0,
+    "loop_warnings": 1
+  }
+}
