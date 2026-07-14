@@ -65,6 +65,7 @@ If you want to add or extend an integration (e.g. another framework):
 3. **Deterministic tests, no network.** Tests for the integration should be deterministic and not perform real LLM or network calls. Use mocks or in-memory stubs.
 4. **Map callbacks to record_*.** Implement the framework's callback/hook interface and call the appropriate `record_*` functions so that events attach to the current run (or an implicit run if `MAIDA_IMPLICIT_RUN=1`).
 5. **Use `_MaidaAbortSignal` for guardrail propagation.** Every framework catches `Exception` in its callback/hook dispatcher. To actually stop execution when a guardrail fires, your adapter must escalate to `_MaidaAbortSignal(BaseException)`. See [maida/integrations/CONTRIBUTING.md](maida/integrations/CONTRIBUTING.md) for the full pattern and pitfalls.
+6. **Meet the conformance contract.** Prove normalized lifecycle, LLM, tool, error, guardrail, terminal-state, payload-safety, and metadata behavior with deterministic offline tests. See the [adapter conformance contract](maida/integrations/CONTRIBUTING.md#adapter-conformance-contract).
 
 New integrations should be documented in [docs/integrations.md](docs/integrations.md) with usage and install instructions. For the guardrail propagation patterns, error handling, and testing checklist, see the [integration adapter guide](maida/integrations/CONTRIBUTING.md).
 
