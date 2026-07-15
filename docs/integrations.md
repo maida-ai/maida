@@ -159,7 +159,7 @@ As a defensive fallback, the exception is also stored on `PROCESSOR.abort_except
 **Requirements:** `crewai[tools]` must be installed. Install the optional dependency group:
 
 ```bash
-pip install -e ".[crewai]"
+pip install "maida-ai[crewai]"
 ```
 
 If `crewai` is not installed, importing the integration raises a clear `ImportError` with install instructions.
@@ -183,11 +183,44 @@ The adapter captures:
 
 Framework-specific context (agent role, task description, executor ID) is stored in `meta.crewai.*`.
 
+The [offline CrewAI example](../examples/crewai/minimal.py) sends deterministic
+fake data through CrewAI's public hook contexts. It starts no crew or LLM, uses
+no API key, and makes no network calls:
+
+```bash
+CREWAI_DISABLE_TELEMETRY=true python examples/crewai/minimal.py
+maida baseline --out crewai-baseline.json
+maida assert --baseline crewai-baseline.json --tool-call-tolerance 0
+```
+
+The normal signature is
+`RUN_START -> LLM_CALL -> TOOL_CALL(search_docs) -> RUN_END`, with one LLM
+call, one `search_docs` call, and terminal status `ok`.
+
+Run the deterministic regression and apply the same strict assertion:
+
+```bash
+CREWAI_DISABLE_TELEMETRY=true python examples/crewai/minimal.py --regression
+maida assert --baseline crewai-baseline.json --tool-call-tolerance 0
+```
+
+Regression mode records three consecutive `search_docs` calls, producing
+`RUN_START -> LLM_CALL -> TOOL_CALL -> TOOL_CALL -> TOOL_CALL -> LOOP_WARNING -> RUN_END`.
+The run itself remains `ok`, but the assertion reports the tool-call increase
+and exits with code `1`.
+
+When a guardrail fires in a hook, the adapter stores the public
+`GuardrailExceeded`, raises an internal `BaseException` signal past CrewAI's
+`except Exception` handling, and lets the Maida boundary record `ERROR` plus
+`RUN_END(status="error")`. As a defensive fallback inside an active run, call
+`maida_crewai.raise_if_aborted()` after framework execution.
+
 **Notes:**
 
 - The adapter requires an active Maida run — wrap your entrypoint with `@trace` or `traced_run(...)`.
 - Hook ordering caveat: if another before-hook returns `False` and blocks execution, that specific call may not be captured.
-- No runnable example script yet — see the [Known issues in CHANGELOG](../CHANGELOG.md) for status.
+- The example unregisters CrewAI's event-bus shutdown callback after its fake-hook-only run to avoid waiting on an idle daemon during interpreter shutdown.
+- For a fuller success, incomplete-call, and guardrail walkthrough, see the [CrewAI tutorial](https://github.com/maida-ai/maida-tutorials/blob/main/CrewAI/Mock%20CrewAI%20Agent.ipynb).
 
 ---
 

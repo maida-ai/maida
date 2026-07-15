@@ -77,7 +77,8 @@ def test_maida_abort_signal_wraps_cause_and_str_matches_cause():
 
     assert sig.cause is cause
     assert str(sig) == str(cause)
-    assert isinstance(sig, Exception)
+    assert isinstance(sig, BaseException)
+    assert not isinstance(sig, Exception)
 
 
 def test_exception_hierarchy():

@@ -19,7 +19,7 @@ class MaidaException(Exception):
     pass
 
 
-class _MaidaAbortSignal(MaidaException):
+class _MaidaAbortSignal(BaseException):
     """Internal BaseException used by integration handlers to bypass framework
     error handling (e.g. LangGraph's ``except Exception``).
 
