@@ -7,6 +7,7 @@ import and translates spans into Maida events.
 """
 
 import importlib
+import secrets
 import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -16,6 +17,7 @@ import pytest
 from maida import trace
 from maida.baseline import extract_run_metrics
 from maida.config import load_config
+from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.events import EventType
 from maida.integrations._error import MissingOptionalDependencyError
 from maida.storage import list_runs, load_run_for_analysis
@@ -464,6 +466,64 @@ def test_openai_agents_errors_persist_on_normalized_calls(
     assert meta["status"] == "ok"
     assert meta["counts"]["errors"] == 0
     assert events[-1]["payload"] == {"status": "ok"}
+
+
+def test_openai_agents_payloads_are_sanitized_before_persistence(
+    openai_agents_module, temp_data_dir, monkeypatch
+):
+    """Adapter payloads use Maida's redaction/truncation storage boundary."""
+    openai_agents, _, span_data = openai_agents_module
+    secret = secrets.token_hex(24)
+    oversized = "public-" + ("x" * 200)
+    monkeypatch.setenv("MAIDA_REDACT_KEYS", "api_key,message,stack")
+    monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "80")
+    processor = openai_agents.OpenAIAgentsTracingProcessor()
+
+    @trace(name="openai agents privacy")
+    def _run():
+        processor.on_span_end(
+            _fake_span(
+                span_data.GenerationSpanData(
+                    input={"api_key": secret, "text": oversized},
+                    output={"api_key": secret, "text": oversized},
+                    model="gpt-private",
+                )
+            )
+        )
+        processor.on_span_end(
+            _fake_span(
+                span_data.FunctionSpanData(
+                    name="private_tool",
+                    input={"api_key": secret, "query": oversized},
+                    output=None,
+                ),
+                error={
+                    "message": secret,
+                    "data": {"api_key": secret, "diagnostic": oversized},
+                    "stack": secret,
+                },
+            )
+        )
+
+    _run()
+
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert secret not in raw
+
+    _, _, events = load_run_for_analysis(run_id, config)
+    llm = next(event for event in events if event["event_type"] == "LLM_CALL")
+    tool = next(event for event in events if event["event_type"] == "TOOL_CALL")
+    assert REDACTED_MARKER in llm["payload"]["prompt"]
+    assert REDACTED_MARKER in llm["payload"]["response"]
+    assert TRUNCATED_MARKER in llm["payload"]["prompt"]
+    assert TRUNCATED_MARKER in llm["payload"]["response"]
+    assert tool["payload"]["args"]["api_key"] == REDACTED_MARKER
+    assert tool["payload"]["args"]["query"].endswith(TRUNCATED_MARKER)
+    assert tool["payload"]["error"]["message"] == REDACTED_MARKER
 
 
 def test_calls_outside_run_do_not_create_or_contaminate_run(

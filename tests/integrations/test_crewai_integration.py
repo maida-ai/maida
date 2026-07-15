@@ -7,6 +7,7 @@ No crewai package is imported in this module.
 """
 
 import importlib
+import secrets
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -14,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from maida._integration_utils import _clear_test_run_lifecycle_registry
+from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.integrations._error import MissingOptionalDependencyError
 
 
@@ -460,6 +462,55 @@ def test_crewai_missing_completion_hooks_persist_failed_calls_before_run_end(
         assert event["meta"]["crewai"]["completion"] == "missing_after_hook"
     assert meta["status"] == "error"
     assert events[-1]["payload"] == {"status": "error"}
+
+
+def test_crewai_payloads_are_sanitized_before_persistence(
+    crewai_module_with_mocked_hooks, temp_data_dir, monkeypatch
+):
+    """Adapter payloads use Maida's redaction/truncation storage boundary."""
+    from maida import trace
+    from maida.config import load_config
+
+    crewai = crewai_module_with_mocked_hooks
+    secret = secrets.token_hex(24)
+    oversized = "public-" + ("x" * 200)
+    monkeypatch.setenv("MAIDA_REDACT_KEYS", "api_key,message,stack")
+    monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "80")
+    llm_ctx = make_fake_llm_context(
+        messages=[{"role": "user", "api_key": secret, "content": oversized}],
+        response={"api_key": secret, "content": oversized},
+    )
+    tool_ctx = make_fake_tool_context(
+        tool_name="private_tool",
+        tool_input={"api_key": secret, "query": oversized},
+    )
+
+    @trace(name="crewai privacy")
+    def _run():
+        crewai._before_llm_call(llm_ctx)
+        crewai._after_llm_call(llm_ctx)
+        crewai._before_tool_call(tool_ctx)
+        raise RuntimeError(secret)
+
+    with pytest.raises(RuntimeError, match=secret):
+        _run()
+
+    config = load_config()
+    run_id, _, events = _load_latest_events()
+    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert secret not in raw
+
+    llm = next(event for event in events if event["event_type"] == "LLM_CALL")
+    tool = next(event for event in events if event["event_type"] == "TOOL_CALL")
+    assert REDACTED_MARKER in llm["payload"]["prompt"]
+    assert REDACTED_MARKER in llm["payload"]["response"]
+    assert TRUNCATED_MARKER in llm["payload"]["prompt"]
+    assert TRUNCATED_MARKER in llm["payload"]["response"]
+    assert tool["payload"]["args"]["api_key"] == REDACTED_MARKER
+    assert tool["payload"]["args"]["query"].endswith(TRUNCATED_MARKER)
+    assert tool["payload"]["error"]["message"] == REDACTED_MARKER
 
 
 def test_crewai_hooks_outside_a_run_do_not_contaminate_a_later_run(
