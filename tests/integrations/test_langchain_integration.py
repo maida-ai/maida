@@ -10,6 +10,7 @@ import pytest
 from tests.conftest import get_latest_run_id
 
 from maida import trace
+from maida.baseline import extract_run_metrics
 from maida.config import load_config
 from maida.events import EventType, spans_to_events
 from maida.exceptions import (
@@ -17,7 +18,7 @@ from maida.exceptions import (
     LoopAbort,
     _MaidaAbortSignal,
 )
-from maida.storage import load_spans
+from maida.storage import list_runs, load_run_for_analysis, load_spans
 
 try:
     from maida.integrations.langchain import LangChainCallbackHandler
@@ -52,8 +53,8 @@ def test_langchain_integration_raises_clear_error_when_deps_missing():
         assert "pip install" in msg.lower(), (
             f"message should mention pip install: {msg!r}"
         )
-        assert "[langchain]" in msg, (
-            f"message should mention extra [langchain]: {msg!r}"
+        assert 'pip install "maida-ai[langchain]"' in msg, (
+            f"message should name the public package extra: {msg!r}"
         )
     finally:
         for key in (
@@ -110,29 +111,138 @@ def _traced_with_handler():
 
 @pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")
 def test_langchain_handler_emits_tool_call_and_llm_call(temp_data_dir):
-    """With langchain installed, traced run with handler produces TOOL_CALL and LLM_CALL."""
+    """The offline success path persists the exact normalized structural signature."""
     _traced_with_handler()
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    events = spans_to_events(load_spans(run_id, config))
+    resolved_id, meta, events = load_run_for_analysis(run_id, config)
+    metrics = extract_run_metrics(meta, events)
 
-    tool_events = [
-        e for e in events if e.get("event_type") == EventType.TOOL_CALL.value
+    assert resolved_id == run_id
+    assert [event["event_type"] for event in events] == [
+        EventType.RUN_START.value,
+        EventType.TOOL_CALL.value,
+        EventType.LLM_CALL.value,
+        EventType.RUN_END.value,
     ]
-    llm_events = [e for e in events if e.get("event_type") == EventType.LLM_CALL.value]
+    duration_ms = metrics["summary"]["duration_ms"]
+    assert isinstance(duration_ms, int)
+    assert duration_ms >= 0
+    assert {**metrics["summary"], "duration_ms": 0} == {
+        "status": "ok",
+        "total_events": 2,
+        "llm_calls": 1,
+        "tool_calls": 1,
+        "errors": 0,
+        "loop_warnings": 0,
+        "duration_ms": 0,
+        "total_tokens": 0,
+    }
+    assert metrics["tool_path"] == ["test_tool"]
+    assert metrics["tool_call_sequence"] == ["test_tool"]
+    assert metrics["tool_call_counts"] == {"test_tool": 1}
+    assert metrics["llm_models_used"] == ["FakeListLLM"]
+    assert metrics["event_type_sequence"] == [
+        EventType.RUN_START.value,
+        EventType.TOOL_CALL.value,
+        EventType.LLM_CALL.value,
+        EventType.RUN_END.value,
+    ]
+    assert metrics["final_status"] == "ok"
 
-    assert len(tool_events) >= 1, "expected at least one TOOL_CALL"
-    assert len(llm_events) >= 1, "expected at least one LLM_CALL"
+    tool_payload = events[1]["payload"]
+    assert tool_payload["tool_name"] == "test_tool"
+    assert tool_payload["status"] == "ok"
+    assert events[2]["payload"]["model"] == "FakeListLLM"
+    assert events[2]["payload"]["status"] == "ok"
+    assert events[-1]["payload"] == {"status": "ok"}
 
-    tool_payload = tool_events[0].get("payload", {})
-    assert tool_payload.get("tool_name"), "TOOL_CALL should have tool_name"
-    assert tool_payload.get("status") == "ok"
 
-    llm_payload = llm_events[0].get("payload", {})
-    assert llm_payload.get("model") is not None or "model" in llm_payload, (
-        "LLM_CALL should have model"
-    )
+@pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")
+def test_langchain_handler_llm_error_is_normalized_on_call(temp_data_dir):
+    """An LLM failure stays on LLM_CALL and does not invent a duplicate ERROR."""
+    handler = LangChainCallbackHandler()
+
+    @trace
+    def _run():
+        handler.on_llm_start(
+            {"id": ["langchain", "ChatOffline"]},
+            ["fixed prompt"],
+            run_id="llm-error-1",
+        )
+        handler.on_llm_error(
+            ValueError("simulated model failure"),
+            run_id="llm-error-1",
+        )
+
+    _run()
+
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    _, meta, events = load_run_for_analysis(run_id, config)
+
+    assert [event["event_type"] for event in events] == [
+        EventType.RUN_START.value,
+        EventType.LLM_CALL.value,
+        EventType.RUN_END.value,
+    ]
+    llm_payload = events[1]["payload"]
+    assert llm_payload["model"] == "ChatOffline"
+    assert llm_payload["prompt"] == "fixed prompt"
+    assert llm_payload["response"] is None
+    assert llm_payload["status"] == "error"
+    assert llm_payload["error"]["error_type"] == "ValueError"
+    assert llm_payload["error"]["message"] == "simulated model failure"
+    assert meta["counts"] == {
+        "llm_calls": 1,
+        "tool_calls": 0,
+        "errors": 0,
+        "loop_warnings": 0,
+    }
+    assert meta["status"] == "ok"
+    assert events[-1]["payload"] == {"status": "ok"}
+
+
+@pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")
+def test_langchain_handler_calls_outside_run_do_not_create_or_contaminate_run(
+    temp_data_dir, monkeypatch
+):
+    """Callbacks outside a run are no-ops and cannot leak into a later run."""
+    monkeypatch.delenv("MAIDA_IMPLICIT_RUN", raising=False)
+    handler = LangChainCallbackHandler()
+
+    handler.on_tool_start({"name": "outside_tool"}, "{}", run_id="outside-tool")
+    handler.on_tool_end("ignored", run_id="outside-tool")
+    handler.on_llm_start({"id": ["OutsideModel"]}, ["ignored"], run_id="outside-llm")
+    handler.on_llm_error(ValueError("ignored"), run_id="outside-llm")
+
+    config = load_config()
+    assert list_runs(limit=10, config=config) == []
+
+    @trace
+    def _run():
+        handler.on_tool_start({"name": "inside_tool"}, "{}", run_id="inside-tool")
+        handler.on_tool_end("ok", run_id="inside-tool")
+
+    _run()
+
+    runs = list_runs(limit=10, config=config)
+    assert len(runs) == 1
+    run_id = runs[0]["trace_id"]
+    _, meta, events = load_run_for_analysis(run_id, config)
+    assert [event["event_type"] for event in events] == [
+        EventType.RUN_START.value,
+        EventType.TOOL_CALL.value,
+        EventType.RUN_END.value,
+    ]
+    assert events[1]["payload"]["tool_name"] == "inside_tool"
+    assert meta["counts"] == {
+        "llm_calls": 0,
+        "tool_calls": 1,
+        "errors": 0,
+        "loop_warnings": 0,
+    }
 
 
 @pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")

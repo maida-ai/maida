@@ -17,7 +17,7 @@ Maida is **framework-agnostic** at the core. The SDK is a thin layer: you call `
 **Requirements:** `langchain-core` must be installed. Install the optional dependency group:
 
 ```bash
-pip install -e ".[langchain]"
+pip install "maida-ai[langchain]"
 ```
 
 If `langchain-core` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.
@@ -43,12 +43,29 @@ The handler captures:
 - **LLM calls** (`on_llm_start` / `on_chat_model_start` -> `on_llm_end`): records model name, prompt, response, and token usage via `record_llm_call`.
 - **Tool calls** (`on_tool_start` -> `on_tool_end` / `on_tool_error`): records tool name, args, result, and error status via `record_tool_call`.
 
-See `examples/langchain/minimal.py` for a runnable example:
+For a deterministic, offline success case, run
+[`examples/langchain/minimal.py`](../examples/langchain/minimal.py). It uses a
+fake local LLM and a stub tool, so it needs no API key and makes no network
+calls:
 
 ```bash
 uv run --extra langchain python examples/langchain/minimal.py
 maida view
 ```
+
+For the failure/regression side of the workflow, run
+[`examples/demo/langchain.py`](../examples/demo/langchain.py). It deterministically
+records a repeated-tool `LOOP_WARNING` and a failed `TOOL_CALL(status="error")`
+without calling a provider:
+
+```bash
+uv run --extra langchain python -m examples.demo.langchain
+maida view
+```
+
+The minimal example demonstrates the known-good structural path; the demo makes
+the loop and tool failure visible in the execution timeline so you can inspect
+the behavior that a baseline and policy should reject before merge.
 
 **Guardrails (e.g. `stop_on_loop`) with LangChain / LangGraph:**
 All guardrails work with the callback handler. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor — stopping the run immediately and preventing further token-wasting LLM calls. See [Guardrails](guardrails.md) for details. To reuse a handler across runs, call `handler.reset()` between runs.

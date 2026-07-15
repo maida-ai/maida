@@ -18,7 +18,7 @@ except ImportError as e:
     raise MissingOptionalDependencyError(
         "The LangChain/LangGraph integration requires optional dependencies that are not installed. "
         "Missing: langchain (langchain_core). "
-        'Install with: pip install "maida[langchain]" or pip install langchain. '
+        'Install with: pip install "maida-ai[langchain]" or pip install langchain. '
         "This integration is optional; the core maida package does not depend on it."
     ) from e
 
