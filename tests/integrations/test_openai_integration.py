@@ -13,7 +13,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from maida import trace
+from maida.baseline import extract_run_metrics
+from maida.config import load_config
+from maida.events import EventType
 from maida.integrations._error import MissingOptionalDependencyError
+from maida.storage import list_runs, load_run_for_analysis
+from tests.conftest import get_latest_run_id
 
 
 def _drop_openai_agents_integration_modules() -> None:
@@ -234,6 +240,94 @@ def test_generation_span_records_llm_call_event(openai_agents_module):
     assert meta["openai_agents"]["model_config"] == {"temperature": 0.2}
 
 
+def test_openai_agents_success_path_persists_structural_signature(
+    openai_agents_module, temp_data_dir
+):
+    """The offline success path persists the exact normalized signature."""
+    _, tracing_module, span_data = openai_agents_module
+
+    @trace(name="openai-agents-conformance-success")
+    def run_success_path():
+        tracing_module.emit_span(
+            _fake_span(
+                span_data.GenerationSpanData(
+                    input=[{"role": "user", "content": "Summarize this"}],
+                    output=[{"role": "assistant", "content": "Summary"}],
+                    model="gpt-4o-mini",
+                    model_config={"temperature": 0.0},
+                    usage={
+                        "prompt_tokens": 11,
+                        "completion_tokens": 7,
+                        "total_tokens": 18,
+                    },
+                )
+            )
+        )
+        tracing_module.emit_span(
+            _fake_span(
+                span_data.FunctionSpanData(
+                    name="search_docs",
+                    input={"query": "maida"},
+                    output={"hits": 2},
+                )
+            )
+        )
+        tracing_module.emit_span(
+            _fake_span(
+                span_data.HandoffSpanData(
+                    from_agent="router_agent", to_agent="search_agent"
+                )
+            )
+        )
+
+    run_success_path()
+
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    resolved_id, meta, events = load_run_for_analysis(run_id, config)
+    metrics = extract_run_metrics(meta, events)
+
+    assert resolved_id == run_id
+    assert [event["event_type"] for event in events] == [
+        EventType.RUN_START.value,
+        EventType.LLM_CALL.value,
+        EventType.TOOL_CALL.value,
+        EventType.TOOL_CALL.value,
+        EventType.RUN_END.value,
+    ]
+    duration_ms = metrics["summary"]["duration_ms"]
+    assert isinstance(duration_ms, int)
+    assert duration_ms >= 0
+    assert {**metrics["summary"], "duration_ms": 0} == {
+        "status": "ok",
+        "total_events": 3,
+        "llm_calls": 1,
+        "tool_calls": 2,
+        "errors": 0,
+        "loop_warnings": 0,
+        "duration_ms": 0,
+        "total_tokens": 18,
+    }
+    assert metrics["tool_path"] == ["handoff", "search_docs"]
+    assert metrics["tool_call_sequence"] == ["search_docs", "handoff"]
+    assert metrics["tool_call_counts"] == {"search_docs": 1, "handoff": 1}
+    assert metrics["llm_models_used"] == ["gpt-4o-mini"]
+    assert metrics["event_type_sequence"] == [
+        EventType.RUN_START.value,
+        EventType.LLM_CALL.value,
+        EventType.TOOL_CALL.value,
+        EventType.TOOL_CALL.value,
+        EventType.RUN_END.value,
+    ]
+    assert metrics["final_status"] == "ok"
+    assert events[1]["payload"]["status"] == "ok"
+    assert events[2]["payload"]["tool_name"] == "search_docs"
+    assert events[2]["payload"]["status"] == "ok"
+    assert events[3]["payload"]["tool_name"] == "handoff"
+    assert events[3]["payload"]["status"] == "ok"
+    assert events[-1]["payload"] == {"status": "ok"}
+
+
 def test_function_and_handoff_spans_record_tool_call_events(openai_agents_module):
     openai_agents, tracing_module, span_data = openai_agents_module
 
@@ -308,24 +402,117 @@ def test_generation_error_records_error_status(openai_agents_module):
     assert kw["error"]["details"] == {"code": "boom"}
 
 
-def test_no_run_created_when_only_sdk_span_is_emitted(openai_agents_module):
-    openai_agents, tracing_module, span_data = openai_agents_module
-
-    function_span = _fake_span(
-        span_data.FunctionSpanData(
+@pytest.mark.parametrize(
+    ("span_kind", "event_type", "message"),
+    [
+        ("generation", EventType.LLM_CALL.value, "model failed"),
+        ("function", EventType.TOOL_CALL.value, "tool failed"),
+    ],
+)
+def test_openai_agents_errors_persist_on_normalized_calls(
+    openai_agents_module,
+    temp_data_dir,
+    span_kind,
+    event_type,
+    message,
+):
+    """Contained SDK failures stay on normalized calls without duplicate ERROR."""
+    _, tracing_module, span_data = openai_agents_module
+    if span_kind == "generation":
+        data = span_data.GenerationSpanData(
+            input=[{"role": "user", "content": "fail"}],
+            output=None,
+            model="gpt-4o-mini",
+        )
+    else:
+        data = span_data.FunctionSpanData(
             name="search_docs",
+            input={"query": "maida"},
+            output=None,
+        )
+    span = _fake_span(
+        data,
+        error={
+            "error_type": "OpenAIAgentsSpanError",
+            "message": message,
+            "data": {"code": "boom"},
+        },
+    )
+
+    @trace(name=f"openai-agents-{span_kind}-error")
+    def run_failed_call():
+        tracing_module.emit_span(span)
+
+    run_failed_call()
+
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    _, meta, events = load_run_for_analysis(run_id, config)
+
+    assert [event["event_type"] for event in events] == [
+        EventType.RUN_START.value,
+        event_type,
+        EventType.RUN_END.value,
+    ]
+    payload = events[1]["payload"]
+    assert payload["status"] == "error"
+    assert payload["error"] == {
+        "error_type": "OpenAIAgentsSpanError",
+        "message": message,
+        "stack": None,
+    }
+    assert meta["status"] == "ok"
+    assert meta["counts"]["errors"] == 0
+    assert events[-1]["payload"] == {"status": "ok"}
+
+
+def test_calls_outside_run_do_not_create_or_contaminate_run(
+    openai_agents_module, temp_data_dir, monkeypatch
+):
+    _, tracing_module, span_data = openai_agents_module
+    monkeypatch.delenv("MAIDA_IMPLICIT_RUN", raising=False)
+
+    outside_span = _fake_span(
+        span_data.FunctionSpanData(
+            name="outside_tool",
             input={"query": "maida"},
             output={"hits": 2},
         )
     )
+    tracing_module.emit_span(outside_span)
 
-    with patch.object(openai_agents, "has_active_run", return_value=False):
-        with patch.object(
-            openai_agents, "record_tool_call", MagicMock()
-        ) as record_tool:
-            tracing_module.emit_span(function_span)
+    config = load_config()
+    assert list_runs(limit=10, config=config) == []
 
-    record_tool.assert_not_called()
+    @trace(name="openai-agents-inside-run")
+    def run_inside_call():
+        tracing_module.emit_span(
+            _fake_span(
+                span_data.FunctionSpanData(
+                    name="inside_tool",
+                    input={"query": "maida"},
+                    output={"hits": 1},
+                )
+            )
+        )
+
+    run_inside_call()
+
+    runs = list_runs(limit=10, config=config)
+    assert len(runs) == 1
+    _, meta, events = load_run_for_analysis(runs[0]["trace_id"], config)
+    assert [event["event_type"] for event in events] == [
+        EventType.RUN_START.value,
+        EventType.TOOL_CALL.value,
+        EventType.RUN_END.value,
+    ]
+    assert events[1]["payload"]["tool_name"] == "inside_tool"
+    assert meta["counts"] == {
+        "llm_calls": 0,
+        "tool_calls": 1,
+        "errors": 0,
+        "loop_warnings": 0,
+    }
 
 
 def test_guardrail_exception_captured_on_abort_exception(openai_agents_module):
@@ -384,13 +571,7 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
     and propagates to _run_context, which records ERROR + RUN_END and
     re-raises LoopAbort.  The loop stops immediately."""
     openai_agents, tracing_module, span_data = openai_agents_module
-    from maida import trace
-    from maida.config import load_config
-    from maida.events import EventType
     from maida.exceptions import LoopAbort
-    from maida.storage import load_spans, load_run_meta
-    from maida.events import spans_to_events
-    from tests.conftest import get_latest_run_id
 
     processor = openai_agents.PROCESSOR
 
@@ -440,9 +621,7 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    spans = load_spans(run_id, config)
-    events = spans_to_events(spans)
-    run_meta = load_run_meta(run_id, config)
+    _, run_meta, events = load_run_for_analysis(run_id, config)
 
     loop_warnings = [
         e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
@@ -458,3 +637,10 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(errors) == 1
     assert errors[0]["payload"]["error_type"] == "LoopAbort"
+    assert [event["event_type"] for event in events[-3:]] == [
+        EventType.LOOP_WARNING.value,
+        EventType.ERROR.value,
+        EventType.RUN_END.value,
+    ]
+    assert run_meta["status"] == "error"
+    assert events[-1]["payload"] == {"status": "error"}
