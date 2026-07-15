@@ -82,10 +82,10 @@ All guardrails work with the callback handler. When a guardrail fires, the handl
 
 **Status: available.** An optional adapter lives at `maida.integrations.openai_agents`. Importing it registers an OpenAI Agents tracing processor that forwards SDK generation, function, and handoff spans into the active Maida run.
 
-**Requirements:** `openai-agents` must be installed. Install the optional OpenAI dependency group (the `openai` group contains `openai-agents`):
+**Requirements:** `openai-agents` must be installed. Install Maida with the optional OpenAI dependency group:
 
 ```bash
-pip install -e ".[openai]"
+pip install "maida-ai[openai]"
 ```
 
 If `openai-agents` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.
@@ -109,12 +109,26 @@ The adapter captures:
 - **Tool calls** (`FunctionSpanData`): records tool name, args, result, and error status via `record_tool_call`.
 - **Handoffs** (`HandoffSpanData`): records a `TOOL_CALL` named `handoff`, with framework-specific details stored in `meta`.
 
-See `examples/openai_agents/minimal.py` for a runnable fake-data example:
+The runnable [`examples/openai_agents/minimal.py`](../examples/openai_agents/minimal.py) example uses only local SDK tracing spans with fixed payloads. It requires no API key, provider call, or network access:
 
 ```bash
 uv run --extra openai python examples/openai_agents/minimal.py
-maida view
+maida baseline --out openai-agents-baseline.json
+maida assert --baseline openai-agents-baseline.json
 ```
+
+The known-good structural signature is `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END`, with one `gpt-4o-mini` call, the tool sequence `lookup_docs -> handoff`, 22 total tokens, and terminal status `ok`.
+
+Run the same offline example in regression mode to repeat the documentation lookup:
+
+```bash
+uv run --extra openai python examples/openai_agents/minimal.py --regression
+maida assert --baseline openai-agents-baseline.json
+```
+
+The regression records three consecutive `lookup_docs` calls. Its structural signature is `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(lookup_docs) -> TOOL_CALL(lookup_docs) -> LOOP_WARNING -> TOOL_CALL(handoff) -> RUN_END`. The run itself still ends with status `ok`, but the final gate reports the increased step and tool-call counts and exits with code `1`.
+
+Maida's surrounding `@trace` boundary owns `RUN_START` and `RUN_END`. The adapter maps completed generation, function, and handoff spans exposed by the SDK; it does not synthesize successful calls or framework-specific event types for SDK signals it cannot observe.
 
 **Guardrails with OpenAI Agents SDK:**
 All guardrails work with the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling — stopping the run immediately:

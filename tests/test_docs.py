@@ -118,3 +118,22 @@ def test_adapter_conformance_contract_covers_required_behavior():
     missing = [snippet for snippet in required_snippets if snippet not in text]
 
     assert missing == []
+
+
+def test_openai_agents_docs_include_offline_success_and_regression_workflow():
+    docs = (ROOT / "docs/integrations.md").read_text(encoding="utf-8")
+    example = (ROOT / "examples/openai_agents/minimal.py").read_text(encoding="utf-8")
+
+    required_docs = [
+        'pip install "maida-ai[openai]"',
+        "openai-agents-baseline.json",
+        "examples/openai_agents/minimal.py --regression",
+        "RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END",
+        "LOOP_WARNING",
+        "exits with code `1`",
+    ]
+    missing_docs = [snippet for snippet in required_docs if snippet not in docs]
+
+    assert missing_docs == []
+    assert '"--regression"' in example
+    assert "regression=args.regression" in example
