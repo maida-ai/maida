@@ -6,6 +6,7 @@ and using fake context objects shaped like CrewAI LLMCallHookContext / ToolCallH
 No crewai package is imported in this module.
 """
 
+import importlib
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -130,10 +131,10 @@ def test_import_crewai_without_extra_raises_clear_error():
 def _reset_crewai_module_state(crewai_mod) -> None:
     """Clear crewai's process-global pending/sequence state.
 
-    The module keeps per-run dicts at module scope, and patch.dict's restore
-    can hand back a shared module instance between tests. Combined with random
-    test ordering under xdist, residue (e.g. empty ``{run_id: {}}`` left by
-    after-hooks) leaks across tests. Reset explicitly so each test starts clean.
+    The module keeps per-run dicts at module scope, and import-isolation tests
+    replace the module instance. Combined with random test ordering under xdist,
+    residue (e.g. empty ``{run_id: {}}`` left by after-hooks) can otherwise leak
+    across tests. Reset explicitly so each test starts clean.
     """
     crewai_mod._pending_llm.clear()
     crewai_mod._pending_tool.clear()
@@ -144,23 +145,25 @@ def _reset_crewai_module_state(crewai_mod) -> None:
 
 
 @pytest.fixture
-def crewai_module_with_mocked_hooks():
+def crewai_module_with_mocked_hooks(monkeypatch):
     """Load maida.integrations.crewai with crewai.hooks mocked so no real CrewAI is required."""
-    # Provide a minimal hooks module that has the four register functions (no-ops)
+    # Patch only the modules this fixture owns. patch.dict(sys.modules) restores a
+    # snapshot of the entire import cache on exit, which can resurrect a stale
+    # maida.integrations.crewai module under randomized/xdist test scheduling.
     hooks = MagicMock()
-    with patch.dict("sys.modules", {"crewai": MagicMock(), "crewai.hooks": hooks}):
-        # Force reimport so our patch is used
-        for mod in list(sys.modules.keys()):
-            if mod == "maida.integrations.crewai":
-                del sys.modules[mod]
-                break
-        try:
-            import maida.integrations.crewai as crewai_mod
+    monkeypatch.setitem(sys.modules, "crewai", MagicMock())
+    monkeypatch.setitem(sys.modules, "crewai.hooks", hooks)
+    integrations_package = importlib.import_module("maida.integrations")
+    monkeypatch.delattr(integrations_package, "crewai", raising=False)
+    monkeypatch.delitem(sys.modules, "maida.integrations.crewai", raising=False)
 
-            _reset_crewai_module_state(crewai_mod)
-            yield crewai_mod
-        finally:
-            _reset_crewai_module_state(crewai_mod)
+    crewai_mod = importlib.import_module("maida.integrations.crewai")
+
+    _reset_crewai_module_state(crewai_mod)
+    try:
+        yield crewai_mod
+    finally:
+        _reset_crewai_module_state(crewai_mod)
 
 
 def test_gating_no_active_run_handlers_no_op_and_do_not_record(
