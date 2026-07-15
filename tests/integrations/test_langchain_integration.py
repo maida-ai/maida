@@ -4,7 +4,9 @@ Uses temp dir; no network calls. Asserts TOOL_CALL and LLM_CALL events.
 """
 
 import logging
+import secrets
 import sys
+from types import SimpleNamespace
 
 import pytest
 from tests.conftest import get_latest_run_id
@@ -12,6 +14,7 @@ from tests.conftest import get_latest_run_id
 from maida import trace
 from maida.baseline import extract_run_metrics
 from maida.config import load_config
+from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.events import EventType, spans_to_events
 from maida.exceptions import (
     GuardrailExceeded,
@@ -281,6 +284,67 @@ def test_langchain_handler_tool_error_emits_error_status(temp_data_dir):
     )
     assert err.get("error_type") == "ValueError"
     assert "simulated failure" in str(err.get("message", ""))
+
+
+@pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")
+def test_langchain_payloads_are_sanitized_before_persistence(
+    temp_data_dir, monkeypatch
+):
+    """Adapter payloads use Maida's redaction/truncation storage boundary."""
+    secret = secrets.token_hex(24)
+    oversized = "public-" + ("x" * 200)
+    monkeypatch.setenv("MAIDA_REDACT_KEYS", "api_key,message,stack")
+    monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "80")
+    handler = LangChainCallbackHandler()
+
+    @trace(name="langchain privacy")
+    def _run():
+        handler.on_chat_model_start(
+            {"id": ["langchain", "PrivateChatModel"]},
+            [
+                [
+                    SimpleNamespace(
+                        type="human", content={"api_key": secret, "text": oversized}
+                    )
+                ]
+            ],
+            run_id="llm-private",
+        )
+        handler.on_llm_end(
+            SimpleNamespace(
+                generations=[
+                    [SimpleNamespace(text={"api_key": secret, "text": oversized})]
+                ],
+                llm_output=None,
+            ),
+            run_id="llm-private",
+        )
+        handler.on_tool_start(
+            {"name": "private_tool"},
+            f'{{"api_key": "{secret}", "query": "{oversized}"}}',
+            run_id="tool-private",
+        )
+        handler.on_tool_error(ValueError(secret), run_id="tool-private")
+
+    _run()
+
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert secret not in raw
+
+    _, _, events = load_run_for_analysis(run_id, config)
+    llm = next(event for event in events if event["event_type"] == "LLM_CALL")
+    tool = next(event for event in events if event["event_type"] == "TOOL_CALL")
+    assert REDACTED_MARKER in llm["payload"]["prompt"]
+    assert REDACTED_MARKER in llm["payload"]["response"]
+    assert TRUNCATED_MARKER in llm["payload"]["prompt"]
+    assert TRUNCATED_MARKER in llm["payload"]["response"]
+    assert tool["payload"]["args"]["api_key"] == REDACTED_MARKER
+    assert tool["payload"]["args"]["query"].endswith(TRUNCATED_MARKER)
+    assert tool["payload"]["error"]["message"] == REDACTED_MARKER
 
 
 def _simulate_langchain_handle_event(handler, event_name: str, *args, **kwargs) -> None:
