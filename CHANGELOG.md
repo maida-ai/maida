@@ -31,7 +31,6 @@
 
 ### Known issues
 
-- **No CrewAI example or tutorial** - `examples/crewai/` has no runnable `.py` script and there is no CrewAI tutorial notebook. The integration itself works and is tested, but end-user reference material is missing.
 - **Thread-pool context propagation** - `contextvars` are not copied into worker threads. If tools execute concurrently via a thread pool, events may be lost or mis-ordered. Single-threaded agent loops are unaffected. Fix planned for v0.3.
 - **`cwd()` project-root heuristic** - when the CLI is invoked from outside the project directory, the project-level config file may not be found. Workaround: run `agentdbg` from the project root or set config via env vars.
 

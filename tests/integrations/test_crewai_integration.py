@@ -140,6 +140,7 @@ def _reset_crewai_module_state(crewai_mod) -> None:
     crewai_mod._llm_stack.clear()
     crewai_mod._llm_next_seq.clear()
     crewai_mod._tool_next_seq.clear()
+    crewai_mod._abort_exceptions.clear()
 
 
 @pytest.fixture
@@ -360,3 +361,203 @@ def test_flush_pending_with_exception_attaches_error_payload(
         call_kw["error"].get("stack") is not None
         and "ValueError" in call_kw["error"]["stack"]
     )
+
+
+def _load_latest_events():
+    from maida.config import load_config
+    from maida.storage import list_runs, load_run_for_analysis
+
+    config = load_config()
+    run = list_runs(limit=1, config=config)[0]
+    run_id = run.get("trace_id") or run["run_id"]
+    return load_run_for_analysis(run_id, config)
+
+
+def test_crewai_success_persists_exact_signature_and_namespaced_metadata(
+    crewai_module_with_mocked_hooks, temp_data_dir
+):
+    from maida import trace
+
+    crewai = crewai_module_with_mocked_hooks
+    llm_ctx = make_fake_llm_context(
+        messages=[{"role": "user", "content": "Find the docs"}],
+        response="Use search_docs",
+    )
+    tool_ctx = make_fake_tool_context(
+        tool_name="search_docs",
+        tool_input={"query": "CrewAI"},
+        tool_result={"hits": 1},
+    )
+
+    @trace(name="CrewAI conformance success")
+    def run():
+        crewai._before_llm_call(llm_ctx)
+        crewai._after_llm_call(llm_ctx)
+        crewai._before_tool_call(tool_ctx)
+        crewai._after_tool_call(tool_ctx)
+
+    run()
+
+    _, meta, events = _load_latest_events()
+    assert [event["event_type"] for event in events] == [
+        "RUN_START",
+        "LLM_CALL",
+        "TOOL_CALL",
+        "RUN_END",
+    ]
+    assert meta["counts"] == {
+        "llm_calls": 1,
+        "tool_calls": 1,
+        "errors": 0,
+        "loop_warnings": 0,
+    }
+    for event in events[1:3]:
+        assert event["payload"]["status"] == "ok"
+        assert event["meta"]["framework"] == "crewai"
+        assert event["meta"]["crewai"]["agent_role"] == "Researcher"
+        assert event["meta"]["crewai"]["task_desc"] == "Do research"
+        assert "agent_role" not in event["meta"]
+        assert "task_desc" not in event["meta"]
+    assert events[-1]["payload"] == {"status": "ok"}
+
+
+def test_crewai_missing_completion_hooks_persist_failed_calls_before_run_end(
+    crewai_module_with_mocked_hooks, temp_data_dir
+):
+    from maida import trace
+
+    crewai = crewai_module_with_mocked_hooks
+
+    @trace(name="CrewAI incomplete calls")
+    def run():
+        crewai._before_llm_call(
+            make_fake_llm_context(messages=[{"role": "user", "content": "fail"}])
+        )
+        crewai._before_tool_call(
+            make_fake_tool_context(
+                tool_name="search_docs", tool_input={"query": "fail"}
+            )
+        )
+        raise RuntimeError("simulated CrewAI failure")
+
+    with pytest.raises(RuntimeError, match="simulated CrewAI failure"):
+        run()
+
+    _, meta, events = _load_latest_events()
+    assert [event["event_type"] for event in events] == [
+        "RUN_START",
+        "ERROR",
+        "LLM_CALL",
+        "TOOL_CALL",
+        "RUN_END",
+    ]
+    for event in events[2:4]:
+        assert event["payload"]["status"] == "error"
+        assert event["payload"]["error"]["error_type"] == "RuntimeError"
+        assert event["meta"]["crewai"]["completion"] == "missing_after_hook"
+    assert meta["status"] == "error"
+    assert events[-1]["payload"] == {"status": "error"}
+
+
+def test_crewai_hooks_outside_a_run_do_not_contaminate_a_later_run(
+    crewai_module_with_mocked_hooks, temp_data_dir, monkeypatch
+):
+    from maida import trace
+    from maida.config import load_config
+    from maida.storage import list_runs
+
+    monkeypatch.delenv("MAIDA_IMPLICIT_RUN", raising=False)
+    crewai = crewai_module_with_mocked_hooks
+    outside = make_fake_tool_context(tool_name="outside_tool", tool_result="ignored")
+    crewai._before_tool_call(outside)
+    crewai._after_tool_call(outside)
+    assert list_runs(limit=10, config=load_config()) == []
+
+    inside = make_fake_tool_context(tool_name="inside_tool", tool_result="ok")
+
+    @trace(name="CrewAI isolated run")
+    def run():
+        crewai._before_tool_call(inside)
+        crewai._after_tool_call(inside)
+
+    run()
+
+    _, meta, events = _load_latest_events()
+    assert [event["event_type"] for event in events] == [
+        "RUN_START",
+        "TOOL_CALL",
+        "RUN_END",
+    ]
+    assert events[1]["payload"]["tool_name"] == "inside_tool"
+    assert meta["counts"]["tool_calls"] == 1
+
+
+def test_crewai_abort_signal_bypasses_exception_handlers_and_blocks_later_hooks(
+    crewai_module_with_mocked_hooks, temp_data_dir
+):
+    from maida import trace
+    from maida.exceptions import LoopAbort, _MaidaAbortSignal
+
+    crewai = crewai_module_with_mocked_hooks
+    completed = 0
+
+    def framework_dispatch(hook, context):
+        try:
+            return hook(context)
+        except Exception:
+            return None
+
+    @trace(
+        name="CrewAI guarded loop",
+        stop_on_loop=True,
+        stop_on_loop_min_repetitions=3,
+    )
+    def looping_run():
+        nonlocal completed
+        for _ in range(10):
+            context = make_fake_tool_context(
+                tool_name="search_docs",
+                tool_input={"query": "same query"},
+                tool_result="same result",
+            )
+            framework_dispatch(crewai._before_tool_call, context)
+            framework_dispatch(crewai._after_tool_call, context)
+            completed += 1
+
+    with pytest.raises(LoopAbort):
+        looping_run()
+
+    assert completed < 10
+    _, meta, events = _load_latest_events()
+    assert [event["event_type"] for event in events][-3:] == [
+        "LOOP_WARNING",
+        "ERROR",
+        "RUN_END",
+    ]
+    assert meta["status"] == "error"
+    assert events[-1]["payload"] == {"status": "error"}
+    assert crewai._abort_exceptions == {}
+
+    @trace(name="CrewAI clean reuse")
+    def clean_run():
+        context = make_fake_tool_context(tool_name="lookup", tool_result="ok")
+        crewai._before_tool_call(context)
+        crewai._after_tool_call(context)
+
+    clean_run()
+    _, clean_meta, clean_events = _load_latest_events()
+    assert [event["event_type"] for event in clean_events] == [
+        "RUN_START",
+        "TOOL_CALL",
+        "RUN_END",
+    ]
+    assert clean_meta["status"] == "ok"
+
+    cause = LoopAbort(threshold=3, actual=3, message="already aborted")
+    crewai._abort_exceptions["active-run"] = cause
+    with patch.object(crewai, "_get_active_run_id", return_value="active-run"):
+        with pytest.raises(_MaidaAbortSignal) as signal:
+            framework_dispatch(crewai._before_llm_call, make_fake_llm_context())
+        assert signal.value.cause is cause
+        with pytest.raises(LoopAbort, match="already aborted"):
+            crewai.raise_if_aborted()

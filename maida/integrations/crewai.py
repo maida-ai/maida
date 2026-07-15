@@ -15,6 +15,7 @@ from typing import Any
 
 from maida._integration_utils import register_run_enter, register_run_exit
 from maida._tracing._context import _ensure_run
+from maida.exceptions import GuardrailExceeded, _MaidaAbortSignal
 from maida.integrations._error import MissingOptionalDependencyError
 from maida.tracing import record_llm_call, record_tool_call
 
@@ -52,6 +53,10 @@ _pending_tool: dict[
 _tool_next_seq: dict[
     tuple[str, str], int
 ] = {}  # (run_id, tool_name) -> next sequence number
+
+# Per-run guardrail state. CrewAI catches Exception around hook execution, so
+# adapter callbacks escalate GuardrailExceeded to a private BaseException signal.
+_abort_exceptions: dict[str, GuardrailExceeded] = {}
 
 
 def _snapshot_messages(messages: Any) -> Any:
@@ -110,13 +115,13 @@ def _crewai_meta_llm(context: Any) -> dict[str, Any]:
             and context.agent is not None
             and getattr(context.agent, "role", None)
         ):
-            meta["agent_role"] = context.agent.role
+            meta.setdefault("crewai", {})["agent_role"] = context.agent.role
         if (
             hasattr(context, "task")
             and context.task is not None
             and getattr(context.task, "description", None)
         ):
-            meta["task_desc"] = context.task.description
+            meta.setdefault("crewai", {})["task_desc"] = context.task.description
         if hasattr(context, "crew") and context.crew is not None:
             meta.setdefault("crewai", {})["crew_id"] = id(context.crew)
     except Exception:
@@ -133,13 +138,13 @@ def _crewai_meta_tool(context: Any) -> dict[str, Any]:
             and context.agent is not None
             and getattr(context.agent, "role", None)
         ):
-            meta["agent_role"] = context.agent.role
+            meta.setdefault("crewai", {})["agent_role"] = context.agent.role
         if (
             hasattr(context, "task")
             and context.task is not None
             and getattr(context.task, "description", None)
         ):
-            meta["task_desc"] = context.task.description
+            meta.setdefault("crewai", {})["task_desc"] = context.task.description
     except Exception:
         pass
     return meta
@@ -163,12 +168,30 @@ def _get_active_run_id() -> str | None:
     return ctx[0] if ctx else None
 
 
+def _check_aborted(run_id: str) -> None:
+    """Stop CrewAI from starting or completing hooks after a guardrail abort."""
+    cause = _abort_exceptions.get(run_id)
+    if cause is not None:
+        raise _MaidaAbortSignal(cause)
+
+
+def raise_if_aborted() -> None:
+    """Re-raise a guardrail captured for the active run, if any."""
+    run_id = _get_active_run_id()
+    if run_id is None:
+        return
+    cause = _abort_exceptions.get(run_id)
+    if cause is not None:
+        raise cause
+
+
 def _before_llm_call(context: Any) -> bool | None:
-    """CrewAI before_llm_call hook. Never raises; no-op if no active run."""
+    """Capture an LLM start, or propagate a prior guardrail abort."""
     try:
         run_id = _get_active_run_id()
         if run_id is None:
             return None
+        _check_aborted(run_id)
         executor_id = (
             id(context.executor)
             if getattr(context, "executor", None) is not None
@@ -192,11 +215,12 @@ def _before_llm_call(context: Any) -> bool | None:
 
 
 def _after_llm_call(context: Any) -> str | None:
-    """CrewAI after_llm_call hook. Never raises; no-op if no active run."""
+    """Record an LLM completion, escalating guardrails past CrewAI."""
     try:
         run_id = _get_active_run_id()
         if run_id is None:
             return None
+        _check_aborted(run_id)
         executor_id = (
             id(context.executor)
             if getattr(context, "executor", None) is not None
@@ -229,16 +253,20 @@ def _after_llm_call(context: Any) -> str | None:
             status="ok",
         )
         return None
+    except GuardrailExceeded as e:
+        _abort_exceptions[run_id] = e
+        raise _MaidaAbortSignal(e) from e
     except Exception:
         return None
 
 
 def _before_tool_call(context: Any) -> bool | None:
-    """CrewAI before_tool_call hook. Never raises; no-op if no active run."""
+    """Capture a tool start, or propagate a prior guardrail abort."""
     try:
         run_id = _get_active_run_id()
         if run_id is None:
             return None
+        _check_aborted(run_id)
         tool_name = getattr(context, "tool_name", "unknown") or "unknown"
         key_base = (run_id, tool_name)
         seq = _tool_next_seq.get(key_base, 0)
@@ -255,11 +283,12 @@ def _before_tool_call(context: Any) -> bool | None:
 
 
 def _after_tool_call(context: Any) -> str | None:
-    """CrewAI after_tool_call hook. Never raises; no-op if no active run."""
+    """Record a tool completion, escalating guardrails past CrewAI."""
     try:
         run_id = _get_active_run_id()
         if run_id is None:
             return None
+        _check_aborted(run_id)
         tool_name = getattr(context, "tool_name", "unknown") or "unknown"
         by_run = _pending_tool.get(run_id, {})
         # Match FIFO: same tool_name, smallest seq (first before_hook for this tool).
@@ -284,6 +313,9 @@ def _after_tool_call(context: Any) -> str | None:
             status="ok",
         )
         return None
+    except GuardrailExceeded as e:
+        _abort_exceptions[run_id] = e
+        raise _MaidaAbortSignal(e) from e
     except Exception:
         return None
 
@@ -346,6 +378,9 @@ def _flush_pending_for_run(
                 error=incomplete_error,
             )
 
+    except Exception:
+        pass
+    finally:
         _pending_llm.pop(run_id, None)
         _pending_tool.pop(run_id, None)
         for k in list(_llm_stack.keys()):
@@ -357,8 +392,6 @@ def _flush_pending_for_run(
         for k in list(_tool_next_seq.keys()):
             if k[0] == run_id:
                 del _tool_next_seq[k]
-    except Exception:
-        pass
 
 
 def _on_run_enter() -> None:
@@ -378,8 +411,8 @@ def _on_run_exit(
     """Lifecycle: on run exit, flush pending calls for this run and clean up."""
     try:
         _flush_pending_for_run(run_id, exc_type, exc_value, tb)
-    except Exception:
-        pass
+    finally:
+        _abort_exceptions.pop(run_id, None)
 
 
 # Activate on import: register with core lifecycle (register-on-import, Option C).

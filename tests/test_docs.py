@@ -137,3 +137,37 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
     assert missing_docs == []
     assert '"--regression"' in example
     assert "regression=args.regression" in example
+
+
+def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    integration_docs = (ROOT / "docs/integrations.md").read_text(encoding="utf-8")
+    example = (ROOT / "examples/crewai/minimal.py").read_text(encoding="utf-8")
+
+    for snippet in (
+        'pip install "maida-ai[crewai]"',
+        "examples/crewai/minimal.py",
+        "--regression",
+    ):
+        assert snippet in readme or snippet in integration_docs
+
+    for snippet in (
+        "RUN_START -> LLM_CALL -> TOOL_CALL(search_docs) -> RUN_END",
+        "three consecutive `search_docs` calls",
+        "maida baseline --out crewai-baseline.json",
+        "maida assert --baseline crewai-baseline.json --tool-call-tolerance 0",
+        "exits with code `1`",
+        "maida_crewai.raise_if_aborted()",
+        "Mock%20CrewAI%20Agent.ipynb",
+    ):
+        assert snippet in integration_docs
+
+    for snippet in (
+        "LLMCallHookContext",
+        "ToolCallHookContext",
+        "get_before_llm_call_hooks",
+        "get_after_tool_call_hooks",
+        "crewai_event_bus.shutdown",
+        "tool_calls = 3 if regression else 1",
+    ):
+        assert snippet in example

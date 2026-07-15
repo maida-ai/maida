@@ -412,12 +412,17 @@ def run_crew():
     ...
 ```
 
+See `examples/crewai/minimal.py` for a deterministic fake-hook example that
+uses no API key or network calls. Its `--regression` mode repeats the same
+`search_docs` call three times so a strict baseline assertion catches the
+structural change.
+
 More framework adapters coming soon (Agno, and others).
 
 
 ## Tutorials
 
-Step-by-step Jupyter notebooks live in a separate repository: [maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials). Covers LangChain, OpenAI Agents SDK, and guardrails - all runnable without API keys.
+Step-by-step Jupyter notebooks live in a separate repository: [maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials). Covers LangChain, OpenAI Agents SDK, CrewAI, and guardrails - all runnable without API keys.
 
 
 ## Development
