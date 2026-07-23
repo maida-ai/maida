@@ -107,7 +107,19 @@ def _exit_run_validation_error(error: storage.RunValidationError) -> None:
 @app.command(name="run")
 def run_cmd(
     agent_script: Path = typer.Argument(..., help="Traced Python agent script to run"),
-    trials: int = typer.Option(3, "--trials", min=1, help="Number of isolated trials"),
+    trials: int | None = typer.Option(
+        None, "--trials", min=1, help="Number of isolated trials (policy default: 3)"
+    ),
+    confidence_level: float | None = typer.Option(
+        None,
+        "--confidence-level",
+        help="Wilson confidence level (policy default: 0.95)",
+    ),
+    pass_rate_threshold: float | None = typer.Option(
+        None,
+        "--pass-rate-threshold",
+        help="Required underlying pass rate (policy default: 0.90)",
+    ),
     baseline_path: Path | None = typer.Option(
         None, "--baseline", "-b", help="Baseline JSON file to compare against"
     ),
@@ -139,7 +151,15 @@ def run_cmd(
                 selected_policy = default_policy
         if selected_policy is not None:
             policy = load_policy(selected_policy)
-        policy = merge_policy(policy, {"max_steps": max_steps})
+        policy = merge_policy(
+            policy,
+            {
+                "max_steps": max_steps,
+                "trials": trials,
+                "confidence_level": confidence_level,
+                "pass_rate_threshold": pass_rate_threshold,
+            },
+        )
 
         baseline = None
         if baseline_path is not None:
@@ -151,11 +171,13 @@ def run_cmd(
 
         report = run_trials(
             agent_script,
-            trials=trials,
+            trials=policy.trials,
             policy=policy,
             config=config,
             project_root=Path.cwd(),
             baseline=baseline,
+            confidence_level=policy.confidence_level,
+            pass_rate_threshold=policy.pass_rate_threshold,
         )
         if json_out is not None:
             json_out.parent.mkdir(parents=True, exist_ok=True)
@@ -174,7 +196,10 @@ def run_cmd(
             raise Exit(1)
     except Exit:
         raise
-    except (RunExecutionError, ValueError, subprocess.SubprocessError) as error:
+    except ValueError as error:
+        typer.echo(f"Invalid configuration: {error}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except (RunExecutionError, subprocess.SubprocessError) as error:
         typer.echo(f"error: {error}", err=True)
         raise Exit(EXIT_INTERNAL)
     except Exception as error:
@@ -634,6 +659,9 @@ def assert_cmd(
         _exit_unsupported_trace_format(e)
     except storage.RunValidationError as e:
         _exit_run_validation_error(e)
+    except ValueError as e:
+        typer.echo(f"Invalid configuration: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)

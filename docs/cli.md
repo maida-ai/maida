@@ -218,6 +218,32 @@ When the accepted run changes baseline behavior, the baseline JSON is rewritten 
 
 ---
 
+## `maida run`
+
+Runs a traced Python agent repeatedly in fresh copies of the current tracked and nonignored workspace, evaluates every resulting trace with the selected policy, and aggregates the outcomes into PASS, FAIL, or INCONCLUSIVE.
+
+```bash
+maida run AGENT_SCRIPT [options]
+```
+
+| Argument/Option | Default | Description |
+|---|---|---|
+| `AGENT_SCRIPT` | required | Traced Python script inside the current Git workspace |
+| `--trials` | policy value (`3`) | Number of isolated subprocess trials |
+| `--confidence-level` | policy value (`0.95`) | Wilson confidence level |
+| `--pass-rate-threshold` | policy value (`0.90`) | Required pass rate |
+| `--baseline`, `-b` | - | Baseline JSON applied to every trial |
+| `--policy` | `.maida/policy.yaml` | Assertion and statistical gate settings |
+| `--format`, `-f` | `text` | `text`, `json`, or verdict-first `markdown` |
+| `--json-out` | - | Atomically write the versioned machine report to a sidecar |
+
+```bash
+maida run my_agent.py --baseline .maida/baselines/my_agent.json \
+  --policy .maida/policy.yaml --format markdown --json-out maida-report.json
+```
+
+Each trial must create exactly one completed trace. Exit `1` is reserved for FAIL; PASS and the provider-neutral INCONCLUSIVE verdict exit `0`, so CI consumers must read the JSON `verdict` rather than infer uncertainty from the process status. Missing inputs exit `2` and internal execution failures exit `10`.
+
 ## `maida assert`
 
 Asserts that a completed run meets behavioral policy checks. Returns exit code `0` when all checks pass and `1` when any check fails, making it suitable for CI gates.

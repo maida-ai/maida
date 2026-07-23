@@ -51,6 +51,9 @@ def test_load_policy_all_fields(tmp_path):
     p = tmp_path / "policy.yaml"
     p.write_text(
         "assert:\n"
+        "  trials: 7\n"
+        "  confidence_level: 0.9\n"
+        "  pass_rate_threshold: 0.8\n"
         "  max_steps: 50\n"
         "  step_tolerance: 0.2\n"
         "  max_tool_calls: 20\n"
@@ -65,6 +68,9 @@ def test_load_policy_all_fields(tmp_path):
         "  expect_status: ok\n"
     )
     policy = load_policy(p)
+    assert policy.trials == 7
+    assert policy.confidence_level == 0.9
+    assert policy.pass_rate_threshold == 0.8
     assert policy.max_steps == 50
     assert policy.step_tolerance == 0.2
     assert policy.max_tool_calls == 20
@@ -85,12 +91,46 @@ def test_load_policy_all_fields(tmp_path):
 
 
 def test_merge_cli_overrides_win(tmp_path):
-    file_policy = AssertionPolicy(no_loops=True, step_tolerance=0.3, max_steps=50)
-    cli = {"max_steps": 100, "step_tolerance": None, "no_loops": False}
+    file_policy = AssertionPolicy(
+        no_loops=True, step_tolerance=0.3, max_steps=50, trials=3
+    )
+    cli = {
+        "max_steps": 100,
+        "step_tolerance": None,
+        "no_loops": False,
+        "trials": 5,
+    }
     merged = merge_policy(file_policy, cli)
     assert merged.max_steps == 100
     assert merged.step_tolerance == 0.3
     assert merged.no_loops is True
+    assert merged.trials == 5
+
+
+def test_statistical_policy_defaults_are_cost_conscious():
+    policy = AssertionPolicy()
+
+    assert policy.trials == 3
+    assert policy.confidence_level == 0.95
+    assert policy.pass_rate_threshold == 0.90
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("trials", 0, "trials must be an integer of at least 1"),
+        (
+            "confidence_level",
+            1.0,
+            "confidence_level must be greater than 0 and less than 1",
+        ),
+        ("pass_rate_threshold", -0.1, "pass_rate_threshold must be between 0 and 1"),
+        ("step_tolerance", -0.1, "step_tolerance must be a non-negative number"),
+    ],
+)
+def test_invalid_policy_values_fail_with_actionable_field_name(field, value, message):
+    with pytest.raises(ValueError, match=message):
+        AssertionPolicy(**{field: value})
 
 
 def test_merge_preserves_file_values_when_cli_none():
