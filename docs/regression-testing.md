@@ -283,7 +283,15 @@ maida accept --baseline .maida/baselines/my_agent.json --reason "expected retrie
 git diff .maida/baselines/my_agent.json
 ```
 
-`maida accept` rewrites the baseline from the selected run and records acceptance metadata in the JSON: reason, timestamp, Maida version, source run ID, previous baseline source run ID, and previous baseline SHA-256. If the selected run already matches the baseline structurally, it exits `0` and leaves the file untouched.
+`maida accept` rewrites the baseline from the selected run and records an
+`acceptance` provenance object in the JSON: who accepted, when, why, the source
+repository/PR/commit when available, an accepted-run verdict summary, Maida
+version, source run ID, and the previous baseline source run ID and SHA-256.
+GitHub write-back provides the actor and exact PR-head revision automatically;
+local acceptance records the local OS user. Subsequent `--format markdown`
+reports render the metadata under **Baseline provenance**. If the selected run
+already matches the baseline structurally, it exits `0` and leaves the file
+untouched.
 
 Always inspect the trace and Git diff before committing the updated baseline. Accepting a baseline change means the new behavior is what future PRs will be gated against; if the change is not intentional, fix the agent and rerun `maida assert` instead.
 

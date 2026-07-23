@@ -35,6 +35,30 @@ class BaselineAcceptResult:
     diff: RunDiff
 
 
+@dataclass(frozen=True)
+class AcceptanceSource:
+    """Identity and source revision for an accepted baseline change."""
+
+    accepted_by: str
+    repository: str | None = None
+    pull_request: int | None = None
+    pull_request_url: str | None = None
+    commit_sha: str | None = None
+
+    def as_dict(self) -> dict:
+        pull_request = None
+        if self.pull_request is not None:
+            pull_request = {
+                "number": self.pull_request,
+                "url": self.pull_request_url,
+            }
+        return {
+            "repository": self.repository,
+            "pull_request": pull_request,
+            "commit_sha": self.commit_sha,
+        }
+
+
 def _baseline_sha256(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
@@ -53,6 +77,20 @@ def baseline_matches_run(existing_baseline: dict, new_baseline: dict) -> bool:
     return _structural_snapshot(existing_baseline) == _structural_snapshot(new_baseline)
 
 
+def _accepted_run_verdict(baseline: dict) -> dict[str, str]:
+    summary = baseline.get("summary") or {}
+    return {
+        "outcome": "accepted",
+        "summary": (
+            f"Accepted run status {baseline.get('final_status') or 'unknown'}: "
+            f"{summary.get('total_events', 0)} events, "
+            f"{summary.get('tool_calls', 0)} tool calls, "
+            f"{summary.get('errors', 0)} errors, "
+            f"{summary.get('loop_warnings', 0)} loop warnings."
+        ),
+    }
+
+
 def accept_baseline_update(
     *,
     run_id: str,
@@ -61,6 +99,7 @@ def accept_baseline_update(
     reason: str,
     maida_version: str,
     config: MaidaConfig,
+    source: AcceptanceSource | None = None,
 ) -> BaselineAcceptResult:
     """Update *baseline_path* from *run_id* and attach acceptance metadata.
 
@@ -84,11 +123,15 @@ def accept_baseline_update(
             diff=diff,
         )
 
+    source = source or AcceptanceSource(accepted_by="unknown")
     new_baseline["acceptance"] = {
         "accepted_at": utc_now_iso_ms_z(),
+        "accepted_by": source.accepted_by,
         "reason": reason,
         "maida_version": maida_version,
         "source_run_id": new_baseline["source_run_id"],
+        "source": source.as_dict(),
+        "verdict": _accepted_run_verdict(new_baseline),
         "previous_baseline": {
             "path": str(baseline_path),
             "source_run_id": previous_source_run_id,
