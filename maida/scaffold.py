@@ -74,6 +74,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
       # A repository_dispatch run belongs to the default branch, so publish the
       # gate result explicitly against the accepted PR-head SHA.
       statuses: write

@@ -26,6 +26,7 @@ from maida.scaffold import (
     CHECKOUT_ACTION_REF,
     MAIDA_ACCEPT_ACTION_REF,
     MAIDA_ASSERT_ACTION_REF,
+    WORKFLOW_TEMPLATE,
 )
 from maida.storage import list_runs
 from tests.conftest import get_latest_run_id
