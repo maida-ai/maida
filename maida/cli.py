@@ -7,6 +7,7 @@ Entrypoint: main() for console script maida.cli:main.
 
 import json
 import socket
+import subprocess
 import threading
 import time
 import webbrowser
@@ -38,6 +39,7 @@ from maida.demo import (
 )
 from maida.diff import compute_diff, format_diff_text
 from maida.policy import load_policy, merge_policy
+from maida.runner import RunExecutionError, run_trials
 from maida.scaffold import (
     POLICY_RELPATH,
     POLICY_TEMPLATE,
@@ -98,6 +100,69 @@ def _exit_unsupported_trace_format(error: storage.UnsupportedTraceFormatError) -
 def _exit_run_validation_error(error: storage.RunValidationError) -> None:
     typer.echo(str(error), err=True)
     raise Exit(EXIT_NOT_FOUND)
+
+
+@app.command(name="run")
+def run_cmd(
+    agent_script: Path = typer.Argument(..., help="Traced Python agent script to run"),
+    trials: int = typer.Option(3, "--trials", min=1, help="Number of isolated trials"),
+    baseline_path: Path | None = typer.Option(
+        None, "--baseline", "-b", help="Baseline JSON file to compare against"
+    ),
+    policy_path: Path | None = typer.Option(None, "--policy", help="Policy YAML file"),
+    max_steps: int | None = typer.Option(
+        None, "--max-steps", help="Max total events allowed"
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text or json"
+    ),
+) -> None:
+    """Run a traced agent repeatedly in isolated workspace copies."""
+    try:
+        if not agent_script.is_file():
+            typer.echo(f"Agent script not found: {agent_script}", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        if output_format not in {"text", "json"}:
+            raise ValueError("format must be 'text' or 'json'")
+
+        config = load_config()
+        policy = AssertionPolicy()
+        selected_policy = policy_path
+        if selected_policy is None:
+            default_policy = LOCAL_DIR_NAME / "policy.yaml"
+            if default_policy.is_file():
+                selected_policy = default_policy
+        if selected_policy is not None:
+            policy = load_policy(selected_policy)
+        policy = merge_policy(policy, {"max_steps": max_steps})
+
+        baseline = None
+        if baseline_path is not None:
+            try:
+                baseline = load_baseline(baseline_path)
+            except (FileNotFoundError, json.JSONDecodeError):
+                typer.echo(f"Invalid or missing baseline: {baseline_path}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+
+        report = run_trials(
+            agent_script,
+            trials=trials,
+            policy=policy,
+            config=config,
+            project_root=Path.cwd(),
+            baseline=baseline,
+        )
+        typer.echo(report.to_json() if output_format == "json" else report.to_text())
+        if not report.passed:
+            raise Exit(1)
+    except Exit:
+        raise
+    except (RunExecutionError, ValueError, subprocess.SubprocessError) as error:
+        typer.echo(f"error: {error}", err=True)
+        raise Exit(EXIT_INTERNAL)
+    except Exception as error:
+        typer.echo(f"error: {error}", err=True)
+        raise Exit(EXIT_INTERNAL)
 
 
 def _wait_for_port(host: str, port: int, timeout_s: float = 5.0) -> bool:
