@@ -22,7 +22,11 @@ from maida.cli import _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
 from maida.policy import load_policy
-from maida.scaffold import CHECKOUT_ACTION_REF, MAIDA_ASSERT_ACTION_REF
+from maida.scaffold import (
+    CHECKOUT_ACTION_REF,
+    MAIDA_ASSERT_ACTION_REF,
+    WORKFLOW_TEMPLATE,
+)
 from maida.storage import list_runs
 from tests.conftest import get_latest_run_id
 
@@ -705,6 +709,55 @@ def test_run_command_missing_script_exits_two(empty_data_dir, tmp_path, monkeypa
     assert "Agent script not found" in result.stderr
 
 
+def test_run_inconclusive_is_neutral_and_writes_json_sidecar(
+    empty_data_dir, tmp_path, monkeypatch
+):
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
+    script = project / "agent.py"
+    script.write_text(
+        """
+import os
+from maida import traced_run
+
+with traced_run(name="mixed-agent"):
+    pass
+if os.environ["MAIDA_TRIAL_INDEX"] == "3":
+    raise SystemExit(1)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "agent.py"], cwd=project, check=True)
+    monkeypatch.chdir(project)
+    sidecar = project / "gate.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "agent.py",
+            "--trials",
+            "3",
+            "--format",
+            "markdown",
+            "--json-out",
+            str(sidecar),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout.startswith("## ⚠️ Maida statistical gate: inconclusive")
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert payload["verdict"] == "inconclusive"
+    assert payload["passed"] is None
+    assert payload["aggregate_results"][0]["decision_rule"] == "wilson_two_sided"
+
+
+def test_scaffold_grants_checks_write_permission():
+    assert "checks: write" in WORKFLOW_TEMPLATE
+
+
 def test_assert_exit_zero_on_pass(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
@@ -1199,9 +1252,10 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert policy.no_new_tools is False
 
     wf = yaml.safe_load(workflow_text)
-    assert set(wf["permissions"]) == {"contents", "pull-requests"}
+    assert set(wf["permissions"]) == {"contents", "pull-requests", "checks"}
     assert wf["permissions"]["contents"] == "read"
     assert wf["permissions"]["pull-requests"] == "write"
+    assert wf["permissions"]["checks"] == "write"
 
     job = wf["jobs"]["agent-check"]
     assert set(wf["jobs"]) == {"agent-check"}

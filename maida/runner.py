@@ -8,12 +8,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from maida.assertions import AssertionPolicy, AssertionReport, run_assertions
 from maida.config import MaidaConfig
+from maida.diff import compute_diff
 from maida.storage import load_run_meta
 from maida.statistics import (
     GateVerdict,
@@ -38,6 +39,7 @@ class TrialRecord:
     stdout: str
     stderr: str
     assertion_report: AssertionReport
+    baseline_diff: dict[str, Any] | None = None
 
     @property
     def passed(self) -> bool:
@@ -64,6 +66,7 @@ class TrialRecord:
                 }
                 for result in self.assertion_report.results
             ],
+            "baseline_diff": self.baseline_diff,
         }
 
 
@@ -82,16 +85,25 @@ class TrialRunReport:
         return aggregate_verdict(self.aggregate_results)
 
     @property
-    def passed(self) -> bool:
-        return self.verdict is not GateVerdict.FAIL
+    def passed(self) -> bool | None:
+        if self.verdict is GateVerdict.PASS:
+            return True
+        if self.verdict is GateVerdict.FAIL:
+            return False
+        return None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "report_version": "1",
             "trials_requested": self.trials_requested,
             "passed": self.passed,
             "verdict": self.verdict.value,
-            "confidence_level": self.confidence_level,
-            "pass_rate_threshold": self.pass_rate_threshold,
+            "metadata": {
+                "trials_requested": self.trials_requested,
+                "trials_completed": len(self.trials),
+                "confidence_level": self.confidence_level,
+                "pass_rate_threshold": self.pass_rate_threshold,
+            },
             "trials": [trial.to_dict() for trial in self.trials],
             "aggregate_results": [
                 result.to_dict() for result in self.aggregate_results
@@ -110,6 +122,62 @@ class TrialRunReport:
                 f"(trace {trial.trace_id[:8]})"
             )
         lines.extend(["", f"RESULT: {self.verdict.value.upper()}"])
+        return "\n".join(lines)
+
+    def to_markdown(self) -> str:
+        icons = {
+            GateVerdict.PASS: "✅",
+            GateVerdict.FAIL: "❌",
+            GateVerdict.INCONCLUSIVE: "⚠️",
+        }
+        lines = [
+            f"## {icons[self.verdict]} Maida statistical gate: {self.verdict.value}",
+            "",
+            f"**{len(self.trials)} trials** · "
+            f"{self.confidence_level:.0%} confidence · "
+            f"{self.pass_rate_threshold:.0%} pass-rate threshold",
+            "",
+            "| Assertion | Verdict | Passed | Wilson interval | Threshold |",
+            "| --- | --- | ---: | --- | ---: |",
+        ]
+        for result in self.aggregate_results:
+            lower, upper = result.confidence_interval
+            lines.append(
+                f"| `{result.check_name}` | **{result.verdict.value.upper()}** | "
+                f"{result.successes}/{result.trials} | "
+                f"{lower:.3f}–{upper:.3f} | {result.pass_rate_threshold:.3f} |"
+            )
+
+        lines.extend(
+            [
+                "",
+                "### Trial traces",
+                "",
+                "| Trial | Outcome | Trace | Process exit | Baseline changes |",
+                "| ---: | --- | --- | ---: | --- |",
+            ]
+        )
+        for trial in self.trials:
+            diff = trial.baseline_diff
+            changes = "not configured"
+            if diff is not None:
+                changed = list((diff.get("summary_diff") or {}).keys())
+                changed.extend(
+                    f"new tool: {tool}" for tool in diff.get("new_tools", [])
+                )
+                changes = ", ".join(changed) if changed else "none"
+            lines.append(
+                f"| {trial.trial} | {'PASS' if trial.passed else 'FAIL'} | "
+                f"`{trial.trace_id[:8]}` | {trial.process_exit_code} | {changes} |"
+            )
+
+        if self.verdict is GateVerdict.INCONCLUSIVE:
+            lines.extend(
+                [
+                    "",
+                    "> This result is neutral. Re-run the gate to collect a fresh trial set.",
+                ]
+            )
         return "\n".join(lines)
 
 
@@ -179,6 +247,7 @@ def run_trials(
 
             env = os.environ.copy()
             env["MAIDA_DATA_DIR"] = str(trial_data_dir)
+            env["MAIDA_TRIAL_INDEX"] = str(trial_number)
             completed = subprocess.run(
                 [sys.executable, str(relative_script)],
                 cwd=trial_root,
@@ -206,6 +275,11 @@ def run_trials(
             assertion_report = run_assertions(
                 trace_id, policy, baseline=baseline, config=config
             )
+            baseline_diff = (
+                asdict(compute_diff(trace_id, baseline=baseline, config=config))
+                if baseline is not None
+                else None
+            )
             records.append(
                 TrialRecord(
                     trial=trial_number,
@@ -215,6 +289,7 @@ def run_trials(
                     stdout=completed.stdout,
                     stderr=completed.stderr,
                     assertion_report=assertion_report,
+                    baseline_diff=baseline_diff,
                 )
             )
 

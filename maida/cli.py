@@ -6,6 +6,7 @@ Entrypoint: main() for console script maida.cli:main.
 """
 
 import json
+import os
 import socket
 import subprocess
 import threading
@@ -40,6 +41,7 @@ from maida.demo import (
 from maida.diff import compute_diff, format_diff_text
 from maida.policy import load_policy, merge_policy
 from maida.runner import RunExecutionError, run_trials
+from maida.statistics import GateVerdict
 from maida.scaffold import (
     POLICY_RELPATH,
     POLICY_TEMPLATE,
@@ -114,7 +116,10 @@ def run_cmd(
         None, "--max-steps", help="Max total events allowed"
     ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text or json"
+        "text", "--format", "-f", help="Output format: text, json, or markdown"
+    ),
+    json_out: Path | None = typer.Option(
+        None, "--json-out", help="Also write the machine-readable report to this path"
     ),
 ) -> None:
     """Run a traced agent repeatedly in isolated workspace copies."""
@@ -122,8 +127,8 @@ def run_cmd(
         if not agent_script.is_file():
             typer.echo(f"Agent script not found: {agent_script}", err=True)
             raise Exit(EXIT_NOT_FOUND)
-        if output_format not in {"text", "json"}:
-            raise ValueError("format must be 'text' or 'json'")
+        if output_format not in {"text", "json", "markdown"}:
+            raise ValueError("format must be 'text', 'json', or 'markdown'")
 
         config = load_config()
         policy = AssertionPolicy()
@@ -152,8 +157,20 @@ def run_cmd(
             project_root=Path.cwd(),
             baseline=baseline,
         )
-        typer.echo(report.to_json() if output_format == "json" else report.to_text())
-        if not report.passed:
+        if json_out is not None:
+            json_out.parent.mkdir(parents=True, exist_ok=True)
+            temporary = json_out.with_name(f".{json_out.name}.{os.getpid()}.tmp")
+            temporary.write_text(report.to_json() + "\n", encoding="utf-8")
+            os.replace(temporary, json_out)
+
+        if output_format == "json":
+            rendered = report.to_json()
+        elif output_format == "markdown":
+            rendered = report.to_markdown()
+        else:
+            rendered = report.to_text()
+        typer.echo(rendered)
+        if report.verdict is GateVerdict.FAIL:
             raise Exit(1)
     except Exit:
         raise
