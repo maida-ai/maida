@@ -8,10 +8,13 @@ from pathlib import Path
 
 import pytest
 
+from maida import record_tool_call, traced_run
 from maida.assertions import AssertionPolicy
+from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.runner import RunExecutionError, run_trials
 from maida.statistics import GateVerdict
+from tests.conftest import get_latest_run_id
 
 
 def _git(*args: str, cwd: Path) -> None:
@@ -153,8 +156,80 @@ with traced_run(name="json-agent"):
     )
 
     payload = json.loads(report.to_json())
-    assert payload["trials_requested"] == 1
+    assert payload["report_version"] == "1"
+    assert payload["metadata"]["trials_requested"] == 1
+    assert payload["passed"] is True
+    assert payload["verdict"] == "pass"
     assert payload["trials"][0]["trial"] == 1
     assert payload["trials"][0]["run_name"] == "json-agent"
     assert payload["trials"][0]["process_exit_code"] == 0
     assert payload["trials"][0]["checks"][0]["check_name"] == "step_count"
+
+
+def test_trial_report_markdown_is_verdict_first_with_intervals_and_traces(
+    agent_repo: Path, temp_data_dir: Path
+) -> None:
+    _write_agent(
+        agent_repo,
+        "from maida import traced_run\nwith traced_run(name='markdown-agent'):\n    pass\n",
+    )
+    report = run_trials(
+        agent_repo / "agent.py",
+        trials=1,
+        policy=AssertionPolicy(max_steps=10),
+        config=load_config(project_root=agent_repo),
+        project_root=agent_repo,
+    )
+
+    markdown = report.to_markdown()
+    assert markdown.startswith("## ✅ Maida statistical gate: pass")
+    assert "Wilson interval" in markdown
+    assert "`step_count`" in markdown
+    assert f"`{report.trials[0].trace_id[:8]}`" in markdown
+
+
+def test_trial_report_records_each_baseline_diff(
+    agent_repo: Path, temp_data_dir: Path
+) -> None:
+    config = load_config(project_root=agent_repo)
+    with traced_run(name="baseline"):
+        record_tool_call("old-tool", args={}, result="ok")
+    baseline = create_baseline(get_latest_run_id(config), config)
+    _write_agent(
+        agent_repo,
+        """
+from maida import record_tool_call, traced_run
+with traced_run(name="candidate"):
+    record_tool_call("new-tool", args={}, result="ok")
+""".lstrip(),
+    )
+
+    report = run_trials(
+        agent_repo / "agent.py",
+        trials=1,
+        policy=AssertionPolicy(no_new_tools=True),
+        baseline=baseline,
+        config=config,
+        project_root=agent_repo,
+    )
+
+    assert report.trials[0].baseline_diff is not None
+    assert report.trials[0].baseline_diff["new_tools"] == ["new-tool"]
+
+
+def test_statistical_report_schema_pins_three_verdict_contract() -> None:
+    schema = json.loads(
+        (
+            Path(__file__).parents[1]
+            / "schemas"
+            / "statistical-gate-report.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert schema["properties"]["report_version"]["const"] == "1"
+    assert schema["properties"]["verdict"]["enum"] == [
+        "pass",
+        "fail",
+        "inconclusive",
+    ]
+    assert schema["properties"]["passed"]["type"] == ["boolean", "null"]

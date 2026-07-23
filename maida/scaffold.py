@@ -51,6 +51,7 @@ on: [pull_request]
 permissions:
   contents: read          # checkout only needs read access
   pull-requests: write    # maida-assert posts a sticky PR comment
+  checks: write           # maida-assert publishes the statistical gate conclusion
 
 jobs:
   agent-check:

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maida-ai/maida/schemas/statistical-gate-report.schema.json",
+  "title": "Maida statistical gate report",
+  "type": "object",
+  "required": ["report_version", "verdict", "passed", "metadata", "trials", "aggregate_results"],
+  "properties": {
+    "report_version": { "const": "1" },
+    "trials_requested": { "type": "integer", "minimum": 1 },
+    "verdict": { "enum": ["pass", "fail", "inconclusive"] },
+    "passed": { "type": ["boolean", "null"] },
+    "metadata": {
+      "type": "object",
+      "required": ["trials_requested", "trials_completed", "confidence_level", "pass_rate_threshold"],
+      "properties": {
+        "trials_requested": { "type": "integer", "minimum": 1 },
+        "trials_completed": { "type": "integer", "minimum": 1 },
+        "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "pass_rate_threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "trials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["trial", "trace_id", "run_name", "process_exit_code", "passed", "checks", "baseline_diff"],
+        "properties": {
+          "trial": { "type": "integer", "minimum": 1 },
+          "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+          "run_name": { "type": ["string", "null"] },
+          "process_exit_code": { "type": "integer" },
+          "passed": { "type": "boolean" },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["check_name", "passed", "reason_code", "message", "expected", "actual", "ignored"],
+              "properties": {
+                "check_name": { "type": "string" },
+                "passed": { "type": "boolean" },
+                "reason_code": { "type": "string" },
+                "message": { "type": "string" },
+                "expected": { "type": ["string", "null"] },
+                "actual": { "type": ["string", "null"] },
+                "ignored": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "baseline_diff": { "type": ["object", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "aggregate_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check_name", "verdict", "trials", "successes", "pass_rate", "confidence_interval", "confidence_level", "pass_rate_threshold", "decision_rule", "trial_outcomes"],
+        "properties": {
+          "check_name": { "type": "string" },
+          "verdict": { "enum": ["pass", "fail", "inconclusive"] },
+          "trials": { "type": "integer", "minimum": 1 },
+          "successes": { "type": "integer", "minimum": 0 },
+          "pass_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "confidence_interval": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "number", "minimum": 0, "maximum": 1 },
+              { "type": "number", "minimum": 0, "maximum": 1 }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+          "pass_rate_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+          "decision_rule": { "type": "string" },
+          "trial_outcomes": { "type": "array", "items": { "type": "boolean" } }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
