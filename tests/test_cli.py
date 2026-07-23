@@ -1252,9 +1252,10 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert policy.no_new_tools is False
 
     wf = yaml.safe_load(workflow_text)
-    assert set(wf["permissions"]) == {"contents", "pull-requests"}
+    assert set(wf["permissions"]) == {"contents", "pull-requests", "checks"}
     assert wf["permissions"]["contents"] == "read"
     assert wf["permissions"]["pull-requests"] == "write"
+    assert wf["permissions"]["checks"] == "write"
 
     job = wf["jobs"]["agent-check"]
     assert set(wf["jobs"]) == {"agent-check"}
