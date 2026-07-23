@@ -837,6 +837,10 @@ def test_run_command_missing_script_exits_two(empty_data_dir, tmp_path, monkeypa
     assert "Agent script not found" in result.stderr
 
 
+def test_scaffold_grants_checks_write_permission():
+    assert "checks: write" in WORKFLOW_TEMPLATE
+
+
 def test_assert_exit_zero_on_pass(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
@@ -1348,6 +1352,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert job["permissions"] == {
         "contents": "read",
         "pull-requests": "write",
+        "checks": "write",
         "statuses": "write",
     }
     assert "repository_dispatch" in job["if"]
