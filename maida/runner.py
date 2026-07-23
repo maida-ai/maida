@@ -15,6 +15,12 @@ from typing import Any
 from maida.assertions import AssertionPolicy, AssertionReport, run_assertions
 from maida.config import MaidaConfig
 from maida.storage import load_run_meta
+from maida.statistics import (
+    GateVerdict,
+    StatisticalResult,
+    aggregate_outcomes,
+    aggregate_verdict,
+)
 
 
 class RunExecutionError(RuntimeError):
@@ -67,16 +73,29 @@ class TrialRunReport:
 
     trials_requested: int
     trials: list[TrialRecord] = field(default_factory=list)
+    aggregate_results: list[StatisticalResult] = field(default_factory=list)
+    confidence_level: float = 0.95
+    pass_rate_threshold: float = 0.90
+
+    @property
+    def verdict(self) -> GateVerdict:
+        return aggregate_verdict(self.aggregate_results)
 
     @property
     def passed(self) -> bool:
-        return all(trial.passed for trial in self.trials)
+        return self.verdict is not GateVerdict.FAIL
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "trials_requested": self.trials_requested,
             "passed": self.passed,
+            "verdict": self.verdict.value,
+            "confidence_level": self.confidence_level,
+            "pass_rate_threshold": self.pass_rate_threshold,
             "trials": [trial.to_dict() for trial in self.trials],
+            "aggregate_results": [
+                result.to_dict() for result in self.aggregate_results
+            ],
         }
 
     def to_json(self) -> str:
@@ -90,7 +109,7 @@ class TrialRunReport:
                 f"Trial {trial.trial}/{self.trials_requested}: {verdict} "
                 f"(trace {trial.trace_id[:8]})"
             )
-        lines.extend(["", f"RESULT: {'PASSED' if self.passed else 'FAILED'}"])
+        lines.extend(["", f"RESULT: {self.verdict.value.upper()}"])
         return "\n".join(lines)
 
 
@@ -133,6 +152,8 @@ def run_trials(
     config: MaidaConfig,
     project_root: Path | None = None,
     baseline: dict | None = None,
+    confidence_level: float = 0.95,
+    pass_rate_threshold: float = 0.90,
 ) -> TrialRunReport:
     """Execute *agent_script* in a fresh copied workspace for every trial."""
     if trials < 1:
@@ -197,4 +218,26 @@ def run_trials(
                 )
             )
 
-    return TrialRunReport(trials_requested=trials, trials=records)
+    outcomes: dict[str, list[bool]] = {"agent_process": []}
+    for record in records:
+        outcomes["agent_process"].append(record.process_exit_code == 0)
+        for result in record.assertion_report.results:
+            if not result.ignored:
+                outcomes.setdefault(result.check_name, []).append(result.passed)
+
+    aggregate_results = [
+        aggregate_outcomes(
+            check_name,
+            check_outcomes,
+            confidence_level=confidence_level,
+            pass_rate_threshold=pass_rate_threshold,
+        )
+        for check_name, check_outcomes in outcomes.items()
+    ]
+    return TrialRunReport(
+        trials_requested=trials,
+        trials=records,
+        aggregate_results=aggregate_results,
+        confidence_level=confidence_level,
+        pass_rate_threshold=pass_rate_threshold,
+    )
