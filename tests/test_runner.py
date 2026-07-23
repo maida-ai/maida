@@ -11,6 +11,7 @@ import pytest
 from maida.assertions import AssertionPolicy
 from maida.config import load_config
 from maida.runner import RunExecutionError, run_trials
+from maida.statistics import GateVerdict
 
 
 def _git(*args: str, cwd: Path) -> None:
@@ -64,6 +65,11 @@ with traced_run(name="isolated-agent"):
     assert len({trial.trace_id for trial in report.trials}) == 3
     assert all(trial.process_exit_code == 0 for trial in report.trials)
     assert all(trial.assertion_report.passed for trial in report.trials)
+    assert report.verdict is GateVerdict.PASS
+    assert {result.check_name for result in report.aggregate_results} == {
+        "agent_process",
+        "tool_calls",
+    }
     assert not (agent_repo / "trial-state.txt").exists()
     for trial in report.trials:
         assert (temp_data_dir / "runs" / trial.trace_id / "meta.json").is_file()
