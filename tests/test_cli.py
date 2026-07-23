@@ -7,6 +7,7 @@ Covers: list, export, view, baseline, assert, diff commands.
 import json
 import os
 import socket
+import subprocess
 import threading
 import time
 from hashlib import sha256
@@ -669,6 +670,39 @@ def test_accept_malformed_run_exit_two(empty_data_dir):
 # ---------------------------------------------------------------------------
 # assert command
 # ---------------------------------------------------------------------------
+
+
+def test_run_command_executes_requested_trials(empty_data_dir, tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
+    script = project / "agent.py"
+    script.write_text(
+        "from maida import traced_run\nwith traced_run(name='cli-agent'):\n    pass\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "agent.py"], cwd=project, check=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        ["run", "agent.py", "--trials", "2", "--max-steps", "10", "--format", "json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["trials_requested"] == 2
+    assert len(payload["trials"]) == 2
+
+
+def test_run_command_missing_script_exits_two(empty_data_dir, tmp_path, monkeypatch):
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["run", "missing.py"])
+
+    assert result.exit_code == 2
+    assert "Agent script not found" in result.stderr
 
 
 def test_assert_exit_zero_on_pass(empty_data_dir):
