@@ -250,6 +250,25 @@ def test_no_new_tools_passes_when_subset(temp_data_dir):
     assert report.passed is True
 
 
+def test_run_assertions_carries_baseline_acceptance_to_report(temp_data_dir):
+    config = load_config()
+    run_id = _make_run(config, events=[], name="accepted")
+    baseline = create_baseline(run_id, config)
+    baseline["acceptance"] = {
+        "accepted_by": "reviewer-login",
+        "accepted_at": "2026-07-22T20:15:00.000Z",
+    }
+
+    report = run_assertions(
+        run_id,
+        AssertionPolicy(max_steps=10),
+        baseline=baseline,
+        config=config,
+    )
+
+    assert report.baseline_acceptance == baseline["acceptance"]
+
+
 def test_no_new_tools_fails_on_new_tool(temp_data_dir):
     config = load_config()
     bl_events = [(EventType.TOOL_CALL, "search", {})]
@@ -772,6 +791,66 @@ def test_format_report_markdown_no_diff_section_without_diff(temp_data_dir):
     report = run_assertions(run_id, policy, config=config)
     md = format_report_markdown(report)
     assert "Top behavior changes" not in md
+
+
+def test_format_report_markdown_renders_baseline_provenance():
+    report = AssertionReport(
+        run_id="a" * 32,
+        baseline_run_id="b" * 32,
+        baseline_acceptance={
+            "accepted_at": "2026-07-22T20:15:00.000Z",
+            "accepted_by": "reviewer-login",
+            "reason": "Expected retrieval | tool split",
+            "source": {
+                "repository": "maida-ai/example-agent",
+                "pull_request": {
+                    "number": 42,
+                    "url": "https://github.com/maida-ai/example-agent/pull/42",
+                },
+                "commit_sha": "abcdef1234567890",
+            },
+            "verdict": {
+                "outcome": "accepted",
+                "summary": "Accepted run status ok: 4 events, 2 tool calls.",
+            },
+        },
+    )
+    report.add(
+        AssertionResult(
+            check_name="step_count",
+            passed=True,
+            message="4 steps (baseline: 4, tolerance: 50%)",
+        )
+    )
+
+    md = format_report_markdown(report, baseline_path="baseline.json")
+
+    assert "### Baseline provenance" in md
+    assert "`reviewer-login`" in md
+    assert "2026-07-22T20:15:00.000Z" in md
+    assert "[PR #42](https://github.com/maida-ai/example-agent/pull/42)" in md
+    assert "`abcdef12`" in md
+    assert "Accepted run status ok: 4 events, 2 tool calls." in md
+    assert "Expected retrieval \\| tool split" in md
+
+
+def test_format_report_markdown_renders_legacy_acceptance_safely():
+    report = AssertionReport(
+        run_id="a" * 32,
+        baseline_run_id="b" * 32,
+        baseline_acceptance={
+            "accepted_at": "2026-07-09T12:00:00.000Z",
+            "reason": "Legacy local acceptance",
+        },
+    )
+
+    md = format_report_markdown(report, baseline_path="baseline.json")
+
+    assert "### Baseline provenance" in md
+    assert "`unknown`" in md
+    assert "local acceptance" in md
+    assert "**Acceptance verdict:** accepted — not recorded" in md
+    assert "**Reason:** Legacy local acceptance" in md
 
 
 def test_format_report_markdown_pass_snapshot():

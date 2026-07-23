@@ -94,6 +94,25 @@ def test_action_version_references_match_scaffold():
     assert "maida-ai/maida-assert@v2" not in workflow_text
 
 
+def test_baseline_provenance_contract_is_documented():
+    combined = "\n".join(
+        (ROOT / rel_path).read_text(encoding="utf-8")
+        for rel_path in ["README.md", "docs/cli.md", "docs/regression-testing.md"]
+    )
+
+    required_snippets = [
+        "accepted_by",
+        "accepted_at",
+        "MAIDA_PR_NUMBER",
+        "MAIDA_EXPECTED_HEAD_SHA",
+        "Baseline provenance",
+        "accepted-run verdict summary",
+    ]
+
+    missing = [snippet for snippet in required_snippets if snippet not in combined]
+    assert missing == []
+
+
 def test_adapter_conformance_contract_covers_required_behavior():
     text = " ".join(
         (ROOT / "maida/integrations/CONTRIBUTING.md")

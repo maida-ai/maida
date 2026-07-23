@@ -254,7 +254,7 @@ maida accept --baseline .maida/baselines/my_agent.json --reason "expected tool f
 git diff .maida/baselines/my_agent.json
 ```
 
-Use `maida accept` only after inspecting the diff and trace. It updates the baseline from the selected run, records the acceptance reason and previous baseline hash in the JSON, and leaves the baseline diff reviewable in Git. If the run already matches the baseline, Maida exits successfully without rewriting the file.
+Use `maida accept` only after inspecting the diff and trace. It updates the baseline from the selected run and records who accepted it, when, the source PR/commit when available, an accepted-run verdict summary, the reason, and the previous baseline hash. Subsequent Markdown gate reports show this baseline provenance. If the run already matches the baseline, Maida exits successfully without rewriting the file.
 
 ### Diff two runs
 
