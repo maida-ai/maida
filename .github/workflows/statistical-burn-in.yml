@@ -1,0 +1,34 @@
+name: Statistical gate burn-in
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  burn-in:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.MAIDA_BURN_IN_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          version: "0.11.14"
+          python-version: "3.13"
+      - name: Run fixed-agent burn-in
+        run: >-
+          uv run python scripts/statistical_burn_in.py
+          --gates 50
+          --trials 3
+          --max-wall-time-seconds 600
+          --json-out burn-in-report.json
+      - name: Upload burn-in report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: statistical-burn-in-report
+          path: burn-in-report.json
