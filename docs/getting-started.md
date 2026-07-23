@@ -52,6 +52,12 @@ maida init            # starter .maida/policy.yaml
 maida init --github   # + GitHub Actions workflow
 ```
 
+In the generated workflow, replace `MAIDA_AGENT_SCRIPT` with your traced
+entrypoint. Once you have checked in a baseline, set `MAIDA_BASELINE` to its
+path. That enables authorized maintainers to accept an intentional PR change
+with `/maida accept [optional reason]`; the command stays inactive while the
+baseline value is blank.
+
 ---
 
 ## Quickstart

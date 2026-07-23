@@ -202,7 +202,7 @@ maida demo --regression  # baseline a good run, then watch the gate catch a bad 
 
 ```bash
 maida init           # starter .maida/policy.yaml
-maida init --github  # + .github/workflows/maida.yml (maida-ai/maida-assert@V4)
+maida init --github  # + PR gate and authorized /maida accept workflow
 ```
 
 ### List recent runs

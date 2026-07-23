@@ -47,13 +47,19 @@ maida init [--github] [--force]
 
 | Option | Description |
 |--------|-------------|
-| `--github` | Also write `.github/workflows/maida.yml` using the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) action |
+| `--github` | Also write `.github/workflows/maida.yml` using the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) gate and the `maida-ai/maida-assert/accept-command@main` handler |
 | `--force` | Overwrite existing files |
 
 **Files written:**
 
 - `.maida/policy.yaml` — commented starter policy with 50% baseline tolerances; strict checks such as `no_loops`, `no_guardrails`, `no_new_tools`, and `expect_status: ok` are shown as opt-ins
-- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment; pins `actions/checkout@v7` and `maida-ai/maida-assert@V4`
+- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment; also handles authorized `/maida accept [optional reason]` comments and rechecks an accepted PR-head commit; pins `actions/checkout@v7` and `maida-ai/maida-assert@V4`, with the command handler at `maida-ai/maida-assert/accept-command@main`
+
+Edit the generated `MAIDA_AGENT_SCRIPT` value for your entrypoint. After
+committing a baseline, set `MAIDA_BASELINE` to its tracked path; leaving it blank
+keeps the accept command inactive with a polite configuration response. Baseline
+write-back supports same-repository PR branches only and requires the commenter
+to have repository write access.
 
 **Exit codes:** `0` success; `10` internal error.
 
