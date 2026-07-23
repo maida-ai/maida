@@ -105,6 +105,7 @@ class AssertionReport:
 
     run_id: str
     baseline_run_id: str | None
+    baseline_acceptance: dict | None = None
     results: list[AssertionResult] = field(default_factory=list)
     passed: bool = True
 
@@ -257,6 +258,11 @@ def run_assertions(
     report = AssertionReport(
         run_id=full_id,
         baseline_run_id=(baseline or {}).get("source_run_id"),
+        baseline_acceptance=(
+            (baseline or {}).get("acceptance")
+            if isinstance((baseline or {}).get("acceptance"), dict)
+            else None
+        ),
     )
 
     _ignored = set(policy.ignored_checks)
@@ -434,6 +440,54 @@ def _markdown_scope(report: AssertionReport) -> str:
     if report.baseline_run_id:
         scope += f" vs baseline `{str(report.baseline_run_id)[:8]}`"
     return scope
+
+
+def _markdown_baseline_provenance(acceptance: dict | None) -> list[str]:
+    if not isinstance(acceptance, dict):
+        return []
+
+    accepted_by = _markdown_table_cell(acceptance.get("accepted_by") or "unknown")
+    accepted_at = _markdown_table_cell(acceptance.get("accepted_at") or "unknown")
+    reason = _markdown_table_cell(acceptance.get("reason") or "not recorded")
+    source = acceptance.get("source")
+    source = source if isinstance(source, dict) else {}
+    pull_request = source.get("pull_request")
+    pull_request = pull_request if isinstance(pull_request, dict) else {}
+    pr_number = pull_request.get("number")
+    pr_url = pull_request.get("url")
+
+    if (
+        isinstance(pr_number, int)
+        and isinstance(pr_url, str)
+        and pr_url.startswith(("https://", "http://"))
+    ):
+        source_text = f"[PR #{pr_number}]({pr_url})"
+    elif isinstance(pr_number, int):
+        source_text = f"PR #{pr_number}"
+    else:
+        source_text = "local acceptance"
+
+    commit_sha = source.get("commit_sha")
+    if isinstance(commit_sha, str) and commit_sha:
+        source_text += f" at `{_markdown_table_cell(commit_sha[:8])}`"
+
+    verdict = acceptance.get("verdict")
+    verdict = verdict if isinstance(verdict, dict) else {}
+    outcome = _markdown_table_cell(verdict.get("outcome") or "accepted")
+    summary = _markdown_table_cell(verdict.get("summary") or "not recorded")
+
+    return [
+        "",
+        "### Baseline provenance",
+        "",
+        "| Accepted by | Accepted at | Source |",
+        "|---|---|---|",
+        f"| `{accepted_by}` | `{accepted_at}` | {source_text} |",
+        "",
+        f"**Acceptance verdict:** {outcome} — {summary}",
+        "",
+        f"**Reason:** {reason}",
+    ]
 
 
 def _markdown_next_steps(
@@ -642,6 +696,8 @@ def format_report_markdown(
         for r in ignored:
             lines.append(f"| \u2796 `{_markdown_table_cell(r.check_name)}` |")
         lines += ["", "</details>"]
+
+    lines += _markdown_baseline_provenance(report.baseline_acceptance)
 
     lines += [
         "",

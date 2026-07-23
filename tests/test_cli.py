@@ -472,6 +472,133 @@ def test_accept_updates_baseline_with_metadata_and_diff(empty_data_dir):
     }
 
 
+def test_accept_records_github_provenance_and_verdict(empty_data_dir, monkeypatch):
+    config = load_config()
+    baseline_run = _make_run(
+        config,
+        name="agent",
+        events=[(EventType.TOOL_CALL, "search", {})],
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    current_run = _make_run(
+        config,
+        name="agent",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "new_tool", {}),
+        ],
+    )
+    monkeypatch.setenv("GITHUB_ACTOR", "reviewer-login")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "maida-ai/example-agent")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example")
+    monkeypatch.setenv("MAIDA_PR_NUMBER", "42")
+    monkeypatch.setenv("MAIDA_EXPECTED_HEAD_SHA", "a" * 40)
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected tool expansion",
+        ],
+    )
+
+    assert result.exit_code == 0
+    acceptance = json.loads(baseline_path.read_text())["acceptance"]
+    assert acceptance["accepted_by"] == "reviewer-login"
+    assert acceptance["source"] == {
+        "repository": "maida-ai/example-agent",
+        "pull_request": {
+            "number": 42,
+            "url": "https://github.example/maida-ai/example-agent/pull/42",
+        },
+        "commit_sha": "a" * 40,
+    }
+    assert acceptance["verdict"] == {
+        "outcome": "accepted",
+        "summary": (
+            "Accepted run status ok: 2 events, 2 tool calls, 0 errors, 0 loop warnings."
+        ),
+    }
+
+
+def test_accept_rejects_invalid_pr_provenance_without_rewriting_baseline(
+    empty_data_dir, monkeypatch
+):
+    config = load_config()
+    baseline_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    before = baseline_path.read_bytes()
+    current_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
+    )
+    monkeypatch.setenv("MAIDA_PR_NUMBER", "not-a-number")
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected rename",
+        ],
+    )
+
+    assert result.exit_code == 10
+    assert "MAIDA_PR_NUMBER must be a positive integer" in result.stderr
+    assert baseline_path.read_bytes() == before
+
+
+def test_accept_records_local_provenance_without_pr_source(empty_data_dir, monkeypatch):
+    config = load_config()
+    baseline_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    current_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
+    )
+    monkeypatch.setenv("MAIDA_ACCEPTED_BY", "local-reviewer")
+    for name in (
+        "GITHUB_ACTOR",
+        "GITHUB_REPOSITORY",
+        "MAIDA_PR_NUMBER",
+        "MAIDA_EXPECTED_HEAD_SHA",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected local rename",
+        ],
+    )
+
+    assert result.exit_code == 0
+    acceptance = json.loads(baseline_path.read_text())["acceptance"]
+    assert acceptance["accepted_by"] == "local-reviewer"
+    assert acceptance["source"] == {
+        "repository": None,
+        "pull_request": None,
+        "commit_sha": None,
+    }
+
+
 def test_accept_reason_alias_updates_baseline(empty_data_dir):
     config = load_config()
     baseline_run = _make_run(
