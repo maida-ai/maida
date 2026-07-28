@@ -171,8 +171,7 @@ from maida import trace, traced_run
 
 
 @trace(stop_on_loop=True, max_llm_calls=50)
-def guarded_fn():
-    ...
+def guarded_fn(): ...
 
 
 with traced_run(stop_on_loop=True, max_llm_calls=50):

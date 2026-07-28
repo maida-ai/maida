@@ -63,6 +63,7 @@ maida init --github   # + GitHub Actions workflow
 ```python
 from maida import trace, record_llm_call, record_tool_call, record_state
 
+
 @trace
 def run_agent():
     record_tool_call(name="search_db", args={"query": "x"}, result={"count": 2})
@@ -73,6 +74,7 @@ def run_agent():
         usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     )
     record_state(state={"step": 1}, meta={"label": "after_search"})
+
 
 if __name__ == "__main__":
     run_agent()
@@ -104,8 +106,7 @@ from maida import trace
     max_events=80,
     max_duration_s=30,
 )
-def run_agent():
-    ...
+def run_agent(): ...
 ```
 
 Useful defaults for local iteration:

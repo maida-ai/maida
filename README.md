@@ -70,6 +70,7 @@ Add three lines to any Python agent:
 ```python
 from maida import trace, record_llm_call, record_tool_call
 
+
 @trace
 def run_agent():
     # ... your existing agent code ...
@@ -86,6 +87,7 @@ def run_agent():
         response="There are 42 active users.",
         usage={"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
     )
+
 
 run_agent()
 ```
@@ -124,8 +126,7 @@ from maida import (
     max_events=80,
     max_duration_s=30,
 )
-def run_agent():
-    ...
+def run_agent(): ...
 
 
 try:
@@ -364,6 +365,7 @@ pip install maida-ai[langchain]
 from maida import trace
 from maida.integrations import LangChainCallbackHandler
 
+
 @trace
 def run_agent():
     handler = LangChainCallbackHandler()
@@ -405,6 +407,7 @@ pip install maida-ai[crewai]
 ```python
 import maida
 from maida.integrations import crewai as mai_crewai  # registers hooks
+
 
 @maida.trace
 def run_crew():

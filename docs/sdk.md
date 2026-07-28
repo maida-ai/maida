@@ -13,9 +13,9 @@ Decorator that turns a function into a traced run.
 ```python
 from maida import trace
 
+
 @trace
-def run_agent():
-    ...
+def run_agent(): ...
 ```
 
 You can also enable run guardrails directly on the decorator:
@@ -32,8 +32,7 @@ from maida import trace
     max_events=100,
     max_duration_s=30,
 )
-def run_agent():
-    ...
+def run_agent(): ...
 ```
 
 **Behavior:**
@@ -245,6 +244,7 @@ A typical pattern - instrument a loop that alternates between LLM reasoning and 
 from maida import trace, record_llm_call, record_tool_call, record_state
 
 TOOLS = {"search": search_fn, "calculator": calc_fn}
+
 
 @trace
 def react_agent(question: str):

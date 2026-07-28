@@ -46,7 +46,7 @@ dev = [
     "pytest-cov>=7.0.0",       # Coverage
     "pytest-randomly>=4.1.0",  # Random test order
     "pytest-xdist>=3.8.0",     # Parallel tests
-    "ruff>=0.15.1",
+    "ruff>=0.16.0",
 ]
 
 [project.optional-dependencies]

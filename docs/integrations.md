@@ -28,6 +28,7 @@ If `langchain-core` is not installed, importing the integration raises a clear `
 from maida import trace
 from maida.integrations import LangChainCallbackHandler
 
+
 @trace
 def run_agent():
     handler = LangChainCallbackHandler()
@@ -136,6 +137,7 @@ All guardrails work with the tracing processor. When a guardrail fires, the proc
 ```python
 from maida import trace, LoopAbort
 
+
 @trace(stop_on_loop=True)
 def run_agent():
     result = Runner.run_sync(agent, input)
@@ -169,6 +171,7 @@ If `crewai` is not installed, importing the integration raises a clear `ImportEr
 ```python
 import maida
 from maida.integrations import crewai as maida_crewai  # registers hooks
+
 
 @maida.trace
 def run_crew():
