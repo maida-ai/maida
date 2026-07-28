@@ -6,6 +6,7 @@ POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
 CHECKOUT_ACTION_REF = "actions/checkout@v7"
 MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@V4"
+MAIDA_ACCEPT_ACTION_REF = "maida-ai/maida-assert/accept-command@main"
 
 POLICY_TEMPLATE = """\
 # Maida policy - enforced by `maida assert` locally and in CI.
@@ -46,28 +47,90 @@ assert:
 
 WORKFLOW_TEMPLATE = f"""\
 name: Agent Regression Check
-on: [pull_request]
+on:
+  pull_request:
+  issue_comment:
+    types: [created]
+  repository_dispatch:
+    types: [maida_baseline_updated]
 
-permissions:
-  contents: read          # checkout only needs read access
-  pull-requests: write    # maida-assert posts a sticky PR comment
+# Each job declares only the permissions needed for its event path.
+permissions: {{}}
+
+env:
+  # Replace this with the script that runs your traced agent.
+  # It must use @trace or traced_run so Maida records a run.
+  MAIDA_AGENT_SCRIPT: my_agent.py
+  MAIDA_POLICY: .maida/policy.yaml
+  # After committing a baseline, point this at it to enable `/maida accept`:
+  MAIDA_BASELINE: ''
 
 jobs:
   agent-check:
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      # A repository_dispatch run belongs to the default branch, so publish the
+      # gate result explicitly against the accepted PR-head SHA.
+      statuses: write
     steps:
       - name: Check out repository
         uses: {CHECKOUT_ACTION_REF}
+        with:
+          ref: ${{{{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || github.sha }}}}
 
       - name: Run Maida regression gate
+        id: gate
         uses: {MAIDA_ASSERT_ACTION_REF}
         with:
-          # Replace this with the script that runs your traced agent.
-          # It must use @trace or traced_run so Maida records a run.
-          agent-script: my_agent.py
-          policy: .maida/policy.yaml
-          # After committing a baseline, uncomment and point this at it:
-          # baseline: .maida/baselines/my_agent.json
+          agent-script: ${{{{ env.MAIDA_AGENT_SCRIPT }}}}
+          policy: ${{{{ env.MAIDA_POLICY }}}}
+          baseline: ${{{{ env.MAIDA_BASELINE }}}}
+          accept-command-enabled: ${{{{ env.MAIDA_BASELINE != '' }}}}
+
+      - name: Publish dispatched gate status
+        if: always() && github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{{{ github.token }}}}
+          TARGET_SHA: ${{{{ github.event.client_payload.sha }}}}
+          GATE_OUTCOME: ${{{{ steps.gate.outcome }}}}
+        shell: bash
+        run: |
+          if [ "$GATE_OUTCOME" = "success" ]; then
+            state=success
+            description="Maida behavioral regression gate passed"
+          else
+            state=failure
+            description="Maida behavioral regression gate failed"
+          fi
+          gh api --method POST \\
+            "repos/${{GITHUB_REPOSITORY}}/statuses/${{TARGET_SHA}}" \\
+            -f state="$state" \\
+            -f context="Maida / agent-check" \\
+            -f description="$description" \\
+            -f target_url="${{GITHUB_SERVER_URL}}/${{GITHUB_REPOSITORY}}/actions/runs/${{GITHUB_RUN_ID}}"
+
+  accept-command:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/maida accept')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Accept intentional baseline change
+        uses: {MAIDA_ACCEPT_ACTION_REF}
+        with:
+          agent-script: ${{{{ env.MAIDA_AGENT_SCRIPT }}}}
+          policy: ${{{{ env.MAIDA_POLICY }}}}
+          baseline: ${{{{ env.MAIDA_BASELINE }}}}
+          github-token: ${{{{ github.token }}}}
 """
 
 

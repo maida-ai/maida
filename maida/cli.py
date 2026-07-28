@@ -5,7 +5,9 @@ Commands: list, export, view, baseline, accept, assert, diff.
 Entrypoint: main() for console script maida.cli:main.
 """
 
+import getpass
 import json
+import os
 import socket
 import threading
 import time
@@ -26,7 +28,7 @@ from maida.assertions import (
     format_report_text,
     run_assertions,
 )
-from maida.acceptance import accept_baseline_update
+from maida.acceptance import AcceptanceSource, accept_baseline_update
 from maida.baseline import create_baseline, load_baseline, save_baseline
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
@@ -88,6 +90,41 @@ def _resolve_run_or_latest(run_id: str | None, config) -> str:
         typer.echo(f"Using latest run: {resolved[:8]}", err=True)
         return resolved
     return storage.resolve_run_id(run_id, config)
+
+
+def _acceptance_source_from_environment() -> AcceptanceSource:
+    """Build acceptance provenance from local or GitHub write-back context."""
+    accepted_by = (
+        os.environ.get("MAIDA_ACCEPTED_BY")
+        or os.environ.get("GITHUB_ACTOR")
+        or getpass.getuser()
+    ).strip()
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip() or None
+    commit_sha = os.environ.get("MAIDA_EXPECTED_HEAD_SHA", "").strip() or None
+    pull_request_text = os.environ.get("MAIDA_PR_NUMBER", "").strip()
+    pull_request = None
+    if pull_request_text:
+        try:
+            pull_request = int(pull_request_text)
+        except ValueError as exc:
+            raise ValueError("MAIDA_PR_NUMBER must be a positive integer") from exc
+        if pull_request <= 0:
+            raise ValueError("MAIDA_PR_NUMBER must be a positive integer")
+
+    pull_request_url = None
+    if repository and pull_request is not None:
+        server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip(
+            "/"
+        )
+        pull_request_url = f"{server_url}/{repository}/pull/{pull_request}"
+
+    return AcceptanceSource(
+        accepted_by=accepted_by or "unknown",
+        repository=repository,
+        pull_request=pull_request,
+        pull_request_url=pull_request_url,
+        commit_sha=commit_sha,
+    )
 
 
 def _exit_unsupported_trace_format(error: storage.UnsupportedTraceFormatError) -> None:
@@ -400,6 +437,7 @@ def accept_cmd(
             reason=reason,
             maida_version=__version__,
             config=config,
+            source=_acceptance_source_from_environment(),
         )
 
         if result.updated:

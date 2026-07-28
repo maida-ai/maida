@@ -283,7 +283,15 @@ maida accept --baseline .maida/baselines/my_agent.json --reason "expected retrie
 git diff .maida/baselines/my_agent.json
 ```
 
-`maida accept` rewrites the baseline from the selected run and records acceptance metadata in the JSON: reason, timestamp, Maida version, source run ID, previous baseline source run ID, and previous baseline SHA-256. If the selected run already matches the baseline structurally, it exits `0` and leaves the file untouched.
+`maida accept` rewrites the baseline from the selected run and records an
+`acceptance` provenance object in the JSON: who accepted, when, why, the source
+repository/PR/commit when available, an accepted-run verdict summary, Maida
+version, source run ID, and the previous baseline source run ID and SHA-256.
+GitHub write-back provides the actor and exact PR-head revision automatically;
+local acceptance records the local OS user. Subsequent `--format markdown`
+reports render the metadata under **Baseline provenance**. If the selected run
+already matches the baseline structurally, it exits `0` and leaves the file
+untouched.
 
 Always inspect the trace and Git diff before committing the updated baseline. Accepting a baseline change means the new behavior is what future PRs will be gated against; if the change is not intentional, fix the agent and rerun `maida assert` instead.
 
@@ -291,7 +299,27 @@ Always inspect the trace and Git diff before committing the updated baseline. Ac
 
 ## GitHub Actions example
 
-The easiest path is the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) action — scaffold it with `maida init --github`. It runs your traced agent, asserts the run, and posts the regression report as a sticky PR comment.
+The easiest path is the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) action — scaffold it with `maida init --github`. It runs your traced agent, asserts the run, and posts the regression report as a sticky PR comment. The generated workflow also references the `/maida accept` handler at `maida-ai/maida-assert/accept-command@main`.
+
+Set `MAIDA_AGENT_SCRIPT` and, after checking in your first baseline,
+`MAIDA_BASELINE` at the top of `.github/workflows/maida.yml`. Until a baseline
+path is configured, `/maida accept` replies that write-back is inactive and does
+not run PR code.
+
+When a baseline regression is intentional, a repository maintainer with write
+access can review the trace and comment either command on a same-repository PR:
+
+```text
+/maida accept
+/maida accept expected retrieval tool split
+```
+
+The optional trailing text becomes the acceptance reason. The handler verifies
+authorization before checking out the PR, reruns the configured agent, commits
+only the baseline to the PR branch, and replies with the resulting commit link.
+It then requests a fresh gate and publishes that result against the new PR-head
+commit. Fork PRs are refused before checkout; update their baseline locally
+instead.
 
 To wire it up by hand instead, run your agent in CI, then assert against the checked-in baseline (`maida assert` picks up the latest run automatically):
 

@@ -21,7 +21,11 @@ from maida.cli import _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
 from maida.policy import load_policy
-from maida.scaffold import CHECKOUT_ACTION_REF, MAIDA_ASSERT_ACTION_REF
+from maida.scaffold import (
+    CHECKOUT_ACTION_REF,
+    MAIDA_ACCEPT_ACTION_REF,
+    MAIDA_ASSERT_ACTION_REF,
+)
 from maida.storage import list_runs
 from tests.conftest import get_latest_run_id
 
@@ -465,6 +469,133 @@ def test_accept_updates_baseline_with_metadata_and_diff(empty_data_dir):
         "created_at": data["acceptance"]["previous_baseline"]["created_at"],
         "schema_version": "0.2",
         "sha256": previous_hash,
+    }
+
+
+def test_accept_records_github_provenance_and_verdict(empty_data_dir, monkeypatch):
+    config = load_config()
+    baseline_run = _make_run(
+        config,
+        name="agent",
+        events=[(EventType.TOOL_CALL, "search", {})],
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    current_run = _make_run(
+        config,
+        name="agent",
+        events=[
+            (EventType.TOOL_CALL, "search", {}),
+            (EventType.TOOL_CALL, "new_tool", {}),
+        ],
+    )
+    monkeypatch.setenv("GITHUB_ACTOR", "reviewer-login")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "maida-ai/example-agent")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example")
+    monkeypatch.setenv("MAIDA_PR_NUMBER", "42")
+    monkeypatch.setenv("MAIDA_EXPECTED_HEAD_SHA", "a" * 40)
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected tool expansion",
+        ],
+    )
+
+    assert result.exit_code == 0
+    acceptance = json.loads(baseline_path.read_text())["acceptance"]
+    assert acceptance["accepted_by"] == "reviewer-login"
+    assert acceptance["source"] == {
+        "repository": "maida-ai/example-agent",
+        "pull_request": {
+            "number": 42,
+            "url": "https://github.example/maida-ai/example-agent/pull/42",
+        },
+        "commit_sha": "a" * 40,
+    }
+    assert acceptance["verdict"] == {
+        "outcome": "accepted",
+        "summary": (
+            "Accepted run status ok: 2 events, 2 tool calls, 0 errors, 0 loop warnings."
+        ),
+    }
+
+
+def test_accept_rejects_invalid_pr_provenance_without_rewriting_baseline(
+    empty_data_dir, monkeypatch
+):
+    config = load_config()
+    baseline_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    before = baseline_path.read_bytes()
+    current_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
+    )
+    monkeypatch.setenv("MAIDA_PR_NUMBER", "not-a-number")
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected rename",
+        ],
+    )
+
+    assert result.exit_code == 10
+    assert "MAIDA_PR_NUMBER must be a positive integer" in result.stderr
+    assert baseline_path.read_bytes() == before
+
+
+def test_accept_records_local_provenance_without_pr_source(empty_data_dir, monkeypatch):
+    config = load_config()
+    baseline_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
+    )
+    baseline_path = empty_data_dir / "baseline.json"
+    runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
+    current_run = _make_run(
+        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
+    )
+    monkeypatch.setenv("MAIDA_ACCEPTED_BY", "local-reviewer")
+    for name in (
+        "GITHUB_ACTOR",
+        "GITHUB_REPOSITORY",
+        "MAIDA_PR_NUMBER",
+        "MAIDA_EXPECTED_HEAD_SHA",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "accept",
+            current_run,
+            "--baseline",
+            str(baseline_path),
+            "--reason",
+            "expected local rename",
+        ],
+    )
+
+    assert result.exit_code == 0
+    acceptance = json.loads(baseline_path.read_text())["acceptance"]
+    assert acceptance["accepted_by"] == "local-reviewer"
+    assert acceptance["source"] == {
+        "repository": None,
+        "pull_request": None,
+        "commit_sha": None,
     }
 
 
@@ -1165,16 +1296,30 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert policy.no_new_tools is False
 
     wf = yaml.safe_load(workflow_text)
-    assert set(wf["permissions"]) == {"contents", "pull-requests"}
-    assert wf["permissions"]["contents"] == "read"
-    assert wf["permissions"]["pull-requests"] == "write"
+    triggers = wf.get("on", wf.get(True))
+    assert set(triggers) == {"pull_request", "issue_comment", "repository_dispatch"}
+    assert triggers["issue_comment"]["types"] == ["created"]
+    assert triggers["repository_dispatch"]["types"] == ["maida_baseline_updated"]
+    assert wf["permissions"] == {}
+    assert wf["env"] == {
+        "MAIDA_AGENT_SCRIPT": "my_agent.py",
+        "MAIDA_POLICY": ".maida/policy.yaml",
+        "MAIDA_BASELINE": "",
+    }
 
     job = wf["jobs"]["agent-check"]
-    assert set(wf["jobs"]) == {"agent-check"}
+    assert set(wf["jobs"]) == {"agent-check", "accept-command"}
     assert job["runs-on"] == "ubuntu-latest"
-    assert len(job["steps"]) == 2
+    assert job["permissions"] == {
+        "contents": "read",
+        "pull-requests": "write",
+        "statuses": "write",
+    }
+    assert "repository_dispatch" in job["if"]
+    assert len(job["steps"]) == 3
     assert job["steps"][0]["name"] == "Check out repository"
     assert job["steps"][1]["name"] == "Run Maida regression gate"
+    assert job["steps"][2]["name"] == "Publish dispatched gate status"
 
     uses = [step.get("uses", "") for step in job["steps"]]
     assert CHECKOUT_ACTION_REF in uses
@@ -1183,9 +1328,39 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert "maida-ai/maida-assert@v2" not in uses
 
     action_inputs = job["steps"][1]["with"]
-    assert action_inputs["agent-script"] == "my_agent.py"
-    assert action_inputs["policy"] == ".maida/policy.yaml"
-    assert "baseline" not in action_inputs
+    assert action_inputs["agent-script"] == "${{ env.MAIDA_AGENT_SCRIPT }}"
+    assert action_inputs["policy"] == "${{ env.MAIDA_POLICY }}"
+    assert action_inputs["baseline"] == "${{ env.MAIDA_BASELINE }}"
+    assert action_inputs["accept-command-enabled"] == (
+        "${{ env.MAIDA_BASELINE != '' }}"
+    )
+    assert "client_payload.sha" in job["steps"][0]["with"]["ref"]
+
+    status_step = job["steps"][2]
+    assert "always()" in status_step["if"]
+    assert status_step["env"]["TARGET_SHA"] == (
+        "${{ github.event.client_payload.sha }}"
+    )
+    assert status_step["env"]["GATE_OUTCOME"] == "${{ steps.gate.outcome }}"
+    assert "statuses/${TARGET_SHA}" in status_step["run"]
+    assert "Maida / agent-check" in status_step["run"]
+    assert "gh api --method POST \\\n" in workflow_text
+
+    command_job = wf["jobs"]["accept-command"]
+    assert "issue_comment" in command_job["if"]
+    assert "github.event.issue.pull_request" in command_job["if"]
+    assert "/maida accept" in command_job["if"]
+    assert command_job["permissions"] == {
+        "contents": "write",
+        "pull-requests": "write",
+    }
+    assert len(command_job["steps"]) == 1
+    command_step = command_job["steps"][0]
+    assert command_step["uses"] == MAIDA_ACCEPT_ACTION_REF
+    assert command_step["with"]["agent-script"] == "${{ env.MAIDA_AGENT_SCRIPT }}"
+    assert command_step["with"]["policy"] == "${{ env.MAIDA_POLICY }}"
+    assert command_step["with"]["baseline"] == "${{ env.MAIDA_BASELINE }}"
+    assert command_step["with"]["github-token"] == "${{ github.token }}"
     assert "Replace this with the script that runs your traced agent." in workflow_text
     assert "After committing a baseline" in workflow_text
     assert "secrets." not in workflow_text.lower()
