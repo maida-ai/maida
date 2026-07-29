@@ -9,6 +9,7 @@ import getpass
 import json
 import os
 import socket
+import subprocess
 import threading
 import time
 import webbrowser
@@ -40,6 +41,8 @@ from maida.demo import (
 )
 from maida.diff import compute_diff, format_diff_text
 from maida.policy import load_policy, merge_policy
+from maida.runner import RunExecutionError, run_trials
+from maida.statistics import GateVerdict
 from maida.scaffold import (
     POLICY_RELPATH,
     POLICY_TEMPLATE,
@@ -135,6 +138,109 @@ def _exit_unsupported_trace_format(error: storage.UnsupportedTraceFormatError) -
 def _exit_run_validation_error(error: storage.RunValidationError) -> None:
     typer.echo(str(error), err=True)
     raise Exit(EXIT_NOT_FOUND)
+
+
+@app.command(name="run")
+def run_cmd(
+    agent_script: Path = typer.Argument(..., help="Traced Python agent script to run"),
+    trials: int | None = typer.Option(
+        None, "--trials", min=1, help="Number of isolated trials (policy default: 3)"
+    ),
+    confidence_level: float | None = typer.Option(
+        None,
+        "--confidence-level",
+        help="Wilson confidence level (policy default: 0.95)",
+    ),
+    pass_rate_threshold: float | None = typer.Option(
+        None,
+        "--pass-rate-threshold",
+        help="Required underlying pass rate (policy default: 0.90)",
+    ),
+    baseline_path: Path | None = typer.Option(
+        None, "--baseline", "-b", help="Baseline JSON file to compare against"
+    ),
+    policy_path: Path | None = typer.Option(None, "--policy", help="Policy YAML file"),
+    max_steps: int | None = typer.Option(
+        None, "--max-steps", help="Max total events allowed"
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or markdown"
+    ),
+    json_out: Path | None = typer.Option(
+        None, "--json-out", help="Also write the machine-readable report to this path"
+    ),
+) -> None:
+    """Run a traced agent repeatedly in isolated workspace copies."""
+    try:
+        if not agent_script.is_file():
+            typer.echo(f"Agent script not found: {agent_script}", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        if output_format not in {"text", "json", "markdown"}:
+            raise ValueError("format must be 'text', 'json', or 'markdown'")
+
+        config = load_config()
+        policy = AssertionPolicy()
+        selected_policy = policy_path
+        if selected_policy is None:
+            default_policy = LOCAL_DIR_NAME / "policy.yaml"
+            if default_policy.is_file():
+                selected_policy = default_policy
+        if selected_policy is not None:
+            policy = load_policy(selected_policy)
+        policy = merge_policy(
+            policy,
+            {
+                "max_steps": max_steps,
+                "trials": trials,
+                "confidence_level": confidence_level,
+                "pass_rate_threshold": pass_rate_threshold,
+            },
+        )
+
+        baseline = None
+        if baseline_path is not None:
+            try:
+                baseline = load_baseline(baseline_path)
+            except (FileNotFoundError, json.JSONDecodeError):
+                typer.echo(f"Invalid or missing baseline: {baseline_path}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+
+        report = run_trials(
+            agent_script,
+            trials=policy.trials,
+            policy=policy,
+            config=config,
+            project_root=Path.cwd(),
+            baseline=baseline,
+            confidence_level=policy.confidence_level,
+            pass_rate_threshold=policy.pass_rate_threshold,
+        )
+        if json_out is not None:
+            json_out.parent.mkdir(parents=True, exist_ok=True)
+            temporary = json_out.with_name(f".{json_out.name}.{os.getpid()}.tmp")
+            temporary.write_text(report.to_json() + "\n", encoding="utf-8")
+            os.replace(temporary, json_out)
+
+        if output_format == "json":
+            rendered = report.to_json()
+        elif output_format == "markdown":
+            rendered = report.to_markdown()
+        else:
+            rendered = report.to_text()
+        typer.echo(rendered)
+        if report.verdict is GateVerdict.FAIL:
+            raise Exit(1)
+    except Exit:
+        raise
+    except ValueError as error:
+        typer.echo(f"Invalid configuration: {error}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except (RunExecutionError, subprocess.SubprocessError) as error:
+        typer.echo(f"error: {error}", err=True)
+        raise Exit(EXIT_INTERNAL)
+    except Exception as error:
+        typer.echo(f"error: {error}", err=True)
+        raise Exit(EXIT_INTERNAL)
 
 
 def _wait_for_port(host: str, port: int, timeout_s: float = 5.0) -> bool:
@@ -590,6 +696,9 @@ def assert_cmd(
         _exit_unsupported_trace_format(e)
     except storage.RunValidationError as e:
         _exit_run_validation_error(e)
+    except ValueError as e:
+        typer.echo(f"Invalid configuration: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)

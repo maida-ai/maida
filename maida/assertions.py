@@ -6,6 +6,7 @@ results are collected into an ``AssertionReport`` with an overall pass/fail.
 """
 
 import json
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable
@@ -57,6 +58,11 @@ class AssertionPolicy:
     Note: all tolerances are fractional, not percentage.
     """
 
+    # Repeated statistical gate settings
+    trials: int = 3
+    confidence_level: float = 0.95
+    pass_rate_threshold: float = 0.90
+
     # Maximum allowed step count
     max_steps: int | None = None
     step_tolerance: float = kDefaultTolerance
@@ -84,6 +90,67 @@ class AssertionPolicy:
     def __post_init__(self) -> None:
         if self.ignored_checks is None:
             self.ignored_checks = []
+        self.validate()
+
+    def validate(self) -> None:
+        """Fail fast when policy values cannot produce a meaningful gate."""
+        if (
+            isinstance(self.trials, bool)
+            or not isinstance(self.trials, int)
+            or self.trials < 1
+        ):
+            raise ValueError("trials must be an integer of at least 1")
+        self._validate_fraction(
+            "confidence_level", self.confidence_level, inclusive=False
+        )
+        self._validate_fraction(
+            "pass_rate_threshold", self.pass_rate_threshold, inclusive=True
+        )
+        for name in (
+            "step_tolerance",
+            "tool_call_tolerance",
+            "cost_tolerance",
+            "duration_tolerance",
+        ):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError(f"{name} must be a non-negative number")
+        for name in (
+            "max_steps",
+            "max_tool_calls",
+            "max_cost_tokens",
+            "max_duration_ms",
+        ):
+            value = getattr(self, name)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+            ):
+                raise ValueError(f"{name} must be a non-negative integer or null")
+        if self.expect_status not in {None, "ok", "error"}:
+            raise ValueError("expect_status must be 'ok', 'error', or null")
+        if not isinstance(self.ignored_checks, list) or not all(
+            isinstance(name, str) for name in self.ignored_checks
+        ):
+            raise ValueError("ignored_checks must be a list of check names")
+
+    @staticmethod
+    def _validate_fraction(name: str, value: object, *, inclusive: bool) -> None:
+        valid_type = isinstance(value, (int, float)) and not isinstance(value, bool)
+        if not valid_type or not math.isfinite(value):
+            valid_range = False
+        elif inclusive:
+            valid_range = 0.0 <= value <= 1.0
+        else:
+            valid_range = 0.0 < value < 1.0
+        if not valid_range:
+            if inclusive:
+                raise ValueError(f"{name} must be between 0 and 1")
+            raise ValueError(f"{name} must be greater than 0 and less than 1")
 
 
 @dataclass

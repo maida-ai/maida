@@ -64,6 +64,9 @@ def merge_policy(
     the CLI explicitly sets ``True``.
     """
     merged = AssertionPolicy(
+        trials=file_policy.trials,
+        confidence_level=file_policy.confidence_level,
+        pass_rate_threshold=file_policy.pass_rate_threshold,
         max_steps=file_policy.max_steps,
         step_tolerance=file_policy.step_tolerance,
         max_tool_calls=file_policy.max_tool_calls,
@@ -91,4 +94,5 @@ def merge_policy(
             setattr(merged, key, sorted(merged_set))
         else:
             setattr(merged, key, value)
+    merged.validate()
     return merged

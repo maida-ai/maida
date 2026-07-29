@@ -7,6 +7,7 @@ Covers: list, export, view, baseline, assert, diff commands.
 import json
 import os
 import socket
+import subprocess
 import threading
 import time
 from hashlib import sha256
@@ -25,6 +26,7 @@ from maida.scaffold import (
     CHECKOUT_ACTION_REF,
     MAIDA_ACCEPT_ACTION_REF,
     MAIDA_ASSERT_ACTION_REF,
+    WORKFLOW_TEMPLATE,
 )
 from maida.storage import list_runs
 from tests.conftest import get_latest_run_id
@@ -802,6 +804,148 @@ def test_accept_malformed_run_exit_two(empty_data_dir):
 # ---------------------------------------------------------------------------
 
 
+def test_run_command_executes_requested_trials(empty_data_dir, tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
+    script = project / "agent.py"
+    script.write_text(
+        "from maida import traced_run\nwith traced_run(name='cli-agent'):\n    pass\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "agent.py"], cwd=project, check=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        ["run", "agent.py", "--trials", "2", "--max-steps", "10", "--format", "json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["trials_requested"] == 2
+    assert len(payload["trials"]) == 2
+
+
+def test_run_command_missing_script_exits_two(empty_data_dir, tmp_path, monkeypatch):
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["run", "missing.py"])
+
+    assert result.exit_code == 2
+    assert "Agent script not found" in result.stderr
+
+
+def test_run_inconclusive_is_neutral_and_writes_json_sidecar(
+    empty_data_dir, tmp_path, monkeypatch
+):
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
+    script = project / "agent.py"
+    script.write_text(
+        """
+import os
+from maida import traced_run
+
+with traced_run(name="mixed-agent"):
+    pass
+if os.environ["MAIDA_TRIAL_INDEX"] == "3":
+    raise SystemExit(1)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "agent.py"], cwd=project, check=True)
+    monkeypatch.chdir(project)
+    sidecar = project / "gate.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "agent.py",
+            "--trials",
+            "3",
+            "--format",
+            "markdown",
+            "--json-out",
+            str(sidecar),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout.startswith("## ⚠️ Maida statistical gate: inconclusive")
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert payload["verdict"] == "inconclusive"
+    assert payload["passed"] is None
+    assert payload["aggregate_results"][0]["decision_rule"] == "wilson_two_sided"
+
+
+def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
+    (project / "agent.py").write_text(
+        "from maida import traced_run\nwith traced_run(name='configured'):\n    pass\n",
+        encoding="utf-8",
+    )
+    (project / "policy.yaml").write_text(
+        "assert:\n  trials: 3\n  confidence_level: 0.95\n  pass_rate_threshold: 0.9\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "agent.py", "policy.yaml"], cwd=project, check=True)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "agent.py",
+            "--policy",
+            "policy.yaml",
+            "--trials",
+            "5",
+            "--confidence-level",
+            "0.9",
+            "--pass-rate-threshold",
+            "0.7",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["metadata"] == {
+        "trials_requested": 5,
+        "trials_completed": 5,
+        "confidence_level": 0.9,
+        "pass_rate_threshold": 0.7,
+    }
+
+
+def test_run_invalid_statistical_policy_exits_two(
+    empty_data_dir, tmp_path, monkeypatch
+):
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    (tmp_path / "agent.py").write_text("print('unused')\n", encoding="utf-8")
+    (tmp_path / "policy.yaml").write_text(
+        "assert:\n  confidence_level: 1.5\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "agent.py", "policy.yaml"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["run", "agent.py", "--policy", "policy.yaml"])
+
+    assert result.exit_code == 2
+    assert "confidence_level" in result.stderr
+
+
+def test_scaffold_grants_checks_write_permission():
+    assert "checks: write" in WORKFLOW_TEMPLATE
+
+
 def test_assert_exit_zero_on_pass(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
@@ -1271,6 +1415,10 @@ def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
     assert policy.tool_call_tolerance == 0.5
     assert policy.cost_tolerance == 0.5
     assert policy.duration_tolerance == 0.5
+    assert policy.trials == 3
+    assert policy.confidence_level == 0.95
+    assert policy.pass_rate_threshold == 0.90
+    assert "trials: 3" in policy_text
     for strict_key in (
         "no_loops: true",
         "no_guardrails: true",
@@ -1313,6 +1461,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert job["permissions"] == {
         "contents": "read",
         "pull-requests": "write",
+        "checks": "write",
         "statuses": "write",
     }
     assert "repository_dispatch" in job["if"]

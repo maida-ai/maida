@@ -17,6 +17,11 @@ POLICY_TEMPLATE = """\
 # - Without a baseline, these tolerance checks do nothing.
 # - Strict checks are commented out; uncomment them when you want CI to fail.
 assert:
+  # Statistical gate defaults. More trials increase confidence and CI cost.
+  trials: 3
+  confidence_level: 0.95
+  pass_rate_threshold: 0.90
+
   # Allowed growth vs baseline (0.5 = +50%).
   step_tolerance: 0.5
   tool_call_tolerance: 0.5
@@ -74,6 +79,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
       # A repository_dispatch run belongs to the default branch, so publish the
       # gate result explicitly against the accepted PR-head SHA.
       statuses: write
