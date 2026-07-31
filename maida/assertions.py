@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig, load_config
 from maida.diff import format_diff_markdown, format_diff_text
+from maida.policy_types import MetricPolicy
 from maida.storage import load_run_for_analysis
 
 
@@ -62,6 +63,10 @@ class AssertionPolicy:
     trials: int = 3
     confidence_level: float = 0.95
     pass_rate_threshold: float = 0.90
+    fail_fast: bool = True
+    policy_version: tuple[int, int] = (1, 0)
+    source_format: str = "legacy"
+    metrics: dict[str, MetricPolicy] = field(default_factory=dict)
 
     # Maximum allowed step count
     max_steps: int | None = None
@@ -90,6 +95,8 @@ class AssertionPolicy:
     def __post_init__(self) -> None:
         if self.ignored_checks is None:
             self.ignored_checks = []
+        if self.metrics is None:
+            self.metrics = {}
         self.validate()
 
     def validate(self) -> None:
@@ -133,6 +140,21 @@ class AssertionPolicy:
                 raise ValueError(f"{name} must be a non-negative integer or null")
         if self.expect_status not in {None, "ok", "error"}:
             raise ValueError("expect_status must be 'ok', 'error', or null")
+        if not isinstance(self.fail_fast, bool):
+            raise ValueError("fail_fast must be a boolean")
+        if (
+            not isinstance(self.policy_version, tuple)
+            or len(self.policy_version) != 2
+            or not all(
+                isinstance(part, int) and part >= 0 for part in self.policy_version
+            )
+        ):
+            raise ValueError("policy_version must be a (major, minor) tuple")
+        if not isinstance(self.metrics, dict) or not all(
+            isinstance(name, str) and isinstance(metric, MetricPolicy)
+            for name, metric in self.metrics.items()
+        ):
+            raise ValueError("metrics must map names to MetricPolicy values")
         if not isinstance(self.ignored_checks, list) or not all(
             isinstance(name, str) for name in self.ignored_checks
         ):

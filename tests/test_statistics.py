@@ -18,9 +18,9 @@ from maida.statistics import (
     ("successes", "trials", "expected"),
     [
         (0, 1, GateVerdict.FAIL),
-        (1, 1, GateVerdict.PASS),
+        (1, 1, GateVerdict.INCONCLUSIVE),
         (0, 3, GateVerdict.FAIL),
-        (3, 3, GateVerdict.PASS),
+        (3, 3, GateVerdict.INCONCLUSIVE),
         (2, 3, GateVerdict.INCONCLUSIVE),
         (0, 5, GateVerdict.FAIL),
         (4, 5, GateVerdict.INCONCLUSIVE),
@@ -67,7 +67,7 @@ def test_wilson_inconclusive_when_interval_straddles_threshold() -> None:
 def test_wilson_interval_matches_reference_value() -> None:
     lower, upper = wilson_interval(3, 3, confidence_level=0.95)
 
-    assert lower == pytest.approx(0.4385, abs=0.0001)
+    assert lower == pytest.approx(0.5258, abs=0.0001)
     assert upper == pytest.approx(1.0)
 
 
@@ -77,15 +77,26 @@ def test_result_serializes_verdict_rationale() -> None:
 
     assert payload == {
         "check_name": "step_count",
+        "kind": "statistical",
+        "direction": "lower",
+        "mode": "gating",
         "verdict": "inconclusive",
-        "trials": 3,
-        "successes": 2,
-        "pass_rate": pytest.approx(2 / 3),
-        "confidence_interval": pytest.approx([0.2076596008, 0.9385080553]),
-        "confidence_level": 0.95,
-        "pass_rate_threshold": 0.9,
-        "decision_rule": "wilson_two_sided",
+        "decision_rule": "wilson_one_sided",
+        "stopping_rule": "fixed_n",
+        "trials_used": 3,
+        "trials_budgeted": 3,
         "trial_outcomes": [True, True, False],
+        "evidence": {
+            "successes": 2,
+            "failures": 1,
+            "observed_rate": pytest.approx(2 / 3),
+            "threshold": 0.9,
+            "confidence": 0.95,
+            "confidence_bounds": {
+                "lower": pytest.approx(0.2535338683),
+                "upper": pytest.approx(0.9217342737),
+            },
+        },
     }
 
 

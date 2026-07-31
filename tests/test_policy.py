@@ -37,14 +37,18 @@ def test_load_policy_empty_assert_section(tmp_path):
     p = tmp_path / "policy.yaml"
     p.write_text("assert:\n  extra_unknown_key: 42\n")
     policy = load_policy(p)
-    assert policy == AssertionPolicy()
+    assert policy.source_format == "v1"
+    assert policy.policy_version == (1, 0)
+    assert "task_pass_rate" in policy.metrics
 
 
 def test_load_policy_no_assert_section(tmp_path):
     p = tmp_path / "policy.yaml"
     p.write_text("other:\n  key: value\n")
     policy = load_policy(p)
-    assert policy == AssertionPolicy()
+    assert policy.source_format == "v1"
+    assert policy.policy_version == (1, 0)
+    assert "task_pass_rate" in policy.metrics
 
 
 def test_load_policy_all_fields(tmp_path):
