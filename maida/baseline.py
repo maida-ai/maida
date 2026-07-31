@@ -12,10 +12,15 @@ from collections import Counter
 from pathlib import Path
 
 from maida.config import MaidaConfig
-from maida.events import EventType, utc_now_iso_ms_z
+from maida.baseline_sample import (
+    BASELINE_SCHEMA_VERSION,
+    create_baseline_from_report,
+    validate_baseline_version,
+)
+from maida.events import EventType
 from maida.storage import load_run_for_analysis
 
-_BASELINE_SCHEMA_VERSION = "0.2"
+_BASELINE_SCHEMA_VERSION = BASELINE_SCHEMA_VERSION
 
 
 def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
@@ -98,13 +103,43 @@ def create_baseline(trace_id: str, config: MaidaConfig) -> dict:
     """
     full_id, meta, events = load_run_for_analysis(trace_id, config)
     metrics = extract_run_metrics(meta, events)
-    return {
-        "schema_version": _BASELINE_SCHEMA_VERSION,
-        "created_at": utc_now_iso_ms_z(),
-        "source_run_id": full_id,
-        "source_run_name": meta.get("run_name"),
-        **metrics,
+    summary = metrics["summary"]
+    report = {
+        "report_version": "2.0.0",
+        "metadata": {
+            "trials_used": 1,
+            "trials_budgeted": 1,
+            "environment_fingerprint": None,
+        },
+        "trials": [
+            {
+                "trace_id": full_id,
+                "run_name": meta.get("run_name"),
+                "metric_values": {
+                    "step_count": summary["total_events"],
+                    "tool_call_count": summary["tool_calls"],
+                    "cost_tokens": summary["total_tokens"],
+                    "latency_ms": summary["duration_ms"],
+                    "llm_call_count": summary["llm_calls"],
+                    "error_count": summary["errors"],
+                    "loop_warning_count": summary["loop_warnings"],
+                },
+                "invariant_outcomes": {},
+                "structural_signature": {
+                    "tool_path": metrics["tool_path"],
+                    "tool_call_sequence": metrics["tool_call_sequence"],
+                    "tool_call_counts": metrics["tool_call_counts"],
+                    "llm_models_used": metrics["llm_models_used"],
+                    "event_type_sequence": metrics["event_type_sequence"],
+                    "final_status": metrics["final_status"],
+                },
+            }
+        ],
     }
+    baseline = create_baseline_from_report(report)
+    baseline["summary"] = summary
+    baseline["guardrail_events"] = metrics["guardrail_events"]
+    return baseline
 
 
 def save_baseline(baseline: dict, path: Path, force: bool = True) -> None:
@@ -126,4 +161,8 @@ def load_baseline(path: Path) -> dict:
     ``json.JSONDecodeError`` if the file is malformed.
     """
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        baseline = json.load(f)
+    if not isinstance(baseline, dict):
+        raise ValueError("baseline root must be an object")
+    validate_baseline_version(baseline)
+    return baseline

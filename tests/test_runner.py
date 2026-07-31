@@ -71,7 +71,8 @@ with traced_run(name="isolated-agent"):
     assert report.verdict is GateVerdict.PASS
     assert {result.check_name for result in report.aggregate_results} == {
         "agent_process",
-        "tool_calls",
+        "tool_call_count",
+        "task_pass_rate",
     }
     assert not (agent_repo / "trial-state.txt").exists()
     for trial in report.trials:
@@ -156,8 +157,9 @@ with traced_run(name="json-agent"):
     )
 
     payload = json.loads(report.to_json())
-    assert payload["report_version"] == "1"
-    assert payload["metadata"]["trials_requested"] == 1
+    assert payload["report_version"] == "2.0.0"
+    assert payload["metadata"]["trials_used"] == 1
+    assert payload["metadata"]["trials_budgeted"] == 1
     assert payload["passed"] is True
     assert payload["verdict"] == "pass"
     assert payload["trials"][0]["trial"] == 1
@@ -182,8 +184,8 @@ def test_trial_report_markdown_is_verdict_first_with_intervals_and_traces(
     )
 
     markdown = report.to_markdown()
-    assert markdown.startswith("## ✅ Maida statistical gate: pass")
-    assert "Wilson interval" in markdown
+    assert markdown.startswith("## ✅ Maida gate: pass")
+    assert "| measured |" in markdown
     assert "`step_count`" in markdown
     assert f"`{report.trials[0].trace_id[:8]}`" in markdown
 
@@ -226,7 +228,7 @@ def test_statistical_report_schema_pins_three_verdict_contract() -> None:
         ).read_text(encoding="utf-8")
     )
 
-    assert schema["properties"]["report_version"]["const"] == "1"
+    assert schema["properties"]["report_version"]["const"] == "2.0.0"
     assert schema["properties"]["verdict"]["enum"] == [
         "pass",
         "fail",

@@ -5,49 +5,43 @@ from pathlib import Path
 POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
 CHECKOUT_ACTION_REF = "actions/checkout@v7"
-MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@V4"
+MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@V5"
 MAIDA_ACCEPT_ACTION_REF = "maida-ai/maida-assert/accept-command@main"
 
 POLICY_TEMPLATE = """\
-# Maida policy - enforced by `maida assert` locally and in CI.
-# Reference: https://github.com/maida-ai/maida/blob/main/docs/reference/policy.md
-#
-# Starter behavior is intentionally forgiving:
-# - With a baseline, numeric checks allow modest growth.
-# - Without a baseline, these tolerance checks do nothing.
-# - Strict checks are commented out; uncomment them when you want CI to fail.
-assert:
-  # Statistical gate defaults. More trials increase confidence and CI cost.
-  trials: 3
-  confidence_level: 0.95
-  pass_rate_threshold: 0.90
+# Maida policy v2 - enforced locally and by maida-assert V5.
+# `confidence` is one-sided coverage (0.95 uses z = 1.645).
+# Measured tolerances compare against the immutable checked-in baseline sample.
+version: 2
+trials: 3
+fail_fast: true
+metrics:
+  stop_condition_reached:
+    kind: invariant
+    require: true
 
-  # Allowed growth vs baseline (0.5 = +50%).
-  step_tolerance: 0.5
-  tool_call_tolerance: 0.5
-  cost_tolerance: 0.5
-  duration_tolerance: 0.5
+  forbidden_tools:
+    kind: invariant
+    none_of: [admin_delete]
 
-  # Strict checks (uncomment to opt in):
-  # Fail on repeated loop patterns.
-  # no_loops: true
-  # Fail if a guardrail stopped the run.
-  # no_guardrails: true
-  # Fail on tools not present in the baseline.
-  # no_new_tools: true
-  # Fail unless the run ended with status "ok".
-  # expect_status: ok
+  step_count:
+    kind: measured
+    direction: upper
+    tolerance: {relative: 0.5}
 
-  # Hard caps, independent of any baseline (uncomment to enable):
-  # max_steps: 80
-  # max_tool_calls: 40
-  # max_cost_tokens: 20000
-  # max_duration_ms: 60000
+  cost_tokens:
+    kind: measured
+    direction: upper
+    tolerance: {relative: 0.25}
 
-  # Ignored checks (skip these even when thresholds are set):
-  # ignored_checks:
-  #   - step_count
-  #   - cost_tokens
+  task_pass_rate:
+    kind: statistical
+    direction: lower
+    threshold: 0.90
+    confidence: 0.95
+    success_predicate: all_invariants_passed
+    # n_min is 25; the default three-trial scaffold reports without blocking.
+    mode: report_only
 """
 
 WORKFLOW_TEMPLATE = f"""\

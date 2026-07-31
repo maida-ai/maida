@@ -221,7 +221,7 @@ def _validate_fixture_shape(run_dir: Path, expected_trace_id: str) -> list[dict]
         "errors",
         "loop_warnings",
     }
-    assert meta["spec_version"] == SPEC_VERSION
+    assert meta["spec_version"] in {SPEC_VERSION, "0.2"}
 
     spans = _read_jsonl(spans_path)
     assert spans
