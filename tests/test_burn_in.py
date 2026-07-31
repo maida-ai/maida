@@ -11,7 +11,7 @@ from maida.burn_in import BurnInReport, run_burn_in, summarize_verdicts
 from maida.statistics import GateVerdict
 
 
-def test_summarize_fifty_gates_reports_rates_and_acceptance() -> None:
+def test_summarize_fifty_gates_reports_measurements() -> None:
     report = summarize_verdicts(
         [GateVerdict.PASS] * 47 + [GateVerdict.INCONCLUSIVE] * 3,
         trials_per_gate=3,
@@ -22,32 +22,7 @@ def test_summarize_fifty_gates_reports_rates_and_acceptance() -> None:
     assert report.gates == 50
     assert report.false_fail_rate == 0.0
     assert report.inconclusive_rate == 0.06
-    assert report.acceptance_met is True
     assert report.model_calls == 0
-
-
-def test_false_fail_threshold_is_strictly_less_than_two_percent() -> None:
-    report = summarize_verdicts(
-        [GateVerdict.PASS] * 49 + [GateVerdict.FAIL],
-        trials_per_gate=3,
-        seed=137,
-        pass_probability=0.99,
-    )
-
-    assert report.false_fail_rate == 0.02
-    assert report.acceptance_met is False
-
-
-def test_inconclusive_threshold_is_strictly_less_than_fifteen_percent() -> None:
-    report = summarize_verdicts(
-        [GateVerdict.PASS] * 17 + [GateVerdict.INCONCLUSIVE] * 3,
-        trials_per_gate=3,
-        seed=137,
-        pass_probability=0.99,
-    )
-
-    assert report.inconclusive_rate == 0.15
-    assert report.acceptance_met is False
 
 
 def test_report_json_is_machine_readable() -> None:
@@ -64,7 +39,7 @@ def test_report_json_is_machine_readable() -> None:
     assert payload["false_fail_rate"] == 0.0
     assert payload["inconclusive_rate"] == 0.5
     assert payload["model_calls"] == 0
-    assert payload["acceptance_met"] is False
+    assert "acceptance_met" not in payload
 
 
 def test_full_harness_runs_fixed_agent_without_changing_repo(tmp_path) -> None:
@@ -78,7 +53,6 @@ def test_full_harness_runs_fixed_agent_without_changing_repo(tmp_path) -> None:
     )
 
     assert report.verdicts == (GateVerdict.PASS, GateVerdict.PASS)
-    assert report.acceptance_met is True
     assert report.model_calls == 0
 
 
