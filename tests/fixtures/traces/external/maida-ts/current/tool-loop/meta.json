@@ -1,5 +1,5 @@
 {
-  "spec_version": "0.2",
+  "spec_version": "0.2.0",
   "trace_id": "30000000000000000000000000000002",
   "run_name": "ts-tool-loop",
   "started_at": "2026-01-01T00:01:00.000Z",

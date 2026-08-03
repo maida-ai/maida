@@ -11,6 +11,15 @@ observations, validates the result against Maida's current trace contract, and
 writes it only to local Maida storage. It does not modify Langfuse data or
 upload the imported run to a hosted Maida service.
 
+Until the importer is included in the next PyPI release, install the current
+`main` revision:
+
+```bash
+uv tool install "maida-ai @ git+https://github.com/maida-ai/maida.git@main"
+```
+
+Source checkouts using `uv sync` already have the importer.
+
 ## Configure access
 
 No optional package is required. Set the same credentials used by Langfuse's
@@ -131,6 +140,29 @@ whose timestamps fall inside a discovery window can cut off parents or late
 children. Column names and storage layout are Langfuse deployment details, so
 prefer the API whenever possible.
 
+## Gate one imported trace in GitHub Actions
+
+Use the Action's trusted `trace-command` input when the run comes from an
+importer rather than a traced Python entrypoint. Keep credentials in GitHub
+secrets and select exactly one completed trace:
+
+```yaml
+- uses: maida-ai/maida-assert@main
+  env:
+    LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+    LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+    LANGFUSE_TRACE_ID: ${{ vars.LANGFUSE_TRACE_ID }}
+  with:
+    trace-command: maida import langfuse --trace-id "$LANGFUSE_TRACE_ID"
+    baseline: baselines/support-agent.json
+    policy: .maida/policy.yaml
+```
+
+Imported traces use a fixed one-trial gate. Do not pass `--trials` in
+`extra-args`, select a range that creates multiple runs, or build the command
+from pull-request-controlled text. Use `agent-script` when the policy needs
+repeated independent executions.
+
 ## Synthetic conformance data
 
 The repository fixture in `tests/fixtures/langfuse/api-v2/` is fully synthetic.
@@ -138,3 +170,8 @@ It models production-shaped pagination, missing-parent handling, generations,
 tools, token extras, and a deterministic regression without containing customer
 or partner data. Tests import its good trace, capture a baseline, then confirm
 that the regression trace fails for structural and token-usage changes.
+
+For a copy-pasteable walkthrough, run the
+[offline Langfuse import demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/langfuse_import).
+It starts a loopback fake API and needs no Langfuse account, key, LLM, or
+external network request.

@@ -81,10 +81,13 @@ def test_action_version_references_match_scaffold():
         (ROOT / rel_path).read_text(encoding="utf-8") for rel_path in docs
     )
 
+    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@main"
     assert MAIDA_ASSERT_ACTION_REF in combined
     assert MAIDA_ACCEPT_ACTION_REF in combined
     assert "maida-ai/maida-assert@v2" not in combined
     assert "maida-ai/maida-assert@V2" not in combined
+    assert "maida-ai/maida-assert@V4" not in combined
+    assert "maida-ai/maida-assert@V5" not in combined
 
     workflow_text = (ROOT / "maida/scaffold.py").read_text(encoding="utf-8")
     assert CHECKOUT_ACTION_REF in workflow_text
@@ -217,6 +220,10 @@ def test_langfuse_docs_cover_read_only_import_and_mapping_contract():
         "ClickHouse",
         "fully synthetic",
         "read-only",
+        "trace-command:",
+        "maida-ai/maida-assert@main",
+        "fixed one-trial gate",
+        "maida-tutorials/tree/main/demos/langfuse_import",
     ):
         assert snippet in combined
 

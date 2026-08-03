@@ -264,6 +264,8 @@ def test_external_current_trace_fixtures_are_documented_and_valid(
     run_dir = FIXTURE_ROOT / "external" / source / "current" / name
 
     assert (run_dir / "README.md").is_file()
+    if source == "maida-ts":
+        assert _read_json(run_dir / "meta.json")["spec_version"] == SPEC_VERSION
     _validate_fixture_shape(run_dir, trace_id)
 
 
@@ -276,7 +278,10 @@ def test_external_malformed_trace_fixtures_are_documented(source, name, trace_id
     assert (run_dir / "README.md").is_file()
     assert (run_dir / "meta.json").is_file()
     assert (run_dir / "spans.jsonl").is_file()
-    assert _read_json(run_dir / "meta.json")["trace_id"] == trace_id
+    meta = _read_json(run_dir / "meta.json")
+    assert meta["trace_id"] == trace_id
+    if source == "maida-ts":
+        assert meta["spec_version"] == SPEC_VERSION
 
 
 def test_golden_normal_run_parses_and_projects_to_events(temp_data_dir):
