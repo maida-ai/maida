@@ -326,7 +326,7 @@ def test_client_follows_cursor_pagination(monkeypatch):
         requests.append((request, timeout))
         return _FakeResponse(responses.pop(0))
 
-    monkeypatch.setattr("maida.integrations.langfuse.urlopen", fake_urlopen)
+    monkeypatch.setitem(LangfuseClient._get_json.__globals__, "urlopen", fake_urlopen)
     client = LangfuseClient(
         base_url="https://example.langfuse.test",
         public_key="pk-public",
@@ -349,7 +349,7 @@ def test_client_rejects_repeated_cursor(monkeypatch):
         assert timeout == 5
         return _FakeResponse({"data": [], "meta": {"cursor": "same"}})
 
-    monkeypatch.setattr("maida.integrations.langfuse.urlopen", fake_urlopen)
+    monkeypatch.setitem(LangfuseClient._get_json.__globals__, "urlopen", fake_urlopen)
     client = LangfuseClient("https://example.test", "public", "secret")
 
     with pytest.raises(LangfuseImportError, match="repeated pagination cursor"):
@@ -364,7 +364,7 @@ def test_client_rejects_base_url_paths_and_redacts_auth_errors(monkeypatch):
         assert timeout == 5
         raise HTTPError(request.full_url, 401, "unauthorized", None, None)
 
-    monkeypatch.setattr("maida.integrations.langfuse.urlopen", unauthorized)
+    monkeypatch.setitem(LangfuseClient._get_json.__globals__, "urlopen", unauthorized)
     client = LangfuseClient("https://example.test", "public-value", "secret-value")
 
     with pytest.raises(LangfuseImportError) as raised:
