@@ -30,7 +30,12 @@ from maida.assertions import (
     run_assertions,
 )
 from maida.acceptance import AcceptanceSource, accept_baseline_update
-from maida.baseline import create_baseline, load_baseline, save_baseline
+from maida.baseline import (
+    create_baseline,
+    create_baseline_from_report,
+    load_baseline,
+    save_baseline,
+)
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
@@ -163,6 +168,11 @@ def run_cmd(
     max_steps: int | None = typer.Option(
         None, "--max-steps", help="Max total events allowed"
     ),
+    fail_fast: bool | None = typer.Option(
+        None,
+        "--fail-fast/--no-fail-fast",
+        help="Stop once a blocking failure is irreversible",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or markdown"
     ),
@@ -194,6 +204,7 @@ def run_cmd(
                 "trials": trials,
                 "confidence_level": confidence_level,
                 "pass_rate_threshold": pass_rate_threshold,
+                "fail_fast": fail_fast,
             },
         )
 
@@ -201,7 +212,7 @@ def run_cmd(
         if baseline_path is not None:
             try:
                 baseline = load_baseline(baseline_path)
-            except (FileNotFoundError, json.JSONDecodeError):
+            except (FileNotFoundError, json.JSONDecodeError, ValueError):
                 typer.echo(f"Invalid or missing baseline: {baseline_path}", err=True)
                 raise Exit(EXIT_NOT_FOUND)
 
@@ -458,6 +469,11 @@ def baseline_cmd(
     run_id: str | None = typer.Argument(
         None, help="Run ID or prefix to snapshot (default: latest run)"
     ),
+    from_report: Path | None = typer.Option(
+        None,
+        "--from-report",
+        help="Capture the immutable trial sample from a report v2 JSON file",
+    ),
     out: Path | None = typer.Option(
         None, "--out", "-o", help="Output path for baseline JSON"
     ),
@@ -465,13 +481,19 @@ def baseline_cmd(
     """Capture a baseline snapshot from a completed run."""
     try:
         config = load_config()
-        try:
-            run_id = _resolve_run_or_latest(run_id, config)
-        except FileNotFoundError as e:
-            typer.echo(f"Run not found: {run_id or e}", err=True)
-            raise Exit(EXIT_NOT_FOUND)
-
-        bl = create_baseline(run_id, config)
+        if from_report is not None:
+            if run_id is not None:
+                raise ValueError("RUN_ID and --from-report are mutually exclusive")
+            report_payload = json.loads(from_report.read_text(encoding="utf-8"))
+            bl = create_baseline_from_report(report_payload)
+            run_id = bl.get("source_run_id") or "baseline"
+        else:
+            try:
+                run_id = _resolve_run_or_latest(run_id, config)
+            except FileNotFoundError as e:
+                typer.echo(f"Run not found: {run_id or e}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+            bl = create_baseline(run_id, config)
 
         if out is None:
             name_part = bl.get("source_run_name") or run_id
@@ -485,6 +507,9 @@ def baseline_cmd(
         _exit_unsupported_trace_format(e)
     except storage.RunValidationError as e:
         _exit_run_validation_error(e)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        typer.echo(f"Invalid baseline input: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -528,7 +553,7 @@ def accept_cmd(
         except FileNotFoundError:
             typer.echo(f"Baseline not found: {baseline_path}", err=True)
             raise Exit(EXIT_NOT_FOUND)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
             raise Exit(EXIT_NOT_FOUND)
 

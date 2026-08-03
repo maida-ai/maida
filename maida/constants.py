@@ -1,12 +1,13 @@
 """Shared constants: spec version, count schema, and redaction/truncation markers."""
 
 from pathlib import Path
+from maida.schema_versions import TRACE_SCHEMA_VERSION
 
 REDACTED_MARKER = "__REDACTED__"
 TRUNCATED_MARKER = "__TRUNCATED__"
 
 # SPEC version for the OTel-based trace format (major bump from 0.1).
-SPEC_VERSION = "0.2"
+SPEC_VERSION = TRACE_SCHEMA_VERSION
 
 # Recursion limit and depth of redaction/truncation
 DEPTH_LIMIT = 10

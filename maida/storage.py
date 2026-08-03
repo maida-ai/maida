@@ -19,6 +19,7 @@ from pathlib import Path
 
 from maida.config import MaidaConfig
 from maida.constants import SPEC_VERSION, default_counts
+from maida.schema_versions import machine_minor_compatible
 from maida.events import spans_to_events, utc_now_iso_ms_z
 
 META_JSON = "meta.json"
@@ -334,7 +335,12 @@ def load_run_for_analysis(
     meta = load_run_meta(resolved_id, config)
 
     declared_spec = meta.get("spec_version")
-    if declared_spec != SPEC_VERSION:
+    if not machine_minor_compatible(
+        declared_spec,
+        SPEC_VERSION,
+        stream="trace",
+        legacy=frozenset({"0.2"}),
+    ):
         if declared_spec is None:
             problem = f"{RUN_JSON} is missing spec_version"
         else:
@@ -566,7 +572,12 @@ def _validate_meta(trace_id: str, meta: dict) -> None:
             raise RunValidationError(trace_id, f"meta.json is missing field {field!r}")
 
     declared_spec = meta["spec_version"]
-    if declared_spec != SPEC_VERSION:
+    if not machine_minor_compatible(
+        declared_spec,
+        SPEC_VERSION,
+        stream="trace",
+        legacy=frozenset({"0.2"}),
+    ):
         raise RunValidationError(
             trace_id,
             "meta.json declares unsupported spec_version "

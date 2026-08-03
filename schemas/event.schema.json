@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maida-ai/maida/schemas/event.schema.json",
   "title": "Maida span (spans.jsonl record)",
-  "description": "OpenTelemetry span record for Maida trace format spec_version 0.2. One span per line in spans.jsonl. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
+  "description": "OpenTelemetry span record for Maida trace format spec_version 0.2.0. One span per line in spans.jsonl. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
   "type": "object",
   "required": ["trace_id", "span_id", "parent_span_id", "name", "kind", "start_time", "end_time", "duration_ms", "attributes", "events", "status_code", "status_description"],
   "properties": {

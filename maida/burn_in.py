@@ -65,10 +65,6 @@ class BurnInReport:
     def model_calls(self) -> int:
         return 0
 
-    @property
-    def acceptance_met(self) -> bool:
-        return self.false_fail_rate < 0.02 and self.inconclusive_rate < 0.15
-
     def to_dict(self) -> dict[str, object]:
         return {
             "gates": self.gates,
@@ -82,7 +78,6 @@ class BurnInReport:
             "inconclusive_rate": self.inconclusive_rate,
             "model_calls": self.model_calls,
             "elapsed_seconds": self.elapsed_seconds,
-            "acceptance_met": self.acceptance_met,
         }
 
     def to_json(self) -> str:
@@ -93,12 +88,12 @@ class BurnInReport:
             [
                 f"Gates: {self.gates} ({self.trials_per_gate} trials each)",
                 f"False-fail rate: {self.false_fail_rate:.1%} "
-                f"({self.false_fail_count}/{self.gates}; required <2%)",
+                f"({self.false_fail_count}/{self.gates})",
                 f"Inconclusive rate: {self.inconclusive_rate:.1%} "
-                f"({self.inconclusive_count}/{self.gates}; required <15%)",
+                f"({self.inconclusive_count}/{self.gates})",
                 "Model calls: 0",
                 f"Elapsed: {self.elapsed_seconds:.2f}s",
-                f"RESULT: {'PASS' if self.acceptance_met else 'FAIL'}",
+                "Measurement complete (not an acceptance guarantee)",
             ]
         )
 

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maida-ai/maida/schemas/baseline.schema.json",
+  "title": "Maida immutable baseline sample",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "created_at",
+    "source_run_id",
+    "summary",
+    "trial_sample"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.3.0" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_run_id": { "type": ["string", "null"] },
+    "source_run_ids": {
+      "type": "array",
+      "items": { "type": ["string", "null"] }
+    },
+    "source_run_name": { "type": ["string", "null"] },
+    "summary": { "type": "object" },
+    "trial_sample": {
+      "type": "object",
+      "required": [
+        "trials",
+        "environment_fingerprint",
+        "metrics",
+        "invariants",
+        "signature_ids",
+        "signature_counts",
+        "signatures"
+      ],
+      "properties": {
+        "trials": { "type": "integer", "minimum": 1 },
+        "environment_fingerprint": { "type": ["object", "null"] },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 1
+          }
+        },
+        "invariants": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "boolean" },
+            "minItems": 1
+          }
+        },
+        "signature_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "signature_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "signatures": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

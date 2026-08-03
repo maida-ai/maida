@@ -222,7 +222,7 @@ def test_list_json_outputs_valid_json_spec_version_and_runs(empty_data_dir):
     data = json.loads(result.output)
     assert "spec_version" in data
     assert "runs" in data
-    assert data["spec_version"] == "0.2"
+    assert data["spec_version"] == "0.2.0"
     assert isinstance(data["runs"], list)
 
 
@@ -469,7 +469,7 @@ def test_accept_updates_baseline_with_metadata_and_diff(empty_data_dir):
         "path": str(baseline_path),
         "source_run_id": baseline_run,
         "created_at": data["acceptance"]["previous_baseline"]["created_at"],
-        "schema_version": "0.2",
+        "schema_version": "0.3.0",
         "sha256": previous_hash,
     }
 
@@ -874,12 +874,13 @@ if os.environ["MAIDA_TRIAL_INDEX"] == "3":
         ],
     )
 
-    assert result.exit_code == 0, result.output
-    assert result.stdout.startswith("## ⚠️ Maida statistical gate: inconclusive")
+    assert result.exit_code == 1, result.output
+    assert result.stdout.startswith("## ❌ Maida gate: fail")
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
-    assert payload["verdict"] == "inconclusive"
-    assert payload["passed"] is None
-    assert payload["aggregate_results"][0]["decision_rule"] == "wilson_two_sided"
+    assert payload["report_version"] == "2.0.0"
+    assert payload["verdict"] == "fail"
+    assert payload["passed"] is False
+    assert payload["aggregate_results"][0]["decision_rule"] == "invariant"
 
 
 def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypatch):
@@ -917,12 +918,16 @@ def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypa
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["metadata"] == {
-        "trials_requested": 5,
-        "trials_completed": 5,
-        "confidence_level": 0.9,
-        "pass_rate_threshold": 0.7,
-    }
+    assert payload["metadata"]["trials_used"] == 5
+    assert payload["metadata"]["trials_budgeted"] == 5
+    task = next(
+        item
+        for item in payload["aggregate_results"]
+        if item["check_name"] == "task_pass_rate"
+    )
+    assert task["evidence"]["confidence"] == 0.9
+    assert task["evidence"]["threshold"] == 0.7
+    assert task["decision_rule"] == "wilson_one_sided"
 
 
 def test_run_invalid_statistical_policy_exits_two(
@@ -1407,26 +1412,22 @@ def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
     # generated policy must load through the real policy loader
     policy_text = policy_path.read_text(encoding="utf-8")
     policy = load_policy(policy_path)
-    assert policy.no_loops is False
-    assert policy.no_guardrails is False
-    assert policy.no_new_tools is False
-    assert policy.expect_status is None
-    assert policy.step_tolerance == 0.5
-    assert policy.tool_call_tolerance == 0.5
-    assert policy.cost_tolerance == 0.5
-    assert policy.duration_tolerance == 0.5
+    assert policy.source_format == "v2"
+    assert policy.policy_version == (2, 0)
     assert policy.trials == 3
-    assert policy.confidence_level == 0.95
-    assert policy.pass_rate_threshold == 0.90
+    assert policy.fail_fast is True
+    assert policy.metrics["stop_condition_reached"].kind.value == "invariant"
+    assert policy.metrics["step_count"].kind.value == "measured"
+    assert policy.metrics["step_count"].direction.value == "upper"
+    assert policy.metrics["step_count"].tolerance_relative == 0.5
+    assert policy.metrics["cost_tokens"].tolerance_relative == 0.25
+    task = policy.metrics["task_pass_rate"]
+    assert task.kind.value == "statistical"
+    assert task.direction.value == "lower"
+    assert task.mode.value == "report_only"
+    assert task.success_predicate == "all_invariants_passed"
+    assert "version: 2" in policy_text
     assert "trials: 3" in policy_text
-    for strict_key in (
-        "no_loops: true",
-        "no_guardrails: true",
-        "no_new_tools: true",
-        "expect_status: ok",
-    ):
-        assert f"\n  # {strict_key}\n" in policy_text
-        assert f"\n  {strict_key}" not in policy_text
 
 
 def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch):
@@ -1440,8 +1441,8 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
 
     workflow_text = wf_path.read_text(encoding="utf-8")
     policy = load_policy(policy_path)
-    assert policy.step_tolerance == 0.5
-    assert policy.no_new_tools is False
+    assert policy.policy_version == (2, 0)
+    assert policy.metrics["step_count"].direction.value == "upper"
 
     wf = yaml.safe_load(workflow_text)
     triggers = wf.get("on", wf.get(True))
@@ -1529,4 +1530,4 @@ def test_init_skips_existing_without_force(empty_data_dir, tmp_path, monkeypatch
     result = runner.invoke(app, ["init", "--force"])
     assert result.exit_code == 0
     assert "wrote" in result.output
-    assert "no_loops" in policy_path.read_text()  # overwritten
+    assert "version: 2" in policy_path.read_text()  # overwritten

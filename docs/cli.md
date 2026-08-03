@@ -47,13 +47,13 @@ maida init [--github] [--force]
 
 | Option | Description |
 |--------|-------------|
-| `--github` | Also write `.github/workflows/maida.yml` using the pinned [`maida-ai/maida-assert@V4`](https://github.com/maida-ai/maida-assert/releases/tag/V4) gate and the `maida-ai/maida-assert/accept-command@main` handler |
+| `--github` | Also write `.github/workflows/maida.yml` using the pinned [`maida-ai/maida-assert@V5`](https://github.com/maida-ai/maida-assert/releases/tag/V5) gate and the `maida-ai/maida-assert/accept-command@main` handler |
 | `--force` | Overwrite existing files |
 
 **Files written:**
 
-- `.maida/policy.yaml` — commented starter policy with 50% baseline tolerances; strict checks such as `no_loops`, `no_guardrails`, `no_new_tools`, and `expect_status: ok` are shown as opt-ins
-- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment; also handles authorized `/maida accept [optional reason]` comments and rechecks an accepted PR-head commit; pins `actions/checkout@v7` and `maida-ai/maida-assert@V4`, with the command handler at `maida-ai/maida-assert/accept-command@main`
+- `.maida/policy.yaml` — strict v2 starter with invariant contracts, directional measured tolerances, and a three-trial report-only pass-rate metric
+- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment; also handles authorized `/maida accept [optional reason]` comments and rechecks an accepted PR-head commit; pins `actions/checkout@v7` and `maida-ai/maida-assert@V5`, with the command handler at `maida-ai/maida-assert/accept-command@main`
 
 Edit the generated `MAIDA_AGENT_SCRIPT` value for your entrypoint. After
 committing a baseline, set `MAIDA_BASELINE` to its tracked path; leaving it blank
@@ -127,7 +127,7 @@ maida view --json
 
 **Exit codes:** `0` success; `2` run not found (or no runs); `10` internal error.
 
-With `--json`, output shape: `{"spec_version":"0.2","run_id":"...","url":"http://127.0.0.1:8712/?run_id=...","status":"serving"}`.
+With `--json`, output shape: `{"spec_version":"0.2.0","run_id":"...","url":"http://127.0.0.1:8712/?run_id=...","status":"serving"}`.
 
 ---
 
@@ -169,25 +169,28 @@ Captures a baseline snapshot from a completed run. The snapshot records structur
 
 ```bash
 maida baseline [TRACE_ID] [--out PATH]
+maida baseline --from-report REPORT.json [--out PATH]
 ```
 
 **Arguments / options:**
 
 | Argument/Option | Default | Description |
 |---|---|---|
-| `TRACE_ID` | *(latest run)* | OTel trace ID or prefix to snapshot |
+| `TRACE_ID` | *(latest run)* | OTel trace ID or prefix for legacy single-run capture |
+| `--from-report` | - | Build an immutable multi-trial sample from report v2; mutually exclusive with `TRACE_ID` |
 | `--out`, `-o` | `.maida/baselines/<run_name>.json` | Output path for the baseline JSON file |
 
 **Examples:**
 
 ```bash
-maida baseline                       # snapshot the latest run
-maida baseline a1b2c3d4 --out baselines/support_agent_v1.json
+maida run my_agent.py --trials 25 --no-fail-fast --json-out report.json
+maida baseline --from-report report.json --out .maida/baselines/my_agent.json
+maida baseline a1b2c3d4 --out baselines/legacy-single-run.json
 ```
 
 **Exit codes:** `0` success; `2` run not found; `10` internal error.
 
-The output file is a JSON object containing `schema_version`, `source_run_id`, summary metrics, `tool_path`, ordered `tool_call_sequence`, `tool_call_counts`, `llm_models_used`, `event_type_sequence`, and `final_status`. Check it into version control to share the baseline with your team.
+Report-based capture stores the raw per-trial numeric and invariant vectors, an environment fingerprint, and structural signatures deduplicated with counts. The sample is immutable and never accumulates across gate runs. Check it into version control as part of the reviewed diff.
 
 ---
 
@@ -249,12 +252,13 @@ maida run AGENT_SCRIPT [options]
 |---|---|---|
 | `AGENT_SCRIPT` | required | Traced Python script inside the current Git workspace |
 | `--trials` | policy value (`3`) | Number of isolated subprocess trials |
-| `--confidence-level` | policy value (`0.95`) | Wilson confidence level |
+| `--confidence-level` | policy value (`0.95`) | One-sided Wilson coverage (`z = 1.645` at 0.95) |
 | `--pass-rate-threshold` | policy value (`0.90`) | Required pass rate |
 | `--baseline`, `-b` | - | Baseline JSON applied to every trial |
 | `--policy` | `.maida/policy.yaml` | Assertion and statistical gate settings |
 | `--format`, `-f` | `text` | `text`, `json`, or verdict-first `markdown` |
-| `--json-out` | - | Atomically write the versioned machine report to a sidecar |
+| `--fail-fast` / `--no-fail-fast` | policy value (`true`) | Stop on an irreversible blocking failure, or force the full fixed-N sample |
+| `--json-out` | - | Atomically write report schema `2.0.0` to a sidecar |
 
 ```bash
 maida run my_agent.py --baseline .maida/baselines/my_agent.json \
@@ -265,7 +269,7 @@ Each trial must create exactly one completed trace. Exit `1` is reserved for FAI
 
 ## `maida assert`
 
-Asserts that a completed run meets behavioral policy checks. Returns exit code `0` when all checks pass and `1` when any check fails, making it suitable for CI gates.
+Evaluates one already-completed trace through the legacy single-run assertion interface. New tier-aware and statistical gates should use `maida run`; `maida assert` remains for v1 compatibility and direct trace inspection.
 
 **Usage:**
 
@@ -279,7 +283,7 @@ maida assert [TRACE_ID] [options]
 |---|---|---|
 | `TRACE_ID` | *(latest run)* | OTel trace ID or prefix to check |
 | `--baseline`, `-b` | - | Baseline JSON file to compare against |
-| `--policy` | `.maida/policy.yaml` (auto-detected) | Policy YAML file with assertion thresholds |
+| `--policy` | `.maida/policy.yaml` (auto-detected) | Policy file; v1 loads with a deprecation warning |
 | `--max-steps` | - | Max total events allowed |
 | `--step-tolerance` | `0.5` | Fractional tolerance for step count |
 | `--max-tool-calls` | - | Max tool calls allowed |

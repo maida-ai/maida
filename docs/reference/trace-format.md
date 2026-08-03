@@ -1,8 +1,8 @@
 # Trace format (public contract)
 
-This page describes the **public trace format** for Maida (`spec_version: "0.2"`). Traces use **OpenTelemetry spans** as the internal representation and are stored locally as **JSONL span records** plus a **run metadata file** (`meta.json`). The format is a public contract: consumers can rely on it for tooling and integrations.
+This page describes the **public trace format** for Maida (`spec_version: "0.2.0"`). Traces use **OpenTelemetry spans** as the internal representation and are stored locally as **JSONL span records** plus a **run metadata file** (`meta.json`). The format is a public contract: consumers can rely on it for tooling and integrations.
 
-**Versioning:** The trace format is versioned independently from the package version via `spec_version` (currently `"0.2"`). All Maida releases that use `spec_version "0.2"` share the same trace format. Additive changes (new optional fields, new event types) may be introduced without a spec version bump. Breaking changes will result in a new `spec_version`.
+**Versioning:** The trace format is independently versioned with full semantic versioning (`0.2.0`). Patch releases cover serialization fixes, minor releases add optional fields, and breaking changes move to a new incompatible line. Readers tolerate additive unknown fields. The loader also accepts the legacy `0.2` spelling and normalizes it to the current 0.2 line.
 
 ---
 
@@ -18,7 +18,7 @@ Maida stores local runs under the configured data directory. The default is `~/.
       spans.jsonl
 ```
 
-`meta.json` and `spans.jsonl` are the required files for a completed `spec_version: "0.2"` run directory:
+`meta.json` and `spans.jsonl` are the required files for a completed `spec_version: "0.2.0"` run directory:
 
 - **`meta.json`** - run metadata. It may be created while the run is active and is finalized when the root span ends.
 - **`spans.jsonl`** - append-only span log. Each non-empty line is one serialized OpenTelemetry span JSON object.
@@ -199,7 +199,7 @@ All fields in this table are required keys for the current `meta.json` contract.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `spec_version` | string | Storage contract version (`"0.2"`) |
+| `spec_version` | string | Storage contract version (`"0.2.0"`) |
 | `trace_id` | string | 32-hex-character OTel trace ID |
 | `run_name` | string \| null | Optional run label |
 | `started_at` | string | UTC ISO8601 with µs and `Z` |
@@ -221,7 +221,7 @@ All fields in this table are required keys for the current `meta.json` contract.
 
 There are no stable optional `meta.json` fields in the current contract. Future optional fields may be added without a `spec_version` bump, so external tools should ignore unknown fields rather than fail closed.
 
-`spec_version` in `meta.json` (`"0.2"`) declares the storage contract version in-band. Individual span records in `spans.jsonl` do **not** repeat `spec_version`; the version from `meta.json` applies to the entire run directory. The version is also present in public API/export/projection envelopes that include `spec_version: "0.2"`:
+`spec_version` in `meta.json` (`"0.2.0"`) declares the storage contract version in-band. Individual span records in `spans.jsonl` do **not** repeat `spec_version`; the version from `meta.json` applies to the entire run directory. The version is also present in public API/export/projection envelopes that include `spec_version: "0.2.0"`:
 
 - `GET /api/runs`
 - `GET /api/runs/{trace_id}/spans`
@@ -239,7 +239,7 @@ There are no stable optional `meta.json` fields in the current contract. Future 
 
 ## Stability for external tooling
 
-The trace format is a **public contract** versioned independently from the Maida package version. All releases using `spec_version "0.2"` share this format. Additive changes (for example, new optional fields, new event types, or additional span attributes) are allowed without a spec version bump. Breaking changes (removing fields, changing types, changing required field semantics, or changing storage file names) will be accompanied by a new `spec_version`.
+The trace format is a **public contract** versioned independently from the Maida package version. All releases using `spec_version "0.2.0"` share this format. Additive changes (for example, new optional fields, new event types, or additional span attributes) are allowed without a spec version bump. Breaking changes (removing fields, changing types, changing required field semantics, or changing storage file names) will be accompanied by a new `spec_version`.
 
 The markdown reference on this page is canonical. JSON schemas in the repo root `schemas/` folder are best-effort helpers for tooling, not the source of truth.
 
@@ -260,7 +260,7 @@ The markdown reference on this page is canonical. JSON schemas in the repo root 
 - private helper function names and module layout
 - UI-only transformations and display state
 - undocumented OTel attributes, in-span event attributes, or extra files
-- legacy compatibility readers for older pre-`0.2` local files
+- legacy compatibility readers for older pre-`0.2.0` local files
 
 External tools should rely on the stable contract above, ignore unknown additive fields, and avoid deriving schemas from private implementation details or a single observed run. Treat schema drift against this page as a compatibility issue.
 
@@ -283,4 +283,4 @@ These commands read from or write to the storage contract documented here:
 - Internal representation uses OTel span model with `trace_id`, `span_id`, `parent_span_id` hierarchy
 - LLM calls use GenAI semantic convention attribute names (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.*`)
 - Consumer-facing event view preserved via `spans_to_events()` projection
-- `spec_version` bumped to `"0.2"`
+- `spec_version` bumped to `"0.2.0"`

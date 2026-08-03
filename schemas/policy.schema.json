@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maida-ai/maida/schemas/policy.schema.json",
+  "title": "Maida policy v2",
+  "type": "object",
+  "required": ["version", "metrics"],
+  "properties": {
+    "version": {
+      "description": "Hand-authored major[.minor] policy version; patch is invalid.",
+      "enum": [2, "2", "2.0"]
+    },
+    "trials": { "type": "integer", "minimum": 1, "default": 3 },
+    "fail_fast": { "type": "boolean", "default": true },
+    "metrics": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "stop_condition_reached",
+          "forbidden_tools",
+          "required_tools",
+          "no_loops",
+          "no_guardrails",
+          "step_count",
+          "tool_call_count",
+          "cost_tokens",
+          "latency_ms",
+          "task_pass_rate"
+        ]
+      },
+      "additionalProperties": { "$ref": "#/$defs/metric" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "common": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["invariant", "measured", "distributional", "statistical"]
+        }
+      }
+    },
+    "metric": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "invariant" },
+            "require": { "type": "boolean" },
+            "none_of": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "all_of": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "direction"],
+          "properties": {
+            "kind": { "const": "measured" },
+            "direction": { "enum": ["upper", "lower", "both"] },
+            "aggregate": { "enum": ["median", "max", "p90"] },
+            "tolerance": {
+              "type": "object",
+              "properties": {
+                "relative": { "type": "number", "minimum": 0 },
+                "absolute": { "type": "number", "minimum": 0 }
+              },
+              "minProperties": 1,
+              "additionalProperties": false
+            },
+            "limit": {}
+          },
+          "anyOf": [
+            { "required": ["tolerance"] },
+            { "required": ["limit"] }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "direction"],
+          "properties": {
+            "kind": { "const": "distributional" },
+            "direction": { "enum": ["upper", "lower"] },
+            "coverage": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1
+            },
+            "confidence": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1
+            },
+            "mode": { "enum": ["gating", "report_only"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "direction", "threshold"],
+          "properties": {
+            "kind": { "const": "statistical" },
+            "direction": { "enum": ["upper", "lower", "both"] },
+            "threshold": {},
+            "confidence": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1
+            },
+            "mode": { "enum": ["gating", "report_only"] },
+            "success_predicate": {
+              "const": "all_invariants_passed"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

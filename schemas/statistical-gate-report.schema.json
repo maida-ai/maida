@@ -1,86 +1,67 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maida-ai/maida/schemas/statistical-gate-report.schema.json",
-  "title": "Maida statistical gate report",
+  "title": "Maida tier-aware gate report",
   "type": "object",
   "required": ["report_version", "verdict", "passed", "metadata", "trials", "aggregate_results"],
   "properties": {
-    "report_version": { "const": "1" },
+    "report_version": { "const": "2.0.0" },
     "trials_requested": { "type": "integer", "minimum": 1 },
     "verdict": { "enum": ["pass", "fail", "inconclusive"] },
     "passed": { "type": ["boolean", "null"] },
     "metadata": {
       "type": "object",
-      "required": ["trials_requested", "trials_completed", "confidence_level", "pass_rate_threshold"],
+      "required": ["trials_used", "trials_budgeted", "stopping_rule", "abort_reason", "environment_fingerprint"],
       "properties": {
-        "trials_requested": { "type": "integer", "minimum": 1 },
-        "trials_completed": { "type": "integer", "minimum": 1 },
-        "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-        "pass_rate_threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+        "trials_used": { "type": "integer", "minimum": 1 },
+        "trials_budgeted": { "type": "integer", "minimum": 1 },
+        "stopping_rule": { "enum": ["fixed_n", "fixed_n_fail_fast"] },
+        "abort_reason": { "type": ["string", "null"] },
+        "environment_fingerprint": { "type": "object" }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "trials": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["trial", "trace_id", "run_name", "process_exit_code", "passed", "checks", "baseline_diff"],
+        "required": ["trial", "trace_id", "run_name", "process_exit_code", "passed", "checks", "metric_values", "invariant_outcomes", "structural_signature", "baseline_diff"],
         "properties": {
           "trial": { "type": "integer", "minimum": 1 },
           "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
           "run_name": { "type": ["string", "null"] },
           "process_exit_code": { "type": "integer" },
           "passed": { "type": "boolean" },
-          "checks": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["check_name", "passed", "reason_code", "message", "expected", "actual", "ignored"],
-              "properties": {
-                "check_name": { "type": "string" },
-                "passed": { "type": "boolean" },
-                "reason_code": { "type": "string" },
-                "message": { "type": "string" },
-                "expected": { "type": ["string", "null"] },
-                "actual": { "type": ["string", "null"] },
-                "ignored": { "type": "boolean" }
-              },
-              "additionalProperties": false
-            }
-          },
+          "checks": { "type": "array", "items": { "type": "object" } },
+          "metric_values": { "type": "object", "additionalProperties": { "type": "number" } },
+          "invariant_outcomes": { "type": "object", "additionalProperties": { "type": "boolean" } },
+          "structural_signature": { "type": "object" },
           "baseline_diff": { "type": ["object", "null"] }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "aggregate_results": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["check_name", "verdict", "trials", "successes", "pass_rate", "confidence_interval", "confidence_level", "pass_rate_threshold", "decision_rule", "trial_outcomes"],
+        "required": ["check_name", "kind", "direction", "mode", "verdict", "decision_rule", "stopping_rule", "trials_used", "trials_budgeted", "trial_outcomes", "evidence"],
         "properties": {
           "check_name": { "type": "string" },
-          "verdict": { "enum": ["pass", "fail", "inconclusive"] },
-          "trials": { "type": "integer", "minimum": 1 },
-          "successes": { "type": "integer", "minimum": 0 },
-          "pass_rate": { "type": "number", "minimum": 0, "maximum": 1 },
-          "confidence_interval": {
-            "type": "array",
-            "prefixItems": [
-              { "type": "number", "minimum": 0, "maximum": 1 },
-              { "type": "number", "minimum": 0, "maximum": 1 }
-            ],
-            "minItems": 2,
-            "maxItems": 2
-          },
-          "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-          "pass_rate_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
-          "decision_rule": { "type": "string" },
-          "trial_outcomes": { "type": "array", "items": { "type": "boolean" } }
+          "kind": { "enum": ["invariant", "measured", "distributional", "statistical"] },
+          "direction": { "type": ["string", "null"], "enum": ["upper", "lower", "both", null] },
+          "mode": { "enum": ["gating", "report_only"] },
+          "verdict": { "type": ["string", "null"], "enum": ["pass", "fail", "inconclusive", null] },
+          "decision_rule": { "enum": ["invariant", "tolerance", "wilson_one_sided", "report_only"] },
+          "stopping_rule": { "enum": ["fixed_n", "fixed_n_fail_fast"] },
+          "trials_used": { "type": "integer", "minimum": 1 },
+          "trials_budgeted": { "type": "integer", "minimum": 1 },
+          "trial_outcomes": { "type": "array", "items": { "type": "boolean" } },
+          "evidence": { "type": "object" }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }
