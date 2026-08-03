@@ -7,6 +7,7 @@ import importlib
 __lazy_imports__ = {
     "crewai": ("maida.integrations.crewai", None),
     "langchain": ("maida.integrations.langchain", None),
+    "langfuse": ("maida.integrations.langfuse", None),
     "openai_agents": ("maida.integrations.openai_agents", None),
     "LangChainCallbackHandler": (
         "maida.integrations.langchain",
