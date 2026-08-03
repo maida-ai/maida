@@ -1,6 +1,6 @@
 # CLI
 
-The `maida` CLI runs the bundled demo, scaffolds a project, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+The `maida` CLI runs the bundled demo, scaffolds a project, imports existing traces, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
 
 Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
 
@@ -62,6 +62,51 @@ write-back supports same-repository PR branches only and requires the commenter
 to have repository write access.
 
 **Exit codes:** `0` success; `10` internal error.
+
+---
+
+## `maida import langfuse`
+
+Imports existing Langfuse traces through the read-only v2 observations API and
+stores validated Maida runs locally. One Langfuse trace becomes one Maida run.
+
+**Usage:**
+
+```bash
+maida import langfuse --trace-id TRACE_ID [--base-url URL] [--json]
+maida import langfuse --from TIME --to TIME [FILTERS] [--json]
+```
+
+**Selection options:**
+
+| Option | Description |
+|---|---|
+| `--trace-id` | Import one complete Langfuse trace; mutually exclusive with range options |
+| `--from` | Inclusive, timezone-aware start of range discovery |
+| `--to` | Exclusive, timezone-aware end of range discovery |
+| `--trace-name` | Restrict range discovery to one recurring trace name |
+| `--session-id` | Restrict range discovery to one Langfuse session |
+| `--environment` | Restrict discovery to an environment; repeat for multiple values |
+| `--base-url` | Override `LANGFUSE_BASE_URL` for cloud region or self-hosting |
+| `--json` | Print a machine-readable import summary |
+
+Set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` before running the command.
+`LANGFUSE_TIMEOUT` optionally controls the request timeout. The command performs
+only `GET /api/public/v2/observations` requests and writes only to local Maida
+storage.
+
+**Examples:**
+
+```bash
+maida import langfuse --trace-id 7f0d4a2c...
+maida import langfuse --from 2026-08-01T00:00:00Z --to 2026-08-02T00:00:00Z --trace-name support-agent
+```
+
+**Exit codes:** `0` imported or already present; `2` invalid selection, no
+matches, or only incomplete traces; `10` API, normalization, or storage failure.
+
+See [Importing Langfuse traces](langfuse.md) for the mapping, pagination,
+redaction, idempotence, and self-hosted ClickHouse reference.
 
 ---
 

@@ -196,3 +196,29 @@ def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
         "tool_calls = 3 if regression else 1",
     ):
         assert snippet in example
+
+
+def test_langfuse_docs_cover_read_only_import_and_mapping_contract():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    cli_docs = (ROOT / "docs/cli.md").read_text(encoding="utf-8")
+    integration_docs = (ROOT / "docs/integrations.md").read_text(encoding="utf-8")
+    langfuse_docs = (ROOT / "docs/langfuse.md").read_text(encoding="utf-8")
+    combined = "\n".join([readme, cli_docs, integration_docs, langfuse_docs])
+
+    for snippet in (
+        "Langfuse tells you what happened; Maida tells you whether it changed.",
+        "maida import langfuse --trace-id",
+        "GET /api/public/v2/observations",
+        "LANGFUSE_PUBLIC_KEY",
+        "LANGFUSE_SECRET_KEY",
+        "One Langfuse trace becomes one Maida run",
+        "structural span",
+        "Missing parents",
+        "ClickHouse",
+        "fully synthetic",
+        "read-only",
+    ):
+        assert snippet in combined
+
+    assert "Maida is an observability platform" not in combined
+    assert "Maida is a monitoring platform" not in combined

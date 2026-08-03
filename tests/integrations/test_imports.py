@@ -15,6 +15,7 @@ def has_module(name):
 INTEGRATIONS = [  # name, dependency
     ("crewai", "crewai"),
     ("langchain", "langchain_core"),
+    ("langfuse", "json"),
     ("openai_agents", "agents"),
 ]
 
@@ -26,10 +27,12 @@ def reload_integrations():
     integrations = importlib.import_module("maida.integrations")
     sys.modules.pop("maida.integrations.crewai", None)
     sys.modules.pop("maida.integrations.langchain", None)
+    sys.modules.pop("maida.integrations.langfuse", None)
     sys.modules.pop("maida.integrations.openai_agents", None)
 
     integrations.__dict__.pop("crewai", None)
     integrations.__dict__.pop("langchain", None)
+    integrations.__dict__.pop("langfuse", None)
     integrations.__dict__.pop("openai_agents", None)
     integrations.__dict__.pop("LangChainCallbackHandler", None)
 
@@ -39,6 +42,7 @@ def reload_integrations():
 def test_no_eager_imports(reload_integrations):
     assert "maida.integrations.crewai" not in sys.modules
     assert "maida.integrations.langchain" not in sys.modules
+    assert "maida.integrations.langfuse" not in sys.modules
     assert "LangChainCallbackHandler" not in sys.modules
 
 

@@ -227,6 +227,28 @@ When a guardrail fires in a hook, the adapter stores the public
 
 ---
 
+### Langfuse trace import
+
+**Status: available.** Langfuse tells you what happened; Maida tells you whether
+it changed. This read-only import path converts already-captured Langfuse
+observations into local Maida runs without adding an in-process framework hook:
+
+```bash
+maida import langfuse --trace-id 7f0d4a2c...
+```
+
+The importer uses `GET /api/public/v2/observations`, preserves generation and
+tool calls as normalized Maida signals, and retains agents, chains, and other
+container observations as structural spans. Missing parents attach to a
+synthetic root, source content is redacted before local persistence, and no
+Langfuse write API is called.
+
+See the [Langfuse import guide](langfuse.md) for credentials, bounded range
+selection, pagination, the complete mapping contract, ClickHouse guidance for
+self-hosted operators, and the fully synthetic baseline/regression fixture.
+
+---
+
 ## Planned
 
 Planned framework adapters (not yet implemented):

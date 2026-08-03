@@ -1,7 +1,7 @@
 """
 Typer CLI for Maida.
 
-Commands: list, export, view, baseline, accept, assert, diff.
+Commands: list, export, view, baseline, accept, assert, diff, import.
 Entrypoint: main() for console script maida.cli:main.
 """
 
@@ -45,6 +45,12 @@ from maida.demo import (
     run_refactored_agent,
 )
 from maida.diff import compute_diff, format_diff_text
+from maida.integrations.langfuse import (
+    LangfuseImportError,
+    LangfuseInputError,
+    client_from_environment,
+    import_langfuse_traces,
+)
 from maida.policy import load_policy, merge_policy
 from maida.runner import RunExecutionError, run_trials
 from maida.statistics import GateVerdict
@@ -61,7 +67,9 @@ EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
 
-app = typer.Typer(help="Maida CLI: list runs, export, or view in browser.")
+app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
+import_app = typer.Typer(help="Import existing traces into local Maida storage.")
+app.add_typer(import_app, name="import")
 
 
 def _version_callback(value: bool) -> None:
@@ -143,6 +151,128 @@ def _exit_unsupported_trace_format(error: storage.UnsupportedTraceFormatError) -
 def _exit_run_validation_error(error: storage.RunValidationError) -> None:
     typer.echo(str(error), err=True)
     raise Exit(EXIT_NOT_FOUND)
+
+
+def _emit_langfuse_error(
+    *, kind: str, prefix: str, error: Exception, json_out: bool
+) -> None:
+    if json_out:
+        print(
+            json.dumps(
+                {"error": {"kind": kind, "message": str(error)}},
+                ensure_ascii=False,
+            )
+        )
+    else:
+        typer.echo(f"{prefix}: {error}", err=True)
+
+
+@import_app.command("langfuse")
+def import_langfuse_cmd(
+    trace_id: str | None = typer.Option(
+        None,
+        "--trace-id",
+        help="Import one complete Langfuse trace by source trace ID",
+    ),
+    from_time: str | None = typer.Option(
+        None,
+        "--from",
+        help="Inclusive timezone-aware observation start time",
+    ),
+    to_time: str | None = typer.Option(
+        None,
+        "--to",
+        help="Exclusive timezone-aware observation start time",
+    ),
+    trace_name: str | None = typer.Option(
+        None,
+        "--trace-name",
+        help="Restrict range discovery to a recurring Langfuse trace name",
+    ),
+    session_id: str | None = typer.Option(
+        None,
+        "--session-id",
+        help="Restrict range discovery to a Langfuse session",
+    ),
+    environment: list[str] | None = typer.Option(
+        None,
+        "--environment",
+        help="Restrict discovery to an environment; repeat for multiple values",
+    ),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        help="Langfuse cloud or self-hosted base URL",
+    ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="Output a machine-readable import summary",
+    ),
+) -> None:
+    """Import Langfuse traces through the read-only v2 observations API."""
+    try:
+        config = load_config()
+        client = client_from_environment(base_url)
+        summary = import_langfuse_traces(
+            client,
+            config,
+            source_trace_id=trace_id,
+            from_time=from_time,
+            to_time=to_time,
+            trace_name=trace_name,
+            session_id=session_id,
+            environments=tuple(environment or ()),
+        )
+        payload = summary.as_dict()
+        if json_out:
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            for item in summary.imported:
+                typer.echo(f"Imported {item['run_name']} as {item['trace_id'][:8]}")
+            for item in summary.skipped:
+                label = item.get("run_name") or item["source_trace_id"]
+                typer.echo(f"Skipped {label}: {item['reason']}")
+            if summary.unmapped_observation_types:
+                typer.echo(
+                    "Preserved unknown Langfuse observation types as structural "
+                    f"spans: {', '.join(sorted(summary.unmapped_observation_types))}",
+                    err=True,
+                )
+        if (
+            not summary.imported
+            and summary.skipped
+            and not any(
+                item.get("reason") == "already imported" for item in summary.skipped
+            )
+        ):
+            raise Exit(EXIT_NOT_FOUND)
+    except Exit:
+        raise
+    except LangfuseInputError as exc:
+        _emit_langfuse_error(
+            kind="invalid_input",
+            prefix="Invalid Langfuse import",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+    except LangfuseImportError as exc:
+        _emit_langfuse_error(
+            kind="import_failed",
+            prefix="Langfuse import failed",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_INTERNAL)
+    except Exception as exc:
+        _emit_langfuse_error(
+            kind="internal_error",
+            prefix="error",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_INTERNAL)
 
 
 @app.command(name="run")

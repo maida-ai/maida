@@ -420,6 +420,26 @@ uses no API key or network calls. Its `--regression` mode repeats the same
 `search_docs` call three times so a strict baseline assertion catches the
 structural change.
 
+### Langfuse trace import
+
+**Langfuse tells you what happened; Maida tells you whether it changed.** Import
+an existing Langfuse trace through its read-only observations API, then use the
+normal local baseline and gate workflow:
+
+```bash
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+maida import langfuse --trace-id 7f0d4a2c...
+maida baseline --out .maida/baselines/support-agent.json
+maida assert --baseline .maida/baselines/support-agent.json
+```
+
+One Langfuse trace becomes one Maida run. No additional dependency is needed,
+and the importer neither changes Langfuse data nor sends the imported run to a
+hosted Maida service. See the [Langfuse import guide](docs/langfuse.md) for
+range selection, the mapping contract, self-hosting, and the fully synthetic
+conformance fixture.
+
 More framework adapters coming soon (Agno, and others).
 
 
