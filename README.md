@@ -436,7 +436,8 @@ maida assert --baseline .maida/baselines/support-agent.json
 
 One Langfuse trace becomes one Maida run. No additional dependency is needed,
 and the importer neither changes Langfuse data nor sends the imported run to a
-hosted Maida service. See the [Langfuse import guide](docs/langfuse.md) for
+hosted Maida service. Until the next PyPI release, install Maida from `main` as
+shown in the [Langfuse import guide](docs/langfuse.md), which also covers
 range selection, the mapping contract, self-hosting, and the fully synthetic
 conformance fixture.
 

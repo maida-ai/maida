@@ -5,11 +5,11 @@ from pathlib import Path
 POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
 CHECKOUT_ACTION_REF = "actions/checkout@v7"
-MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@V5"
+MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@main"
 MAIDA_ACCEPT_ACTION_REF = "maida-ai/maida-assert/accept-command@main"
 
 POLICY_TEMPLATE = """\
-# Maida policy v2 - enforced locally and by maida-assert V5.
+# Maida policy v2 - enforced locally and by maida-assert main.
 # `confidence` is one-sided coverage (0.95 uses z = 1.645).
 # Measured tolerances compare against the immutable checked-in baseline sample.
 version: 2
