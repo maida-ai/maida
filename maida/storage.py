@@ -793,6 +793,47 @@ def load_validated_run(trace_id: str, config: MaidaConfig) -> tuple[dict, list[d
     return meta, spans
 
 
+def install_validated_run(meta: dict, spans: list[dict], config: MaidaConfig) -> Path:
+    """Atomically install a complete externally-produced current-format run.
+
+    The payload is validated before any filesystem mutation. Existing run
+    directories are never replaced; callers may inspect an existing run and
+    decide whether their import is idempotent before calling this function.
+    """
+    trace_id = _validate_trace_id(meta.get("trace_id"))
+    _validate_meta(trace_id, meta)
+    _validate_spans(
+        trace_id,
+        spans,
+        require_root_span=meta.get("status") != "running",
+    )
+
+    runs_dir = _runs_dir(config)
+    final_dir = _trace_dir(trace_id, config)
+    if final_dir.exists():
+        raise FileExistsError(f"Run {trace_id} already exists")
+
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    staging_dir = runs_dir / f".{trace_id}.{uuid.uuid4().hex}.tmp"
+    staging_dir.mkdir()
+    try:
+        _atomic_write_json(staging_dir / META_JSON, meta)
+        spans_path = staging_dir / SPANS_JSONL
+        with open(spans_path, "w", encoding="utf-8") as f:
+            for span in spans:
+                f.write(json.dumps(span, ensure_ascii=False, default=str) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+
+        if final_dir.exists():
+            raise FileExistsError(f"Run {trace_id} already exists")
+        os.replace(staging_dir, final_dir)
+    except Exception:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+    return final_dir
+
+
 def resolve_run_id(prefix: str, config: MaidaConfig) -> str:
     """Compatibility wrapper for legacy run IDs and new trace IDs."""
     if not prefix or not prefix.strip():

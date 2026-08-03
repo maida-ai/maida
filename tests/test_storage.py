@@ -13,6 +13,7 @@ from maida.storage import (
     RunValidationError,
     _validate_trace_id,
     delete_run,
+    install_validated_run,
     list_runs,
     load_validated_run,
     load_run_meta,
@@ -148,6 +149,44 @@ def _write_validated_run(config, trace_id, *, meta=None, spans=None):
     ]
     (run_dir / "spans.jsonl").write_text("\n".join(span_lines) + "\n", encoding="utf-8")
     return run_dir
+
+
+def test_install_validated_run_writes_strictly_readable_run(temp_data_dir):
+    config = load_config()
+    trace_id = "9" * 32
+    meta = _valid_meta(trace_id, run_name="imported")
+    spans = [_valid_root_span(trace_id, run_name="imported")]
+
+    installed = install_validated_run(meta, spans, config)
+
+    assert installed == config.data_dir / "runs" / trace_id
+    assert load_validated_run(trace_id, config) == (meta, spans)
+
+
+def test_install_validated_run_never_overwrites_existing_run(temp_data_dir):
+    config = load_config()
+    trace_id = "8" * 32
+    meta = _valid_meta(trace_id)
+    spans = [_valid_root_span(trace_id)]
+    install_validated_run(meta, spans, config)
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        install_validated_run(meta, spans, config)
+
+
+def test_install_validated_run_rejects_invalid_payload_before_writing(
+    temp_data_dir,
+):
+    config = load_config()
+    trace_id = "7" * 32
+    meta = _valid_meta(trace_id)
+    invalid_span = _valid_root_span(trace_id)
+    invalid_span.pop("events")
+
+    with pytest.raises(RunValidationError, match="missing field 'events'"):
+        install_validated_run(meta, [invalid_span], config)
+
+    assert not (config.data_dir / "runs" / trace_id).exists()
 
 
 def test_load_spans_returns_spans(temp_data_dir):
