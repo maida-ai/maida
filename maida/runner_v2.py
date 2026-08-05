@@ -46,15 +46,16 @@ class RunExecutionError(RuntimeError):
 
 @dataclass(frozen=True)
 class TrialRecord:
-    """One isolated agent invocation and its raw tier evidence."""
+    """One sampled agent execution and its raw tier evidence."""
 
     trial: int
     trace_id: str
     run_name: str | None
-    process_exit_code: int
+    process_exit_code: int | None
     stdout: str
     stderr: str
     assertion_report: AssertionReport
+    run_status: str | None = None
     baseline_diff: dict[str, Any] | None = None
     metric_values: dict[str, float] = field(default_factory=dict)
     invariant_outcomes: dict[str, bool] = field(default_factory=dict)
@@ -62,14 +63,19 @@ class TrialRecord:
 
     @property
     def passed(self) -> bool:
-        return (
+        process_succeeded = (
             self.process_exit_code == 0
+            if self.process_exit_code is not None
+            else self.run_status == "ok"
+        )
+        return (
+            process_succeeded
             and self.assertion_report.passed
             and all(self.invariant_outcomes.values())
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "trial": self.trial,
             "trace_id": self.trace_id,
             "run_name": self.run_name,
@@ -94,11 +100,14 @@ class TrialRecord:
             "structural_signature": self.structural_signature,
             "baseline_diff": self.baseline_diff,
         }
+        if self.run_status is not None:
+            payload["run_status"] = self.run_status
+        return payload
 
 
 @dataclass(frozen=True)
 class TrialRunReport:
-    """Collected evidence and verdicts for a fixed trial budget."""
+    """Collected evidence and verdicts for a fixed execution sample."""
 
     trials_requested: int
     trials: list[TrialRecord] = field(default_factory=list)
@@ -108,6 +117,11 @@ class TrialRunReport:
     stopping_rule: str = "fixed_n"
     abort_reason: str | None = None
     environment_fingerprint: dict[str, Any] = field(default_factory=dict)
+    report_kind: str = "gate"
+    agent_name: str | None = None
+    window_input_format: str | None = None
+    baseline_source_run_id: str | None = None
+    baseline_source_run_name: str | None = None
 
     @property
     def verdict(self) -> GateVerdict:
@@ -122,31 +136,44 @@ class TrialRunReport:
         return None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        metadata = {
+            "trials_used": len(self.trials),
+            "trials_budgeted": self.trials_requested,
+            "stopping_rule": self.stopping_rule,
+            "abort_reason": self.abort_reason,
+            "environment_fingerprint": self.environment_fingerprint,
+        }
+        payload = {
             "report_version": REPORT_VERSION,
             "trials_requested": self.trials_requested,
             "verdict": self.verdict.value,
             "passed": self.passed,
-            "metadata": {
-                "trials_used": len(self.trials),
-                "trials_budgeted": self.trials_requested,
-                "stopping_rule": self.stopping_rule,
-                "abort_reason": self.abort_reason,
-                "environment_fingerprint": self.environment_fingerprint,
-            },
+            "metadata": metadata,
             "trials": [trial.to_dict() for trial in self.trials],
             "aggregate_results": [
                 result.to_dict() for result in self.aggregate_results
             ],
         }
+        if self.report_kind != "gate":
+            payload["report_kind"] = self.report_kind
+            metadata.update(
+                {
+                    "agent_name": self.agent_name,
+                    "window_input_format": self.window_input_format,
+                    "baseline_source_run_id": self.baseline_source_run_id,
+                    "baseline_source_run_name": self.baseline_source_run_name,
+                }
+            )
+        return payload
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
     def to_text(self) -> str:
+        label = "Window trace" if self.report_kind == "drift" else "Trial"
         lines = [
             (
-                f"Trial {trial.trial}/{self.trials_requested}: "
+                f"{label} {trial.trial}/{self.trials_requested}: "
                 f"{'PASS' if trial.passed else 'FAIL'} "
                 f"(trace {trial.trace_id[:8]})"
             )
@@ -166,14 +193,23 @@ class TrialRunReport:
             GateVerdict.FAIL: "❌",
             GateVerdict.INCONCLUSIVE: "⚪",
         }
+        heading = "Maida drift check" if self.report_kind == "drift" else "Maida gate"
+        sample_description = (
+            f"{len(self.trials)} traces in window"
+            if self.report_kind == "drift"
+            else f"{len(self.trials)}/{self.trials_requested} trials used"
+        )
         lines = [
-            f"## {icons[self.verdict]} Maida gate: {self.verdict.value}",
+            f"## {icons[self.verdict]} {heading}: {self.verdict.value}",
             "",
-            f"**{len(self.trials)}/{self.trials_requested} trials used** · "
-            f"stopping rule `{self.stopping_rule}`",
+            f"**{sample_description}** · stopping rule `{self.stopping_rule}`",
         ]
         if self.abort_reason:
             lines.append(f" · aborted: `{self.abort_reason}`")
+        trace_value_heading = (
+            "Run status" if self.report_kind == "drift" else "Process exit"
+        )
+        sample_item_heading = "Trace" if self.report_kind == "drift" else "Trial"
         lines.extend(
             [
                 "",
@@ -219,9 +255,13 @@ class TrialRunReport:
         lines.extend(
             [
                 "",
-                "### Trial traces",
+                (
+                    "### Window traces"
+                    if self.report_kind == "drift"
+                    else "### Trial traces"
+                ),
                 "",
-                "| Trial | Outcome | Trace | Process exit | Baseline changes |",
+                f"| {sample_item_heading} | Outcome | Trace | {trace_value_heading} | Baseline changes |",
                 "| ---: | --- | --- | ---: | --- |",
             ]
         )
@@ -234,9 +274,13 @@ class TrialRunReport:
                     f"new tool: {tool}" for tool in diff.get("new_tools", [])
                 )
                 changes = ", ".join(changed) if changed else "none"
+            if self.report_kind == "drift":
+                execution_value = trial.run_status or "unknown"
+            else:
+                execution_value = str(trial.process_exit_code)
             lines.append(
                 f"| {trial.trial} | {'PASS' if trial.passed else 'FAIL'} | "
-                f"`{trial.trace_id[:8]}` | {trial.process_exit_code} | {changes} |"
+                f"`{trial.trace_id[:8]}` | {execution_value} | {changes} |"
             )
         if self.verdict is GateVerdict.INCONCLUSIVE:
             lines.extend(
