@@ -229,3 +229,24 @@ def test_langfuse_docs_cover_read_only_import_and_mapping_contract():
 
     assert "Maida is an observability platform" not in combined
     assert "Maida is a monitoring platform" not in combined
+
+
+def test_scheduled_checks_document_drift_contract_and_future_inputs():
+    guide = (ROOT / "docs/scheduled-checks.md").read_text(encoding="utf-8")
+    cli = (ROOT / "docs/cli.md").read_text(encoding="utf-8")
+    combined = "\n".join([guide, cli])
+
+    for snippet in (
+        "maida drift",
+        "--window",
+        "one baseline per invocation",
+        "Canary promotion",
+        "report_kind: drift",
+        "maida export",
+        "issues/172",
+        "Directory fanout",
+        "INCONCLUSIVE",
+    ):
+        assert snippet in combined
+
+    assert "monitoring" not in combined.lower()
