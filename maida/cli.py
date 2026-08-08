@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import uvicorn
 from typer import Exit
 
 import maida.storage as storage
@@ -187,8 +188,6 @@ def capture_claude_code_cmd(
 ) -> None:
     """Receive Claude Code logs and beta traces over OTLP HTTP/protobuf."""
     try:
-        import uvicorn
-
         config = load_config()
         receiver = create_claude_code_app(config)
         typer.echo(
