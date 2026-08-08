@@ -250,6 +250,25 @@ def test_load_validated_run_accepts_current_trace_contract(temp_data_dir):
     assert spans[0]["trace_id"] == trace_id
 
 
+def test_load_validated_run_rejects_meta_trace_id_that_differs_from_directory(
+    temp_data_dir,
+):
+    config = load_config()
+    directory_trace_id = "abcabc11" + "a" * 24
+    payload_trace_id = "abcabc11" + "b" * 24
+    _write_validated_run(
+        config,
+        directory_trace_id,
+        meta=_valid_meta(payload_trace_id),
+        spans=[_valid_root_span(payload_trace_id)],
+    )
+
+    with pytest.raises(RunValidationError) as excinfo:
+        load_validated_run(directory_trace_id, config)
+
+    assert "meta.json trace_id does not match run directory" in str(excinfo.value)
+
+
 def test_resolve_trace_id_for_read_keeps_incomplete_exact_trace_for_validation(
     temp_data_dir,
 ):
