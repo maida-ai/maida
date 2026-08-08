@@ -275,6 +275,14 @@ Point Claude Code's OTLP HTTP/protobuf logs and beta traces at
 capture locally for later import and gating. See
 [docs/claude-code.md](docs/claude-code.md) for the complete configuration.
 
+```bash
+maida import claude-code --session-id "$CLAUDE_SESSION_ID"
+maida baseline --out .maida/baselines/claude-code.json
+```
+
+Imports use the current framework-agnostic Maida trace schema, so the normal
+baseline, assertion, diff, and viewer commands work unchanged.
+
 
 ## Regression testing
 

@@ -53,6 +53,11 @@ from maida.integrations.langfuse import (
     client_from_environment,
     import_langfuse_traces,
 )
+from maida.integrations.claude_code import (
+    ClaudeCaptureImportError,
+    ClaudeCaptureInputError,
+    import_claude_capture,
+)
 from maida.policy import load_policy, merge_policy
 from maida.runner import RunExecutionError, run_trials
 from maida.statistics import GateVerdict
@@ -171,6 +176,20 @@ def _emit_langfuse_error(
         typer.echo(f"{prefix}: {error}", err=True)
 
 
+def _emit_claude_capture_error(
+    *, kind: str, prefix: str, error: Exception, json_out: bool
+) -> None:
+    if json_out:
+        print(
+            json.dumps(
+                {"error": {"kind": kind, "message": str(error)}},
+                ensure_ascii=False,
+            )
+        )
+    else:
+        typer.echo(f"{prefix}: {error}", err=True)
+
+
 @capture_app.command("claude-code")
 def capture_claude_code_cmd(
     host: str = typer.Option(
@@ -205,6 +224,76 @@ def capture_claude_code_cmd(
         raise
     except Exception as exc:
         typer.echo(f"error: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
+@import_app.command("claude-code")
+def import_claude_code_cmd(
+    session_id: str = typer.Option(
+        ...,
+        "--session-id",
+        help="Raw Claude Code session ID used to locate the hashed capture",
+    ),
+    segment: str = typer.Option(
+        "latest",
+        "--segment",
+        help="Immutable capture segment ID, or latest",
+    ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="Output a machine-readable import summary",
+    ),
+) -> None:
+    """Normalize and install one locally captured Claude Code session."""
+    try:
+        result = import_claude_capture(
+            session_id,
+            load_config(),
+            segment=segment,
+        )
+        if segment == "latest":
+            typer.echo(
+                f"Using Claude Code capture segment: {result.segment}",
+                err=True,
+            )
+        if json_out:
+            print(json.dumps(result.as_dict(), ensure_ascii=False))
+        elif result.imported:
+            typer.echo(
+                f"Imported Claude Code capture {result.session_hash[:12]} "
+                f"segment {result.segment} as {result.trace_id[:8]}"
+            )
+        else:
+            typer.echo(
+                f"Claude Code capture {result.session_hash[:12]} segment "
+                f"{result.segment} is already imported as {result.trace_id[:8]}"
+            )
+    except Exit:
+        raise
+    except ClaudeCaptureInputError as exc:
+        _emit_claude_capture_error(
+            kind="invalid_capture",
+            prefix="Invalid Claude Code capture",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+    except ClaudeCaptureImportError as exc:
+        _emit_claude_capture_error(
+            kind="import_failed",
+            prefix="Claude Code import failed",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_INTERNAL)
+    except Exception as exc:
+        _emit_claude_capture_error(
+            kind="internal_error",
+            prefix="error",
+            error=exc,
+            json_out=json_out,
+        )
         raise Exit(EXIT_INTERNAL)
 
 
