@@ -264,6 +264,17 @@ maida diff <RUN_A> <RUN_B>
 maida diff --baseline .maida/baselines/my_agent.json  # latest run vs baseline
 ```
 
+### Capture Claude Code without agent patches
+
+```bash
+maida capture claude-code
+```
+
+Point Claude Code's OTLP HTTP/protobuf logs and beta traces at
+`http://127.0.0.1:4318`. Maida validates, redacts, and persists the source
+capture locally for later import and gating. See
+[docs/claude-code.md](docs/claude-code.md) for the complete configuration.
+
 
 ## Regression testing
 

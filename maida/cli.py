@@ -36,6 +36,7 @@ from maida.baseline import (
     load_baseline,
     save_baseline,
 )
+from maida.capture.claude_code import create_claude_code_app
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
@@ -68,7 +69,9 @@ EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
+capture_app = typer.Typer(help="Capture external agent behavior locally.")
 import_app = typer.Typer(help="Import existing traces into local Maida storage.")
+app.add_typer(capture_app, name="capture")
 app.add_typer(import_app, name="import")
 
 
@@ -165,6 +168,45 @@ def _emit_langfuse_error(
         )
     else:
         typer.echo(f"{prefix}: {error}", err=True)
+
+
+@capture_app.command("claude-code")
+def capture_claude_code_cmd(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="OTLP HTTP bind host",
+    ),
+    port: int = typer.Option(
+        4318,
+        "--port",
+        min=1,
+        max=65535,
+        help="OTLP HTTP bind port",
+    ),
+) -> None:
+    """Receive Claude Code logs and beta traces over OTLP HTTP/protobuf."""
+    try:
+        import uvicorn
+
+        config = load_config()
+        receiver = create_claude_code_app(config)
+        typer.echo(
+            f"Listening for Claude Code OTLP on http://{host}:{port}",
+            err=True,
+        )
+        uvicorn.run(
+            app=receiver,
+            host=host,
+            port=port,
+            access_log=False,
+            log_level="warning",
+        )
+    except (KeyboardInterrupt, typer.Exit):
+        raise
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
 
 
 @import_app.command("langfuse")
