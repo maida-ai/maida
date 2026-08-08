@@ -75,6 +75,23 @@ to overwrite the installed run. The trace schema remains at its current
 version; normal `maida baseline`, `maida assert`, `maida diff`, and `maida view`
 commands work without a Claude-specific downstream policy path.
 
+## Gate a capture locally
+
+Use capture-backed diff mode to import the latest segment and run the same
+behavioral gate that produces Maida's PR comment:
+
+```bash
+maida diff --capture "$CLAUDE_SESSION_ID" \
+  --baseline .maida/baselines/my_agent.json \
+  --policy .maida/policy.yaml \
+  --format markdown
+```
+
+The command exits `0` when policy checks pass, `1` for a behavioral regression,
+`2` for invalid input or capture data, and `10` for an import/runtime failure.
+The selected segment and idempotent import result are reported on stderr;
+stdout contains only the requested text, JSON, or Markdown assertion report.
+
 Use `--host` and `--port` to change the bind address. Keep the receiver on a
 trusted interface: it intentionally has no authentication because its default
 use is a local process or an isolated CI job.

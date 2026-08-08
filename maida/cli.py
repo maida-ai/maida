@@ -20,6 +20,7 @@ from typing import Annotated
 
 import typer
 import uvicorn
+import yaml
 from typer import Exit
 
 import maida.storage as storage
@@ -54,6 +55,7 @@ from maida.demo import (
     run_refactored_agent,
 )
 from maida.diff import compute_diff, format_diff_text
+from maida.evaluation import evaluate_stored_run_against_baseline
 from maida.integrations.langfuse import (
     LangfuseImportError,
     LangfuseInputError,
@@ -982,24 +984,25 @@ def assert_cmd(
                 typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
                 raise Exit(EXIT_NOT_FOUND)
 
-        report = run_assertions(run_id, policy, baseline=bl, config=config)
-
-        run_diff = None
         if bl is not None:
-            run_diff = compute_diff(run_id, baseline=bl, config=config)
-
-        if output_format == "json":
-            typer.echo(format_report_json(report))
-        elif output_format == "markdown":
-            typer.echo(
-                format_report_markdown(
-                    report,
-                    diff=run_diff,
-                    baseline_path=str(baseline_path) if baseline_path else None,
-                )
+            evaluation = evaluate_stored_run_against_baseline(
+                run_id, bl, policy, config
             )
+            report = evaluation.report
+            render_format = (
+                output_format
+                if output_format in {"text", "json", "markdown"}
+                else "text"
+            )
+            typer.echo(evaluation.render(render_format, baseline_path=baseline_path))
         else:
-            typer.echo(format_report_text(report, diff=run_diff))
+            report = run_assertions(run_id, policy, config=config)
+            if output_format == "json":
+                typer.echo(format_report_json(report))
+            elif output_format == "markdown":
+                typer.echo(format_report_markdown(report))
+            else:
+                typer.echo(format_report_text(report))
 
         if not report.passed:
             raise Exit(1)
@@ -1225,13 +1228,103 @@ def diff_cmd(
     baseline_path: Path | None = typer.Option(
         None, "--baseline", "-b", help="Baseline JSON file to compare against"
     ),
+    capture_session_id: str | None = typer.Option(
+        None,
+        "--capture",
+        help="Claude Code session ID to import and evaluate",
+    ),
+    policy_path: Path | None = typer.Option(
+        None,
+        "--policy",
+        help="Policy YAML file for capture gate mode",
+    ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text"
+        "text", "--format", "-f", help="Output format: text, json, markdown"
     ),
 ) -> None:
-    """Compare two runs or a run against a baseline."""
+    """Inspect stored runs, or gate a Claude capture against a baseline."""
     try:
         config = load_config()
+
+        if capture_session_id is not None:
+            if run_a is not None or run_b is not None:
+                typer.echo(
+                    "error: positional run IDs cannot be used with --capture",
+                    err=True,
+                )
+                raise Exit(EXIT_NOT_FOUND)
+            if baseline_path is None:
+                typer.echo("error: --baseline is required with --capture", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+            if output_format not in {"text", "json", "markdown"}:
+                typer.echo(
+                    "error: --format must be text, json, or markdown",
+                    err=True,
+                )
+                raise Exit(EXIT_NOT_FOUND)
+
+            try:
+                bl = load_baseline(baseline_path)
+            except FileNotFoundError:
+                typer.echo(f"Baseline not found: {baseline_path}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+            except (json.JSONDecodeError, OSError, UnicodeError, ValueError):
+                typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+
+            policy = AssertionPolicy()
+            selected_policy = policy_path
+            if selected_policy is None:
+                default_policy = LOCAL_DIR_NAME / "policy.yaml"
+                if default_policy.is_file():
+                    selected_policy = default_policy
+            if selected_policy is not None:
+                try:
+                    policy = load_policy(selected_policy)
+                except (
+                    FileNotFoundError,
+                    OSError,
+                    UnicodeError,
+                    ValueError,
+                    yaml.YAMLError,
+                ):
+                    typer.echo(f"Invalid policy file: {selected_policy}", err=True)
+                    raise Exit(EXIT_NOT_FOUND)
+
+            imported = import_claude_capture(capture_session_id, config)
+            typer.echo(
+                f"Using Claude Code capture segment: {imported.segment}",
+                err=True,
+            )
+            if imported.imported:
+                typer.echo(
+                    f"Imported Claude Code capture {imported.session_hash[:12]} "
+                    f"segment {imported.segment} as {imported.trace_id[:8]}",
+                    err=True,
+                )
+            else:
+                typer.echo(
+                    f"Claude Code capture {imported.session_hash[:12]} segment "
+                    f"{imported.segment} is already imported as "
+                    f"{imported.trace_id[:8]}",
+                    err=True,
+                )
+
+            evaluation = evaluate_stored_run_against_baseline(
+                imported.trace_id,
+                bl,
+                policy,
+                config,
+            )
+            typer.echo(evaluation.render(output_format, baseline_path=baseline_path))
+            if not evaluation.passed:
+                raise Exit(1)
+            return
+
+        if policy_path is not None:
+            typer.echo("error: --policy requires --capture", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+
         try:
             run_a = _resolve_run_or_latest(run_a, config)
         except FileNotFoundError as e:
@@ -1260,9 +1353,21 @@ def diff_cmd(
         typer.echo(format_diff_text(d))
     except Exit:
         raise
+    except ClaudeCaptureInputError as e:
+        typer.echo(f"Invalid Claude Code capture: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except ClaudeCaptureImportError as e:
+        typer.echo(f"Claude Code import failed: {e}", err=True)
+        raise Exit(EXIT_INTERNAL)
     except storage.UnsupportedTraceFormatError as e:
+        if capture_session_id is not None:
+            typer.echo(f"error: {e}", err=True)
+            raise Exit(EXIT_INTERNAL)
         _exit_unsupported_trace_format(e)
     except storage.RunValidationError as e:
+        if capture_session_id is not None:
+            typer.echo(f"error: {e}", err=True)
+            raise Exit(EXIT_INTERNAL)
         _exit_run_validation_error(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)

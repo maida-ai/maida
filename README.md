@@ -264,6 +264,21 @@ maida diff <RUN_A> <RUN_B>
 maida diff --baseline .maida/baselines/my_agent.json  # latest run vs baseline
 ```
 
+To gate a captured Claude Code session before pushing, import and evaluate it
+in one command:
+
+```bash
+maida diff --capture "$CLAUDE_SESSION_ID" \
+  --baseline .maida/baselines/my_agent.json \
+  --policy .maida/policy.yaml \
+  --format markdown
+```
+
+Capture mode prints the same assertion and structural-diff report used by
+`maida assert`: exit `0` means pass and exit `1` means a policy regression.
+Capture selection/import notices are written to stderr, so JSON or Markdown
+stdout can be redirected directly.
+
 ### Capture Claude Code without agent patches
 
 ```bash
