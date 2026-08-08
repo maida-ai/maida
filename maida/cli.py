@@ -10,6 +10,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -38,6 +39,12 @@ from maida.baseline import (
     save_baseline,
 )
 from maida.capture.claude_code import create_claude_code_app
+from maida.capture.claude_hook import (
+    ClaudeHookConflictError,
+    ClaudeHookImportError,
+    ClaudeHookInputError,
+    parse_claude_hook_json,
+)
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
@@ -221,6 +228,27 @@ def capture_claude_code_cmd(
             log_level="warning",
         )
     except (KeyboardInterrupt, typer.Exit):
+        raise
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
+@capture_app.command("claude-hook")
+def capture_claude_hook_cmd() -> None:
+    """Record one passive Claude Code command-hook payload from stdin."""
+    try:
+        parse_claude_hook_json(sys.stdin.read(), load_config())
+    except ClaudeHookInputError as exc:
+        typer.echo(f"Invalid Claude hook payload: {exc}", err=True)
+        # Claude assigns blocking semantics to hook exit code 2. This capture
+        # command is an observer, so even invalid input uses a non-blocking
+        # failure code.
+        raise Exit(EXIT_INTERNAL)
+    except (ClaudeHookConflictError, ClaudeHookImportError) as exc:
+        typer.echo(f"Claude hook capture failed: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
+    except Exit:
         raise
     except Exception as exc:
         typer.echo(f"error: {exc}", err=True)

@@ -51,6 +51,20 @@ _KNOWN_LOGS = frozenset(
         "claude_code.api_error",
         "claude_code.api_refusal",
         "claude_code.tool_decision",
+        "claude_code.hook.session_start",
+        "claude_code.hook.pre_tool_use",
+        "claude_code.hook.post_tool_use",
+        "claude_code.hook.post_tool_use_failure",
+        "claude_code.hook.permission_denied",
+        "claude_code.hook.session_end",
+    }
+)
+_HOOK_TOOL_LOGS = frozenset(
+    {
+        "claude_code.hook.pre_tool_use",
+        "claude_code.hook.post_tool_use",
+        "claude_code.hook.post_tool_use_failure",
+        "claude_code.hook.permission_denied",
     }
 )
 _NONNEGATIVE_FIELDS = frozenset(
@@ -289,6 +303,35 @@ def _validate_log(item: dict[str, Any], session_hash: str, line_no: int) -> str 
         "claude_code.tool_decision": ("tool_name", "tool_use_id", "decision"),
         "claude_code.user_prompt": ("prompt_length",),
         "claude_code.assistant_response": ("response_length", "model"),
+        "claude_code.hook.session_start": ("hook_event_name", "source"),
+        "claude_code.hook.pre_tool_use": (
+            "hook_event_name",
+            "tool_name",
+            "tool_use_id",
+            "tool_input",
+        ),
+        "claude_code.hook.post_tool_use": (
+            "hook_event_name",
+            "tool_name",
+            "tool_use_id",
+            "tool_input",
+            "tool_response",
+        ),
+        "claude_code.hook.post_tool_use_failure": (
+            "hook_event_name",
+            "tool_name",
+            "tool_use_id",
+            "tool_input",
+            "error",
+        ),
+        "claude_code.hook.permission_denied": (
+            "hook_event_name",
+            "tool_name",
+            "tool_use_id",
+            "tool_input",
+            "reason",
+        ),
+        "claude_code.hook.session_end": ("hook_event_name", "reason"),
     }
     missing = [
         field for field in required.get(event_name, ()) if field not in attributes
@@ -297,6 +340,10 @@ def _validate_log(item: dict[str, Any], session_hash: str, line_no: int) -> str 
         raise ClaudeCaptureInputError(
             f"{event_name} is missing required field(s): {', '.join(missing)}"
         )
+    if event_name.startswith("claude_code.hook."):
+        tool_input = attributes.get("tool_input")
+        if tool_input is not None and not isinstance(tool_input, dict):
+            raise ClaudeCaptureInputError(f"{event_name} tool_input must be an object")
     return version
 
 
@@ -771,6 +818,150 @@ def normalize_claude_capture(
             _source_identity(item, "logs"),
         ),
     )
+    hook_tools: dict[str, list[dict[str, Any]]] = {}
+    for item in ordered_logs:
+        record = item["record"]
+        if record["event_name"] not in _HOOK_TOOL_LOGS:
+            continue
+        tool_use_id = record["attributes"].get("tool_use_id")
+        if isinstance(tool_use_id, str) and tool_use_id:
+            hook_tools.setdefault(tool_use_id, []).append(item)
+
+    consumed_hook_logs: set[str] = set()
+    for tool_use_id, source_logs in hook_tools.items():
+        pre = next(
+            (
+                item
+                for item in source_logs
+                if item["record"]["event_name"] == "claude_code.hook.pre_tool_use"
+            ),
+            None,
+        )
+        terminals = [
+            item
+            for item in source_logs
+            if item["record"]["event_name"] != "claude_code.hook.pre_tool_use"
+        ]
+        if len(terminals) > 1:
+            raise ClaudeCaptureInputError(
+                f"hook tool {tool_use_id!r} has conflicting terminal events"
+            )
+        terminal = terminals[0] if terminals else None
+        names = {item["record"]["attributes"].get("tool_name") for item in source_logs}
+        if len(names) != 1 or not all(isinstance(name, str) and name for name in names):
+            raise ClaudeCaptureInputError(
+                f"hook tool {tool_use_id!r} has conflicting tool names"
+            )
+
+        primary = terminal or pre
+        if primary is None:  # pragma: no cover - groups always contain a source log
+            continue
+        merged_attributes: dict[str, Any] = {}
+        if pre is not None:
+            merged_attributes.update(pre["record"]["attributes"])
+        if terminal is not None:
+            merged_attributes.update(terminal["record"]["attributes"])
+        tool_name = str(merged_attributes["tool_name"])
+        prompt_id = merged_attributes.get("prompt.id")
+        group = f"prompt:{prompt_id or 'session'}"
+        interaction_id = ensure_interaction(group)
+
+        end = _log_time(primary)
+        duration = merged_attributes.get("duration_ms", 0)
+        if not isinstance(duration, (int, float)) or isinstance(duration, bool):
+            duration = 0
+        duration_start = end - timedelta(milliseconds=duration)
+        start = (
+            min(_log_time(pre), duration_start) if pre is not None else duration_start
+        )
+        interaction_times.setdefault(group, []).extend((start, end))
+
+        terminal_name = terminal["record"]["event_name"] if terminal else None
+        terminal_missing = terminal is None
+        pre_tool_missing = pre is None
+        meta = _source_meta(
+            source_kind="hook_pair",
+            source_name="claude_code.hook.tool_call",
+            attributes=merged_attributes,
+            service_version=_service_version(primary),
+            source_record_identity=tool_use_id,
+        )
+        meta.update(
+            {
+                "terminal_missing": terminal_missing,
+                "pre_tool_missing": pre_tool_missing,
+                "source_logs": [
+                    {
+                        "event_name": item["record"]["event_name"],
+                        "record_identity": _source_identity(item, "logs"),
+                        "attributes": item["record"]["attributes"],
+                    }
+                    for item in source_logs
+                ],
+            }
+        )
+        attrs: dict[str, Any] = {
+            MAIDA_TOOL_NAME: tool_name,
+            MAIDA_META: _meta_json({"claude_code": meta}, config),
+        }
+        args = _sanitize(_tool_args(merged_attributes), config)
+        events = [
+            {
+                "name": "maida.tool.args",
+                "timestamp": _iso(start),
+                "attributes": {"args": json.dumps(args, ensure_ascii=False)},
+            }
+        ]
+        if terminal_name == "claude_code.hook.post_tool_use":
+            result = _sanitize(merged_attributes.get("tool_response"), config)
+            events.append(
+                {
+                    "name": "maida.tool.result",
+                    "timestamp": _iso(end),
+                    "attributes": {"result": json.dumps(result, ensure_ascii=False)},
+                }
+            )
+
+        status = "UNSET" if terminal_missing else "OK"
+        status_description = ""
+        if terminal_name == "claude_code.hook.post_tool_use_failure":
+            status = "ERROR"
+            status_description = str(
+                merged_attributes.get("error") or "Claude Code tool failed"
+            )
+            attrs[MAIDA_ERROR_TYPE] = (
+                "ClaudeCodeToolInterrupted"
+                if merged_attributes.get("is_interrupt") is True
+                else "ClaudeCodeToolError"
+            )
+            attrs[MAIDA_ERROR_MESSAGE] = status_description
+        elif terminal_name == "claude_code.hook.permission_denied":
+            status = "ERROR"
+            status_description = str(
+                merged_attributes.get("reason") or "Claude Code tool was denied"
+            )
+            attrs[MAIDA_ERROR_TYPE] = "ClaudeCodePermissionDenied"
+            attrs[MAIDA_ERROR_MESSAGE] = status_description
+
+        projected = _normalized_span(
+            trace_id=trace_id,
+            span_id=span_id(f"hook-tool:{tool_use_id}"),
+            parent_span_id=interaction_id,
+            name=tool_name,
+            start=start,
+            end=end,
+            kind="INTERNAL",
+            attributes=attrs,
+            events=events,
+            status_code=status,
+            status_description=status_description,
+        )
+        normalized.append(projected)
+        action_spans.append(projected)
+        consumed_hook_logs.update(
+            _source_identity(item, "logs") for item in source_logs
+        )
+
     tool_results = {
         item["record"]["attributes"].get("tool_use_id")
         for item in ordered_logs
@@ -786,6 +977,8 @@ def normalize_claude_capture(
 
     for item in ordered_logs:
         record = item["record"]
+        if _source_identity(item, "logs") in consumed_hook_logs:
+            continue
         event_name = record["event_name"]
         attributes = record["attributes"]
         when = _log_time(item)

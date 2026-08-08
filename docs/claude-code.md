@@ -79,6 +79,50 @@ Use `--host` and `--port` to change the bind address. Keep the receiver on a
 trusted interface: it intentionally has no authentication because its default
 use is a local process or an isolated CI job.
 
+## Command-hook fallback
+
+When OTLP is unavailable or does not include the tool input you need, install
+the passive command hook below in the project's `.claude/settings.json`. The
+example is ten nonblank lines and observes every supported lifecycle event:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "maida capture claude-hook"}]}],
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "maida capture claude-hook"}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "maida capture claude-hook"}]}],
+    "PostToolUseFailure": [{"hooks": [{"type": "command", "command": "maida capture claude-hook"}]}],
+    "PermissionDenied": [{"hooks": [{"type": "command", "command": "maida capture claude-hook"}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "maida capture claude-hook"}]}]
+  }
+}
+```
+
+Claude sends one JSON object on stdin for each command-hook invocation. The
+handler writes no stdout and returns no allow, deny, retry, or context fields,
+so it never changes Claude's tool or permission behavior. Successful capture
+exits 0. Capture errors use exit 10 rather than Claude's blocking exit code 2.
+
+Hook records use the same hashed-session capture directory and normalizer as
+OTLP. `PreToolUse` and its terminal event are paired by `tool_use_id`; successful,
+failed, denied, preless, and incomplete calls all remain importable as ordinary
+Maida `TOOL_CALL` spans. The raw session ID and transcript path are not stored.
+Tool inputs and results pass through Maida's recursive redaction and field-size
+limits before the atomic append.
+
+`startup`, `resume`, `fork`, and `clear` start a new immutable capture segment.
+The `compact` SessionStart source stays in the active segment. `SessionEnd`
+closes and imports its segment automatically. If Claude exits abruptly before
+that event, recover the active segment explicitly:
+
+```bash
+maida import claude-code --session-id "$CLAUDE_SESSION_ID"
+```
+
 See Claude Code's official [monitoring
 reference](https://code.claude.com/docs/en/monitoring-usage) for exporter
 variables and the beta trace hierarchy.
+
+See Claude Code's official [hooks
+reference](https://code.claude.com/docs/en/hooks) for command-hook stdin,
+lifecycle, matcher, and exit-code behavior.

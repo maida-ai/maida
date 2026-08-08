@@ -268,6 +268,8 @@ maida diff --baseline .maida/baselines/my_agent.json  # latest run vs baseline
 
 ```bash
 maida capture claude-code
+# Or capture one configured Claude command-hook event from stdin:
+maida capture claude-hook
 ```
 
 Point Claude Code's OTLP HTTP/protobuf logs and beta traces at
