@@ -242,3 +242,19 @@ def test_unknown_additive_log_record_is_preserved(temp_data_dir):
     capture_dir = _capture_dir(temp_data_dir, "session/with traversal/../chars")
     record = json.loads((capture_dir / "logs.jsonl").read_text().splitlines()[0])
     assert record["record"]["event_name"] == "claude_code.future_signal"
+
+
+def test_known_numeric_log_fields_accept_claude_string_encoding(temp_data_dir):
+    request = _logs_request()
+    for attribute in request.resource_logs[0].scope_logs[0].log_records[0].attributes:
+        if attribute.key in {"duration_ms", "input_tokens", "output_tokens"}:
+            attribute.value.string_value = str(attribute.value.int_value)
+
+    response = _post(
+        TestClient(create_claude_code_app(load_config())), "/v1/logs", request
+    )
+    assert response.status_code == 200
+    capture_dir = _capture_dir(temp_data_dir, "session/with traversal/../chars")
+    record = json.loads((capture_dir / "logs.jsonl").read_text().splitlines()[0])
+    assert record["record"]["attributes"]["input_tokens"] == 12
+    assert record["record"]["attributes"]["duration_ms"] == 25

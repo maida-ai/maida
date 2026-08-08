@@ -300,6 +300,24 @@ def _validate_fields(
         raise CaptureValidationError("claude_code.tool_decision has invalid decision")
 
 
+def _coerce_known_scalars(attributes: dict[str, Any]) -> dict[str, Any]:
+    """Normalize Claude's OTel log string encoding for numeric signal fields."""
+    normalized = dict(attributes)
+    for field in _NONNEGATIVE_FIELDS:
+        value = normalized.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        text = value.strip()
+        try:
+            if any(character in text.lower() for character in (".", "e")):
+                normalized[field] = float(text)
+            else:
+                normalized[field] = int(text)
+        except ValueError:
+            pass
+    return normalized
+
+
 def _valid_trace_id(value: bytes, *, optional: bool = False) -> str:
     if optional and not value:
         return ""
@@ -335,7 +353,7 @@ def _decode_logs(
         for scope_logs in resource_logs.scope_logs:
             scope = _scope(scope_logs.scope)
             for record in scope_logs.log_records:
-                attributes = _attributes(record.attributes)
+                attributes = _coerce_known_scalars(_attributes(record.attributes))
                 session_id = _session_id(resource, attributes)
                 body = _any_value(record.body)
                 event_name = _event_name(record, attributes, body)
