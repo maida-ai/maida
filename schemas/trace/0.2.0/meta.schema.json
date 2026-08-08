@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/maida-ai/maida/main/schemas/trace/0.2.0/meta.schema.json",
+  "title": "Maida trace metadata 0.2",
+  "description": "The meta.json document for a native Maida trace. The legacy 0.2 spelling and compatible 0.2.x patch versions are accepted; new emitters should write 0.2.0.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "trace_id",
+    "run_name",
+    "started_at",
+    "ended_at",
+    "duration_ms",
+    "status",
+    "counts"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^0\\.2(?:\\.[0-9]+)?$"
+    },
+    "trace_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "run_name": {
+      "type": ["string", "null"]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "status": {
+      "enum": ["running", "ok", "error"]
+    },
+    "counts": {
+      "type": "object",
+      "required": ["llm_calls", "tool_calls", "errors", "loop_warnings"],
+      "properties": {
+        "llm_calls": {"type": "integer", "minimum": 0},
+        "tool_calls": {"type": "integer", "minimum": 0},
+        "errors": {"type": "integer", "minimum": 0},
+        "loop_warnings": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
