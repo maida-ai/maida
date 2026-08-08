@@ -1,0 +1,19 @@
+{
+  "spec_version": "0.2.0",
+  "trace_id": "80000000000000000000000000000001",
+  "run_name": "external-emitter:multithread",
+  "started_at": "2026-08-08T10:00:00.000Z",
+  "ended_at": "2026-08-08T10:00:00.500Z",
+  "duration_ms": 500,
+  "status": "ok",
+  "counts": {
+    "llm_calls": 2,
+    "tool_calls": 2,
+    "errors": 0,
+    "loop_warnings": 0
+  },
+  "emitter": {
+    "name": "fixture-emitter",
+    "version": "1.0.0"
+  }
+}

@@ -1,8 +1,31 @@
 # CLI
 
-The `maida` CLI runs the bundled demo, scaffolds a project, imports existing traces, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+The `maida` CLI runs the bundled demo, scaffolds a project, validates and imports existing traces, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
 
 Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
+
+---
+
+## `maida validate-trace`
+
+Validates an externally emitted native Maida trace without installing or
+modifying it.
+
+```bash
+maida validate-trace PATH [--json]
+```
+
+`PATH` is either a directory containing `meta.json` and `spans.jsonl`, or that
+directory's `meta.json`. Text mode prints a concise success result to stdout or
+actionable diagnostics to stderr. `--json` keeps stdout machine-readable for
+both success and failure, with `valid`, trace metadata, span count, and
+sanitized diagnostics.
+
+**Exit codes:** `0` valid; `1` invalid trace content; `2` missing, unreadable,
+or unsupported input path; `10` unexpected validator failure.
+
+See [Emit Maida traces without an SDK](reference/trace-emitter.md) for the
+required fields, JSON Schemas, enrichment rules, and subthread topology.
 
 ---
 

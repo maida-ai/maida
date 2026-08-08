@@ -1,29 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/maida-ai/maida/schemas/run.schema.json",
-  "title": "Maida meta.json",
-  "description": "Run metadata file (meta.json) for Maida trace format spec_version 0.2.0. Best-effort schema for tooling; canonical reference is docs/reference/trace-format.md.",
-  "type": "object",
-  "required": ["spec_version", "trace_id", "run_name", "started_at", "ended_at", "duration_ms", "status", "counts"],
-  "properties": {
-    "spec_version": { "type": "string", "const": "0.2.0" },
-    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
-    "run_name": { "type": ["string", "null"] },
-    "started_at": { "type": "string", "format": "date-time" },
-    "ended_at": { "type": ["string", "null"], "format": "date-time" },
-    "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
-    "status": { "enum": ["running", "ok", "error"] },
-    "counts": {
-      "type": "object",
-      "required": ["llm_calls", "tool_calls", "errors", "loop_warnings"],
-      "properties": {
-        "llm_calls": { "type": "integer", "minimum": 0 },
-        "tool_calls": { "type": "integer", "minimum": 0 },
-        "errors": { "type": "integer", "minimum": 0 },
-        "loop_warnings": { "type": "integer", "minimum": 0 }
-      },
-      "additionalProperties": false
-    }
-  },
-  "additionalProperties": false
+  "$id": "https://raw.githubusercontent.com/maida-ai/maida/main/schemas/run.schema.json",
+  "title": "Current Maida meta.json schema",
+  "description": "Stable alias for the current versioned native trace metadata schema.",
+  "$ref": "trace/0.2.0/meta.schema.json"
 }

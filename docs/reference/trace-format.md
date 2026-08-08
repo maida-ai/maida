@@ -2,7 +2,14 @@
 
 This page describes the **public trace format** for Maida (`spec_version: "0.2.0"`). Traces use **OpenTelemetry spans** as the internal representation and are stored locally as **JSONL span records** plus a **run metadata file** (`meta.json`). The format is a public contract: consumers can rely on it for tooling and integrations.
 
-**Versioning:** The trace format is independently versioned with full semantic versioning (`0.2.0`). Patch releases cover serialization fixes, minor releases add optional fields, and breaking changes move to a new incompatible line. Readers tolerate additive unknown fields. The loader also accepts the legacy `0.2` spelling and normalizes it to the current 0.2 line.
+**Versioning:** The trace format is independently versioned with full semantic versioning (`0.2.0`). Patch releases clarify or fix compatible serialization, minor releases add optional fields, and major releases contain breaking changes. Readers tolerate additive unknown fields. The loader also accepts the legacy `0.2` spelling and compatible `0.2.x` patch versions.
+
+The versioned JSON Schemas under `schemas/trace/<version>/` are normative for
+the serializable `meta.json` and span-record shapes. This reference defines the
+cross-record lifecycle and topology semantics that JSON Schema cannot express.
+Published version directories are immutable; the unversioned schema files are
+current-version aliases. See the [external emitter guide](trace-emitter.md) for
+a minimal trace and multi-thread examples.
 
 ---
 
@@ -239,9 +246,15 @@ There are no stable optional `meta.json` fields in the current contract. Future 
 
 ## Stability for external tooling
 
-The trace format is a **public contract** versioned independently from the Maida package version. All releases using `spec_version "0.2.0"` share this format. Additive changes (for example, new optional fields, new event types, or additional span attributes) are allowed without a spec version bump. Breaking changes (removing fields, changing types, changing required field semantics, or changing storage file names) will be accompanied by a new `spec_version`.
+The trace format is a **public contract** versioned independently from the Maida package version. All releases using the `0.2` compatibility line share this format. Additive changes (for example, optional fields or additional span attributes) remain compatible.
 
-The markdown reference on this page is canonical. JSON schemas in the repo root `schemas/` folder are best-effort helpers for tooling, not the source of truth.
+- **Patch releases** clarify or fix serialization without changing accepted documents.
+- **Minor releases** add optional, backward-compatible fields or signals.
+- **Major releases** contain breaking changes such as removed or renamed fields, changed required types or semantics, or a changed storage layout.
+
+The versioned JSON Schemas and this semantic reference are maintained together.
+Once published, each versioned schema directory is **immutable**. The schema
+[changelog](../../schemas/trace/CHANGELOG.md) records each published line.
 
 ### Stable for external tooling
 
@@ -271,6 +284,7 @@ These commands read from or write to the storage contract documented here:
 - [`maida list`](../cli.md#maida-list) reads `meta.json` for recent runs.
 - [`maida view`](../cli.md#maida-view) serves `meta.json`, `spans.jsonl`, and the projected event timeline through the local viewer API.
 - [`maida export`](../cli.md#maida-export) writes one JSON document containing `spec_version`, run metadata, and projected events.
+- [`maida validate-trace`](../cli.md#maida-validate-trace) validates an external native trace without installing or modifying it.
 - [`maida baseline`](../cli.md#maida-baseline) reads a run and captures stable structural metrics for future comparison.
 - [`maida accept`](../cli.md#maida-accept) reads a run and rewrites an existing baseline after an intentional behavior change.
 - [`maida assert`](../cli.md#maida-assert) reads a run, baseline, and policy to evaluate behavioral regression checks.

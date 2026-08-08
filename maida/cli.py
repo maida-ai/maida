@@ -1,7 +1,7 @@
 """
 Typer CLI for Maida.
 
-Commands: list, export, view, baseline, accept, assert, diff, import.
+Commands: list, export, validate-trace, view, baseline, accept, assert, diff, import.
 Entrypoint: main() for console script maida.cli:main.
 """
 
@@ -83,6 +83,12 @@ from maida.scaffold import (
     write_scaffold,
 )
 from maida.server import create_app
+from maida.trace_validation import (
+    TraceDiagnostic,
+    TraceInputError,
+    TraceValidationError,
+    validate_trace_path,
+)
 
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
@@ -171,6 +177,117 @@ def _resolve_run_or_latest(run_id: str | None, config) -> str:
         typer.echo(f"Using latest run: {resolved[:8]}", err=True)
         return resolved
     return storage.resolve_run_id(run_id, config)
+
+
+def _trace_validation_payload(
+    *,
+    valid: bool,
+    diagnostics: list[TraceDiagnostic],
+    trace_id: str | None = None,
+    spec_version: str | None = None,
+    status: str | None = None,
+    span_count: int | None = None,
+) -> dict:
+    return {
+        "valid": valid,
+        "trace_id": trace_id,
+        "spec_version": spec_version,
+        "status": status,
+        "span_count": span_count,
+        "diagnostics": [item.to_dict() for item in diagnostics],
+    }
+
+
+@app.command("validate-trace")
+def validate_trace_cmd(
+    path: Path = typer.Argument(
+        ...,
+        help="Native Maida run directory or its meta.json file",
+    ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="Print a machine-readable validation result",
+    ),
+) -> None:
+    """Validate a native externally emitted Maida trace without installing it."""
+    try:
+        validated = validate_trace_path(path)
+        if json_out:
+            typer.echo(
+                json.dumps(
+                    _trace_validation_payload(
+                        valid=True,
+                        diagnostics=[],
+                        trace_id=validated.trace_id,
+                        spec_version=validated.spec_version,
+                        status=validated.status,
+                        span_count=len(validated.spans),
+                    ),
+                    sort_keys=True,
+                )
+            )
+        else:
+            typer.echo(
+                f"Valid Maida trace {validated.trace_id[:8]} "
+                f"(spec_version {validated.spec_version}, "
+                f"{len(validated.spans)} spans, status {validated.status})"
+            )
+    except TraceInputError as exc:
+        if json_out:
+            typer.echo(
+                json.dumps(
+                    _trace_validation_payload(
+                        valid=False,
+                        diagnostics=[exc.diagnostic],
+                    ),
+                    sort_keys=True,
+                )
+            )
+        else:
+            typer.echo(f"Invalid trace input: {exc.diagnostic.message}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except TraceValidationError as exc:
+        if json_out:
+            typer.echo(
+                json.dumps(
+                    _trace_validation_payload(
+                        valid=False,
+                        diagnostics=list(exc.diagnostics),
+                        trace_id=exc.trace_id,
+                        spec_version=exc.spec_version,
+                        status=exc.status,
+                        span_count=exc.span_count,
+                    ),
+                    sort_keys=True,
+                )
+            )
+        else:
+            typer.echo("Invalid Maida trace:", err=True)
+            for diagnostic in exc.diagnostics:
+                typer.echo(f"- {diagnostic.location}: {diagnostic.message}", err=True)
+        raise Exit(1)
+    except Exit:
+        raise
+    except Exception:
+        diagnostic = TraceDiagnostic(
+            code="internal_error",
+            location="trace",
+            message="trace validation failed unexpectedly",
+        )
+        if json_out:
+            typer.echo(
+                json.dumps(
+                    _trace_validation_payload(
+                        valid=False,
+                        diagnostics=[diagnostic],
+                    ),
+                    sort_keys=True,
+                )
+            )
+        else:
+            typer.echo(f"error: {diagnostic.message}", err=True)
+        raise Exit(EXIT_INTERNAL)
 
 
 def _acceptance_source_from_environment() -> AcceptanceSource:

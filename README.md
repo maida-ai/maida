@@ -229,6 +229,17 @@ maida export --out run-export.json             # latest run
 maida export <TRACE_ID> --out run-export.json  # specific run
 ```
 
+### Validate an external trace
+
+```bash
+maida validate-trace path/to/run
+maida validate-trace path/to/run/meta.json --json
+```
+
+External emitters can write Maida's native `meta.json` + `spans.jsonl` contract
+without an SDK. Validation is local and read-only. See the
+[emitter guide](docs/reference/trace-emitter.md).
+
 ### Capture a baseline
 
 ```bash
