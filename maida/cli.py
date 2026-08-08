@@ -10,6 +10,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -18,6 +19,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import uvicorn
+import yaml
 from typer import Exit
 
 import maida.storage as storage
@@ -36,6 +39,13 @@ from maida.baseline import (
     load_baseline,
     save_baseline,
 )
+from maida.capture.claude_code import create_claude_code_app
+from maida.capture.claude_hook import (
+    ClaudeHookConflictError,
+    ClaudeHookImportError,
+    ClaudeHookInputError,
+    parse_claude_hook_json,
+)
 from maida.config import load_config
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
@@ -45,14 +55,25 @@ from maida.demo import (
     run_refactored_agent,
 )
 from maida.diff import compute_diff, format_diff_text
+from maida.evaluation import evaluate_stored_run_against_baseline
 from maida.integrations.langfuse import (
     LangfuseImportError,
     LangfuseInputError,
     client_from_environment,
     import_langfuse_traces,
 )
+from maida.integrations.claude_code import (
+    ClaudeCaptureImportError,
+    ClaudeCaptureInputError,
+    import_claude_capture,
+)
 from maida.policy import load_policy, merge_policy
 from maida.runner import RunExecutionError, run_trials
+from maida.scenario import (
+    DEFAULT_SCENARIO_MANIFEST,
+    ScenarioInputError,
+    run_scenario_file,
+)
 from maida.statistics import GateVerdict
 from maida.scaffold import (
     POLICY_RELPATH,
@@ -68,8 +89,12 @@ EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
+capture_app = typer.Typer(help="Capture external agent behavior locally.")
 import_app = typer.Typer(help="Import existing traces into local Maida storage.")
+scenario_app = typer.Typer(help="Run isolated capture-backed agent scenarios.")
+app.add_typer(capture_app, name="capture")
 app.add_typer(import_app, name="import")
+app.add_typer(scenario_app, name="scenario")
 
 
 def _version_callback(value: bool) -> None:
@@ -93,6 +118,46 @@ def version_callback(
     ] = None,
 ):
     """Show Maida version."""
+
+
+@scenario_app.command("run")
+def scenario_run_cmd(
+    manifest: Path = typer.Argument(
+        DEFAULT_SCENARIO_MANIFEST,
+        help="Scenario manifest (default: .maida/scenarios.yaml)",
+    ),
+    scenario_id: str | None = typer.Option(
+        None,
+        "--scenario",
+        help="Run only the selected scenario ID",
+    ),
+    output_format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text, json, or markdown",
+    ),
+) -> None:
+    """Run headless Claude Code scenarios in isolated workspaces."""
+    if output_format not in {"text", "json", "markdown"}:
+        typer.echo("error: format must be text, json, or markdown", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    try:
+        report = run_scenario_file(manifest, scenario_id=scenario_id)
+        typer.echo(report.render(output_format))
+        if report.exit_code:
+            raise Exit(report.exit_code)
+    except Exit:
+        raise
+    except ScenarioInputError as exc:
+        typer.echo(
+            f"Invalid scenario manifest/environment: {exc}",
+            err=True,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+    except Exception:
+        typer.echo("error: scenario execution failed", err=True)
+        raise Exit(EXIT_INTERNAL)
 
 
 def _resolve_run_or_latest(run_id: str | None, config) -> str:
@@ -165,6 +230,148 @@ def _emit_langfuse_error(
         )
     else:
         typer.echo(f"{prefix}: {error}", err=True)
+
+
+def _emit_claude_capture_error(
+    *, kind: str, prefix: str, error: Exception, json_out: bool
+) -> None:
+    if json_out:
+        print(
+            json.dumps(
+                {"error": {"kind": kind, "message": str(error)}},
+                ensure_ascii=False,
+            )
+        )
+    else:
+        typer.echo(f"{prefix}: {error}", err=True)
+
+
+@capture_app.command("claude-code")
+def capture_claude_code_cmd(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="OTLP HTTP bind host",
+    ),
+    port: int = typer.Option(
+        4318,
+        "--port",
+        min=1,
+        max=65535,
+        help="OTLP HTTP bind port",
+    ),
+) -> None:
+    """Receive Claude Code logs and beta traces over OTLP HTTP/protobuf."""
+    try:
+        config = load_config()
+        receiver = create_claude_code_app(config)
+        typer.echo(
+            f"Listening for Claude Code OTLP on http://{host}:{port}",
+            err=True,
+        )
+        uvicorn.run(
+            app=receiver,
+            host=host,
+            port=port,
+            access_log=False,
+            log_level="warning",
+        )
+    except (KeyboardInterrupt, typer.Exit):
+        raise
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
+@capture_app.command("claude-hook")
+def capture_claude_hook_cmd() -> None:
+    """Record one passive Claude Code command-hook payload from stdin."""
+    try:
+        parse_claude_hook_json(sys.stdin.read(), load_config())
+    except ClaudeHookInputError as exc:
+        typer.echo(f"Invalid Claude hook payload: {exc}", err=True)
+        # Claude assigns blocking semantics to hook exit code 2. This capture
+        # command is an observer, so even invalid input uses a non-blocking
+        # failure code.
+        raise Exit(EXIT_INTERNAL)
+    except (ClaudeHookConflictError, ClaudeHookImportError) as exc:
+        typer.echo(f"Claude hook capture failed: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
+    except Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
+@import_app.command("claude-code")
+def import_claude_code_cmd(
+    session_id: str = typer.Option(
+        ...,
+        "--session-id",
+        help="Raw Claude Code session ID used to locate the hashed capture",
+    ),
+    segment: str = typer.Option(
+        "latest",
+        "--segment",
+        help="Immutable capture segment ID, or latest",
+    ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="Output a machine-readable import summary",
+    ),
+) -> None:
+    """Normalize and install one locally captured Claude Code session."""
+    try:
+        result = import_claude_capture(
+            session_id,
+            load_config(),
+            segment=segment,
+        )
+        if segment == "latest":
+            typer.echo(
+                f"Using Claude Code capture segment: {result.segment}",
+                err=True,
+            )
+        if json_out:
+            print(json.dumps(result.as_dict(), ensure_ascii=False))
+        elif result.imported:
+            typer.echo(
+                f"Imported Claude Code capture {result.session_hash[:12]} "
+                f"segment {result.segment} as {result.trace_id[:8]}"
+            )
+        else:
+            typer.echo(
+                f"Claude Code capture {result.session_hash[:12]} segment "
+                f"{result.segment} is already imported as {result.trace_id[:8]}"
+            )
+    except Exit:
+        raise
+    except ClaudeCaptureInputError as exc:
+        _emit_claude_capture_error(
+            kind="invalid_capture",
+            prefix="Invalid Claude Code capture",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+    except ClaudeCaptureImportError as exc:
+        _emit_claude_capture_error(
+            kind="import_failed",
+            prefix="Claude Code import failed",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_INTERNAL)
+    except Exception as exc:
+        _emit_claude_capture_error(
+            kind="internal_error",
+            prefix="error",
+            error=exc,
+            json_out=json_out,
+        )
+        raise Exit(EXIT_INTERNAL)
 
 
 @import_app.command("langfuse")
@@ -824,24 +1031,25 @@ def assert_cmd(
                 typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
                 raise Exit(EXIT_NOT_FOUND)
 
-        report = run_assertions(run_id, policy, baseline=bl, config=config)
-
-        run_diff = None
         if bl is not None:
-            run_diff = compute_diff(run_id, baseline=bl, config=config)
-
-        if output_format == "json":
-            typer.echo(format_report_json(report))
-        elif output_format == "markdown":
-            typer.echo(
-                format_report_markdown(
-                    report,
-                    diff=run_diff,
-                    baseline_path=str(baseline_path) if baseline_path else None,
-                )
+            evaluation = evaluate_stored_run_against_baseline(
+                run_id, bl, policy, config
             )
+            report = evaluation.report
+            render_format = (
+                output_format
+                if output_format in {"text", "json", "markdown"}
+                else "text"
+            )
+            typer.echo(evaluation.render(render_format, baseline_path=baseline_path))
         else:
-            typer.echo(format_report_text(report, diff=run_diff))
+            report = run_assertions(run_id, policy, config=config)
+            if output_format == "json":
+                typer.echo(format_report_json(report))
+            elif output_format == "markdown":
+                typer.echo(format_report_markdown(report))
+            else:
+                typer.echo(format_report_text(report))
 
         if not report.passed:
             raise Exit(1)
@@ -1067,13 +1275,103 @@ def diff_cmd(
     baseline_path: Path | None = typer.Option(
         None, "--baseline", "-b", help="Baseline JSON file to compare against"
     ),
+    capture_session_id: str | None = typer.Option(
+        None,
+        "--capture",
+        help="Claude Code session ID to import and evaluate",
+    ),
+    policy_path: Path | None = typer.Option(
+        None,
+        "--policy",
+        help="Policy YAML file for capture gate mode",
+    ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text"
+        "text", "--format", "-f", help="Output format: text, json, markdown"
     ),
 ) -> None:
-    """Compare two runs or a run against a baseline."""
+    """Inspect stored runs, or gate a Claude capture against a baseline."""
     try:
         config = load_config()
+
+        if capture_session_id is not None:
+            if run_a is not None or run_b is not None:
+                typer.echo(
+                    "error: positional run IDs cannot be used with --capture",
+                    err=True,
+                )
+                raise Exit(EXIT_NOT_FOUND)
+            if baseline_path is None:
+                typer.echo("error: --baseline is required with --capture", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+            if output_format not in {"text", "json", "markdown"}:
+                typer.echo(
+                    "error: --format must be text, json, or markdown",
+                    err=True,
+                )
+                raise Exit(EXIT_NOT_FOUND)
+
+            try:
+                bl = load_baseline(baseline_path)
+            except FileNotFoundError:
+                typer.echo(f"Baseline not found: {baseline_path}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+            except (json.JSONDecodeError, OSError, UnicodeError, ValueError):
+                typer.echo(f"Invalid baseline file: {baseline_path}", err=True)
+                raise Exit(EXIT_NOT_FOUND)
+
+            policy = AssertionPolicy()
+            selected_policy = policy_path
+            if selected_policy is None:
+                default_policy = LOCAL_DIR_NAME / "policy.yaml"
+                if default_policy.is_file():
+                    selected_policy = default_policy
+            if selected_policy is not None:
+                try:
+                    policy = load_policy(selected_policy)
+                except (
+                    FileNotFoundError,
+                    OSError,
+                    UnicodeError,
+                    ValueError,
+                    yaml.YAMLError,
+                ):
+                    typer.echo(f"Invalid policy file: {selected_policy}", err=True)
+                    raise Exit(EXIT_NOT_FOUND)
+
+            imported = import_claude_capture(capture_session_id, config)
+            typer.echo(
+                f"Using Claude Code capture segment: {imported.segment}",
+                err=True,
+            )
+            if imported.imported:
+                typer.echo(
+                    f"Imported Claude Code capture {imported.session_hash[:12]} "
+                    f"segment {imported.segment} as {imported.trace_id[:8]}",
+                    err=True,
+                )
+            else:
+                typer.echo(
+                    f"Claude Code capture {imported.session_hash[:12]} segment "
+                    f"{imported.segment} is already imported as "
+                    f"{imported.trace_id[:8]}",
+                    err=True,
+                )
+
+            evaluation = evaluate_stored_run_against_baseline(
+                imported.trace_id,
+                bl,
+                policy,
+                config,
+            )
+            typer.echo(evaluation.render(output_format, baseline_path=baseline_path))
+            if not evaluation.passed:
+                raise Exit(1)
+            return
+
+        if policy_path is not None:
+            typer.echo("error: --policy requires --capture", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+
         try:
             run_a = _resolve_run_or_latest(run_a, config)
         except FileNotFoundError as e:
@@ -1102,9 +1400,21 @@ def diff_cmd(
         typer.echo(format_diff_text(d))
     except Exit:
         raise
+    except ClaudeCaptureInputError as e:
+        typer.echo(f"Invalid Claude Code capture: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except ClaudeCaptureImportError as e:
+        typer.echo(f"Claude Code import failed: {e}", err=True)
+        raise Exit(EXIT_INTERNAL)
     except storage.UnsupportedTraceFormatError as e:
+        if capture_session_id is not None:
+            typer.echo(f"error: {e}", err=True)
+            raise Exit(EXIT_INTERNAL)
         _exit_unsupported_trace_format(e)
     except storage.RunValidationError as e:
+        if capture_session_id is not None:
+            typer.echo(f"error: {e}", err=True)
+            raise Exit(EXIT_INTERNAL)
         _exit_run_validation_error(e)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)

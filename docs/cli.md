@@ -6,6 +6,100 @@ Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) d
 
 ---
 
+## `maida capture claude-code`
+
+Starts a local OTLP HTTP/protobuf receiver for Claude Code logs and beta traces.
+
+```bash
+maida capture claude-code [--host 127.0.0.1] [--port 4318]
+```
+
+The receiver provides `/healthz`, `/v1/logs`, and `/v1/traces`, validates and
+redacts batches before writing, and stores source captures under
+`~/.maida/captures/claude-code/`. Progress is written to stderr. See
+[Capture Claude Code telemetry](claude-code.md) for exporter configuration and
+the local storage contract.
+
+**Exit codes:** `0` after normal shutdown; `10` receiver startup/runtime error.
+
+---
+
+## `maida capture claude-hook`
+
+Reads exactly one supported Claude Code command-hook payload from stdin and
+appends it to the hashed session capture without returning a hook decision.
+
+```bash
+maida capture claude-hook
+```
+
+The handler supports `SessionStart`, `PreToolUse`, `PostToolUse`,
+`PostToolUseFailure`, `PermissionDenied`, and `SessionEnd`. Successful handling
+writes nothing to stdout or stderr. The command is passive: it never returns
+allow, deny, retry, or context fields and never uses Claude's blocking exit
+code 2. `SessionEnd` closes and imports the segment automatically; abrupt
+segments remain available to `maida import claude-code`.
+
+**Exit codes:** `0` captured; `10` invalid payload, conflicting delivery,
+automatic-import failure, or internal error.
+
+See [Command-hook fallback](claude-code.md#command-hook-fallback) for the compact
+project settings configuration, lifecycle segmentation, and privacy contract.
+
+---
+
+## `maida import claude-code`
+
+Normalizes one local Claude Code capture into the current Maida trace schema
+and atomically installs it in the run store.
+
+```bash
+maida import claude-code --session-id SESSION_ID [--segment latest] [--json]
+```
+
+`--session-id` is hashed before path lookup. `--segment` selects an immutable
+capture segment and defaults to the latest. Identical re-imports are no-ops;
+changed source data never overwrites an existing deterministic run. Latest
+segment notices use stderr so `--json` keeps stdout machine-readable.
+
+**Exit codes:** `0` imported or already present; `2` missing/invalid capture;
+`10` normalization or storage failure.
+
+See [Capture Claude Code telemetry](claude-code.md) for receiver setup,
+normalization rules, and storage layout.
+
+---
+
+## `maida scenario run`
+
+Runs pinned headless Claude Code prompts in isolated fixture workspaces and
+evaluates their captures against checked-in baselines.
+
+```bash
+maida scenario run [MANIFEST] [--scenario ID] [--format text|json|markdown]
+```
+
+`MANIFEST` defaults to `.maida/scenarios.yaml`. The runner validates the whole
+manifest and local environment before invoking Claude. Each selected scenario
+gets a fresh temporary workspace containing only its declared Git-tracked
+fixture files, a unique non-persisted Claude session, an ephemeral loopback
+OTLP receiver, its own native USD cap, turn cap, and process-group timeout.
+The exact project settings and strict MCP configuration are passed explicitly;
+permissions use `dontAsk` and dangerous permission bypass is never enabled.
+
+Reports contain no raw Claude stdout or stderr. Per-scenario status is `pass`,
+`assertion_failed`, or `agent_failed`.
+
+**Exit codes:** `0` all pass; `1` one or more assertion failures; `2` invalid
+manifest, selection, config, executable, or version preflight; `10` any agent,
+capture-import, or runtime failure. Agent failure takes precedence over
+assertion failure when multiple scenarios run.
+
+See [Run isolated scenarios](claude-code.md#run-isolated-scenarios) for the
+manifest schema and a complete example.
+
+---
+
 ## `maida demo`
 
 Runs a bundled simulated customer-support agent and records a trace. No network, no API keys; all LLM/tool data is canned and nothing leaves your machine.
@@ -369,15 +463,23 @@ Each assertion result includes a stable `reason_code`; JSON output also includes
 
 ## `maida diff`
 
-Compares two runs, or a run against a baseline, showing structural differences in summary metrics, tool path, and event type distribution. Useful for understanding what changed when `maida assert` reports a failure. See [Regression testing](regression-testing.md) for the workflow.
+Compares two stored runs, a stored run against a baseline, or a locally
+captured Claude Code session against a baseline. Stored-run mode is an
+inspection command and exits successfully after producing a diff. Capture mode
+is a local policy gate: it normalizes and installs the selected capture, runs
+the same assertions and structural comparison as `maida assert`, and renders
+the same report used for PR comments. See [Regression
+testing](regression-testing.md) for the workflow.
 
 **Usage:**
 
 ```bash
-maida diff [TRACE_A] [TRACE_B] [--baseline FILE] [--format FORMAT]
+maida diff [TRACE_A] [TRACE_B] [--baseline FILE]
+maida diff --capture SESSION_ID --baseline FILE [--policy FILE] [--format FORMAT]
 ```
 
-Exactly one of `TRACE_B` or `--baseline` must be provided.
+In stored-run mode, exactly one of `TRACE_B` or `--baseline` must be provided.
+Positional trace IDs cannot be combined with `--capture`.
 
 **Arguments / options:**
 
@@ -386,7 +488,9 @@ Exactly one of `TRACE_B` or `--baseline` must be provided.
 | `TRACE_A` | First OTel trace ID or prefix. Defaults to the latest run when omitted |
 | `TRACE_B` | Second OTel trace ID or prefix (mutually exclusive with `--baseline`) |
 | `--baseline`, `-b` | Baseline JSON file to compare against (mutually exclusive with `TRACE_B`) |
-| `--format`, `-f` | Output format: `text` (default) |
+| `--capture` | Raw Claude Code session ID to normalize, install, and gate |
+| `--policy` | Policy YAML for capture mode. Defaults to `.maida/policy.yaml` when present |
+| `--format`, `-f` | Capture output format: `text` (default), `json`, or `markdown` |
 
 **Examples:**
 
@@ -396,9 +500,21 @@ maida diff a1b2c3d4 e5f6a7b8
 
 # Compare the latest run against a baseline
 maida diff --baseline .maida/baselines/my_agent.json
+
+# Gate a locally captured Claude Code session before pushing
+maida diff --capture "$CLAUDE_SESSION_ID" \
+  --baseline .maida/baselines/my_agent.json \
+  --policy .maida/policy.yaml \
+  --format json
 ```
 
-**Exit codes:** `0` success; `2` run or baseline not found; `10` internal error.
+**Stored-run exit codes:** `0` successful inspection; `2` run or baseline not
+found; `10` internal error.
+
+**Capture-mode exit codes:** `0` policy pass; `1` policy regression; `2`
+missing/invalid arguments, capture, baseline, or policy; `10` capture import,
+evaluation, or other runtime failure. Capture selection and import notices go
+to stderr; stdout contains only the requested report format.
 
 **Text output sections:**
 
@@ -406,3 +522,26 @@ maida diff --baseline .maida/baselines/my_agent.json
 - **Tool path** — compact baseline/current tool-call sequences, with long paths truncated in the middle
 - **Tool call changes** — new (`+`), removed (`-`), repeated (`~`), and reordered (`!`) tool calls
 - **Event type distribution** — per-event-type counts with percentage change
+
+### Reusable stored-run evaluator
+
+Automation that already has a normalized trace can use the same evaluator
+without invoking Typer:
+
+```python
+from maida.evaluation import evaluate_stored_run_against_baseline
+
+evaluation = evaluate_stored_run_against_baseline(
+    trace_id,
+    loaded_baseline,
+    policy,
+    config,
+)
+report = evaluation.report
+structural_diff = evaluation.diff
+markdown = evaluation.render("markdown", baseline_path="baseline.json")
+```
+
+The evaluator accepts in-memory baseline and policy objects. File loading,
+capture import, and progress notices remain caller concerns, which keeps it
+suitable for scenario aggregation and other non-CLI workflows.

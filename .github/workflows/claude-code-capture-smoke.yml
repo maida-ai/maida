@@ -1,0 +1,37 @@
+name: Claude Code capture smoke
+
+on:
+  pull_request:
+    paths:
+      - "maida/capture/**"
+      - "scripts/claude_code_capture_smoke.py"
+      - ".github/workflows/claude-code-capture-smoke.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-real-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.25"
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install pinned Claude Code
+        run: npm install --global @anthropic-ai/claude-code@2.1.220
+      - name: Install Maida
+        run: uv sync --dev
+      - name: Run isolated canned capture smoke
+        run: uv run python scripts/claude_code_capture_smoke.py

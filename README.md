@@ -264,6 +264,60 @@ maida diff <RUN_A> <RUN_B>
 maida diff --baseline .maida/baselines/my_agent.json  # latest run vs baseline
 ```
 
+To gate a captured Claude Code session before pushing, import and evaluate it
+in one command:
+
+```bash
+maida diff --capture "$CLAUDE_SESSION_ID" \
+  --baseline .maida/baselines/my_agent.json \
+  --policy .maida/policy.yaml \
+  --format markdown
+```
+
+Capture mode prints the same assertion and structural-diff report used by
+`maida assert`: exit `0` means pass and exit `1` means a policy regression.
+Capture selection/import notices are written to stderr, so JSON or Markdown
+stdout can be redirected directly.
+
+### Capture Claude Code without agent patches
+
+```bash
+maida capture claude-code
+# Or capture one configured Claude command-hook event from stdin:
+maida capture claude-hook
+```
+
+Point Claude Code's OTLP HTTP/protobuf logs and beta traces at
+`http://127.0.0.1:4318`. Maida validates, redacts, and persists the source
+capture locally for later import and gating. See
+[docs/claude-code.md](docs/claude-code.md) for the complete configuration.
+
+```bash
+maida import claude-code --session-id "$CLAUDE_SESSION_ID"
+maida baseline --out .maida/baselines/claude-code.json
+```
+
+Imports use the current framework-agnostic Maida trace schema, so the normal
+baseline, assertion, diff, and viewer commands work unchanged.
+
+### Run pinned Claude Code scenarios
+
+Commit a versioned `.maida/scenarios.yaml`, then run every scenario or select
+one by ID:
+
+```bash
+maida scenario run
+maida scenario run --scenario edit-config --format markdown
+```
+
+The runner verifies the exact Claude Code version and explicit config files,
+copies only declared Git-tracked fixture files into a temporary workspace,
+starts an ephemeral loopback receiver, and evaluates the imported capture with
+the normal Maida baseline and policy engine. It reports agent failures
+(including timeout and process failure) separately from assertion failures.
+See the [Claude Code guide](docs/claude-code.md#run-isolated-scenarios) for the
+manifest contract and CI safety controls.
+
 
 ## Regression testing
 

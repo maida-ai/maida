@@ -1,0 +1,7 @@
+{
+  "capture_version": 1,
+  "source": "claude-code",
+  "session_hash": "addd1dc6e49a99df4ff5da754cec9f2b17274b9d6609732100047409cf70396a",
+  "segment": "0001",
+  "signals": {"logs": 4, "spans": 3}
+}
