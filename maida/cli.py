@@ -69,6 +69,11 @@ from maida.integrations.claude_code import (
 )
 from maida.policy import load_policy, merge_policy
 from maida.runner import RunExecutionError, run_trials
+from maida.scenario import (
+    DEFAULT_SCENARIO_MANIFEST,
+    ScenarioInputError,
+    run_scenario_file,
+)
 from maida.statistics import GateVerdict
 from maida.scaffold import (
     POLICY_RELPATH,
@@ -86,8 +91,10 @@ _DEMO_TRACE_DURATION_MS = 120
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
 capture_app = typer.Typer(help="Capture external agent behavior locally.")
 import_app = typer.Typer(help="Import existing traces into local Maida storage.")
+scenario_app = typer.Typer(help="Run isolated capture-backed agent scenarios.")
 app.add_typer(capture_app, name="capture")
 app.add_typer(import_app, name="import")
+app.add_typer(scenario_app, name="scenario")
 
 
 def _version_callback(value: bool) -> None:
@@ -111,6 +118,46 @@ def version_callback(
     ] = None,
 ):
     """Show Maida version."""
+
+
+@scenario_app.command("run")
+def scenario_run_cmd(
+    manifest: Path = typer.Argument(
+        DEFAULT_SCENARIO_MANIFEST,
+        help="Scenario manifest (default: .maida/scenarios.yaml)",
+    ),
+    scenario_id: str | None = typer.Option(
+        None,
+        "--scenario",
+        help="Run only the selected scenario ID",
+    ),
+    output_format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text, json, or markdown",
+    ),
+) -> None:
+    """Run headless Claude Code scenarios in isolated workspaces."""
+    if output_format not in {"text", "json", "markdown"}:
+        typer.echo("error: format must be text, json, or markdown", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    try:
+        report = run_scenario_file(manifest, scenario_id=scenario_id)
+        typer.echo(report.render(output_format))
+        if report.exit_code:
+            raise Exit(report.exit_code)
+    except Exit:
+        raise
+    except ScenarioInputError as exc:
+        typer.echo(
+            f"Invalid scenario manifest/environment: {exc}",
+            err=True,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+    except Exception:
+        typer.echo("error: scenario execution failed", err=True)
+        raise Exit(EXIT_INTERNAL)
 
 
 def _resolve_run_or_latest(run_id: str | None, config) -> str:

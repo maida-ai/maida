@@ -92,6 +92,77 @@ The command exits `0` when policy checks pass, `1` for a behavioral regression,
 The selected segment and idempotent import result are reported on stderr;
 stdout contains only the requested text, JSON, or Markdown assertion report.
 
+## Run isolated scenarios
+
+`maida scenario run` turns checked-in Claude Code prompts into reproducible
+local or CI gates. It defaults to `.maida/scenarios.yaml`:
+
+```yaml
+version: 1
+claude:
+  executable: claude
+  version: 2.1.220
+  model: claude-haiku-4-5-20251001
+  settings: .claude/settings.json
+  mcp_config: .mcp.json
+  timeout_seconds: 60
+  max_budget_usd: 0.10
+  max_turns: 2
+  allowed_tools: [Read, Write]
+scenarios:
+  - id: edit-config
+    fixture:
+      root: tests/fixtures/scenarios/edit-config
+      files:
+        - input.txt
+        - .claude/settings.json
+        - .mcp.json
+    prompt: Update input.txt exactly as requested by its first line.
+    baseline: .maida/baselines/edit-config.json
+    policy: .maida/policy.yaml
+```
+
+All paths are relative to the project root. Fixture entries, baselines, and
+policies must be Git-tracked regular files. `settings` and `mcp_config` are
+paths inside every fixture and must appear in its `files` list. Settings must
+not install hooks, override the runner environment, or enable permission
+bypass. The MCP file must contain an `mcpServers` object; use an empty object
+when a scenario needs no MCP servers:
+
+```json
+{"mcpServers": {}}
+```
+
+Before execution, Maida verifies the exact Claude Code semantic version, full
+model ID, config contents, unique scenario IDs, baselines, policies, and
+tracked paths. For each scenario it:
+
+1. Copies only the declared fixture files into a fresh temporary workspace.
+2. Starts an ephemeral receiver on `127.0.0.1` and disables prompt/tool-content
+   telemetry logging.
+3. Invokes `claude -p` through an argv list with project-only settings, strict
+   MCP config, `dontAsk`, an explicit tool allowlist, no session persistence,
+   native budget/turn caps, and no dangerous permission bypass.
+4. Terminates the whole process group on timeout, imports the capture, and
+   evaluates it through the same assertion, structural diff, and report
+   formatters as `maida diff --capture`.
+
+Run all scenarios or one selected ID:
+
+```bash
+maida scenario run
+maida scenario run --scenario edit-config --format json
+```
+
+The report never retains raw Claude stdout or stderr. A scenario status is
+`pass`, `assertion_failed`, or `agent_failed`. Invalid manifest/environment
+preflight exits `2`; runtime agent or capture failure takes precedence and
+exits `10`; otherwise an assertion failure exits `1`, and all-pass exits `0`.
+
+Claude's official [headless mode](https://code.claude.com/docs/en/headless) and
+[CLI reference](https://code.claude.com/docs/en/cli-reference) document the
+underlying non-interactive and safety flags.
+
 Use `--host` and `--port` to change the bind address. Keep the receiver on a
 trusted interface: it intentionally has no authentication because its default
 use is a local process or an isolated CI job.

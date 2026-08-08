@@ -300,6 +300,24 @@ maida baseline --out .maida/baselines/claude-code.json
 Imports use the current framework-agnostic Maida trace schema, so the normal
 baseline, assertion, diff, and viewer commands work unchanged.
 
+### Run pinned Claude Code scenarios
+
+Commit a versioned `.maida/scenarios.yaml`, then run every scenario or select
+one by ID:
+
+```bash
+maida scenario run
+maida scenario run --scenario edit-config --format markdown
+```
+
+The runner verifies the exact Claude Code version and explicit config files,
+copies only declared Git-tracked fixture files into a temporary workspace,
+starts an ephemeral loopback receiver, and evaluates the imported capture with
+the normal Maida baseline and policy engine. It reports agent failures
+(including timeout and process failure) separately from assertion failures.
+See the [Claude Code guide](docs/claude-code.md#run-isolated-scenarios) for the
+manifest contract and CI safety controls.
+
 
 ## Regression testing
 
