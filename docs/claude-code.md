@@ -4,6 +4,31 @@ Maida can receive Claude Code's OpenTelemetry events and beta traces without
 patching agent code. The receiver binds to loopback by default and writes only
 to local Maida storage.
 
+## Core capture-to-gate workflow
+
+The OTel receiver is the default capture path. The passive command hook is a
+fallback when exporter access or tool detail is unavailable. Both transports
+write the same source-capture contract and converge at one framework-agnostic
+normalizer:
+
+```text
+Claude Code ── OTLP logs/traces ─┐
+                                ├─ capture segment ─ import ─ Maida trace ─ gate
+Claude Code ── command hooks ────┘                                  └─ scenario run
+```
+
+After import, baseline creation, assertion policy, structural diff, report
+formatting, and trace viewing are transport-independent. `maida scenario run`
+owns the reproducible headless orchestration and uses the OTel path internally;
+it evaluates through the same stored-run service as `maida diff --capture`.
+
+Choose one entry point:
+
+- `maida capture claude-code` for normal local and CI telemetry capture.
+- `maida capture claude-hook` for the observer-only lifecycle fallback.
+- `maida scenario run` for pinned, isolated prompt fixtures and automatic
+  capture/import/evaluation.
+
 Start the receiver:
 
 ```bash

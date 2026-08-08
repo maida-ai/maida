@@ -1303,9 +1303,30 @@ def normalize_claude_capture(
         "status_code": "ERROR" if errors else "OK",
         "status_description": "Claude Code capture contains failures" if errors else "",
     }
+    by_normalized_id = {span["span_id"]: span for span in normalized}
+
+    def topology_depth(span: dict[str, Any]) -> int:
+        depth = 1
+        parent = span.get("parent_span_id")
+        seen: set[str] = set()
+        while isinstance(parent, str) and parent in by_normalized_id:
+            if parent in seen:  # Defensive: source cycles were repaired above.
+                break
+            seen.add(parent)
+            depth += 1
+            parent = by_normalized_id[parent].get("parent_span_id")
+        return depth
+
     all_spans = [
         root,
-        *sorted(normalized, key=lambda span: (span["start_time"], span["span_id"])),
+        *sorted(
+            normalized,
+            key=lambda span: (
+                span["start_time"],
+                topology_depth(span),
+                span["span_id"],
+            ),
+        ),
     ]
     meta = {
         "spec_version": SPEC_VERSION,
