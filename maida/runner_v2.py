@@ -19,6 +19,8 @@ from maida.assertions import (
     AssertionPolicy,
     AssertionReport,
     AssertionResult,
+    _markdown_baseline_provenance,
+    _markdown_table_cell,
     run_assertions,
 )
 from maida.baseline import extract_run_metrics
@@ -122,6 +124,7 @@ class TrialRunReport:
     window_input_format: str | None = None
     baseline_source_run_id: str | None = None
     baseline_source_run_name: str | None = None
+    baseline_acceptance: dict[str, Any] | None = None
 
     @property
     def verdict(self) -> GateVerdict:
@@ -164,6 +167,8 @@ class TrialRunReport:
                     "baseline_source_run_name": self.baseline_source_run_name,
                 }
             )
+        if self.baseline_acceptance is not None:
+            payload["baseline_acceptance"] = self.baseline_acceptance
         return payload
 
     def to_json(self) -> str:
@@ -187,110 +192,490 @@ class TrialRunReport:
         lines.extend(["", f"RESULT: {self.verdict.value.upper()}"])
         return "\n".join(lines)
 
-    def to_markdown(self) -> str:
-        icons = {
+    def to_markdown(self, baseline_path: str | None = None) -> str:
+        """Render the compact, GitHub-facing statistical gate report."""
+        return _render_trial_report_markdown(self, baseline_path=baseline_path)
+
+
+_CHECK_LABELS = {
+    "agent_process": "Agent execution",
+    "step_count": "Steps",
+    "tool_call_count": "Tool calls",
+    "cost_tokens": "Tokens",
+    "latency_ms": "Latency",
+    "llm_call_count": "Model calls",
+    "error_count": "Errors",
+    "loop_warning_count": "Loops",
+    "no_loops": "Loops",
+    "no_guardrails": "Guardrails",
+    "stop_condition_reached": "Terminal state",
+    "forbidden_tools": "Allowed tools",
+    "required_tools": "Required tools",
+    "task_pass_rate": "Successful behavior",
+}
+
+_SUMMARY_CHANGES = {
+    "total_events": ("Steps", ""),
+    "tool_calls": ("Tool calls", ""),
+    "total_tokens": ("Tokens", ""),
+    "duration_ms": ("Latency", " ms"),
+    "llm_calls": ("Model calls", ""),
+    "errors": ("Errors", ""),
+    "loop_warnings": ("Loops", ""),
+}
+
+
+def _plural(count: int, singular: str, plural: str | None = None) -> str:
+    return singular if count == 1 else (plural or f"{singular}s")
+
+
+def _number(value: object) -> str:
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        return str(int(numeric)) if numeric.is_integer() else f"{numeric:g}"
+    return _markdown_table_cell(value)
+
+
+def _signed_number(value: object) -> str:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        numeric = float(value)
+        sign = "+" if numeric > 0 else ""
+        return f"{sign}{_number(numeric)}"
+    return _number(value)
+
+
+def _inline(value: object) -> str:
+    escaped = _markdown_table_cell(value).replace("`", "&#96;")
+    return f"`{escaped}`"
+
+
+def _sequence(values: object) -> str:
+    if not isinstance(values, list) or not values:
+        return "(none)"
+    return " → ".join(str(value).replace("\n", " ") for value in values)
+
+
+def _pair(value: object) -> tuple[object, object] | None:
+    if isinstance(value, (list, tuple)) and len(value) == 2:
+        return value[0], value[1]
+    return None
+
+
+def _change_sentence(label: str, suffix: str, current: object, baseline: object) -> str:
+    current_text = f"{_number(current)}{suffix}"
+    baseline_text = f"{_number(baseline)}{suffix}"
+    trend = "changed"
+    delta: object | None = None
+    if isinstance(current, (int, float)) and isinstance(baseline, (int, float)):
+        delta = current - baseline
+        if delta > 0:
+            trend = "increased"
+        elif delta < 0:
+            trend = "decreased"
+    sentence = f"{label} {trend} from {baseline_text} to {current_text}"
+    if delta:
+        sentence += f" ({_signed_number(delta)}{suffix})"
+    return f"{sentence}."
+
+
+def _behavior_lines(diff: dict[str, Any] | None) -> list[str]:
+    if not isinstance(diff, dict):
+        return []
+    lines: list[str] = []
+    current_sequence = diff.get("current_tool_sequence")
+    baseline_sequence = diff.get("baseline_tool_sequence")
+    if diff.get("reordered_tools"):
+        lines.append(
+            "Tool order changed from "
+            f"{_inline(_sequence(baseline_sequence))} to "
+            f"{_inline(_sequence(current_sequence))}."
+        )
+    for tool in diff.get("new_tools") or []:
+        lines.append(f"New tool used: {_inline(tool)}.")
+    for tool in diff.get("removed_tools") or []:
+        lines.append(f"Tool removed: {_inline(tool)}.")
+    repeated = diff.get("repeated_tools") or {}
+    if isinstance(repeated, dict):
+        for tool, counts in repeated.items():
+            pair = _pair(counts)
+            if pair is None:
+                continue
+            baseline_count, current_count = pair
+            lines.append(
+                f"Tool {_inline(tool)} repeated {_number(current_count)} times "
+                f"(baseline: {_number(baseline_count)})."
+            )
+
+    summary = diff.get("summary_diff") or {}
+    if isinstance(summary, dict):
+        for key, (label, suffix) in _SUMMARY_CHANGES.items():
+            pair = _pair(summary.get(key))
+            if pair is None:
+                continue
+            current, baseline = pair
+            lines.append(_change_sentence(label, suffix, current, baseline))
+
+    guardrails = _pair(diff.get("guardrail_event_diff"))
+    if guardrails is not None:
+        current, baseline = guardrails
+        count = int(current) if isinstance(current, (int, float)) else 0
+        lines.append(
+            f"Guardrails triggered {_number(current)} {_plural(count, 'time')} "
+            f"(baseline: {_number(baseline)})."
+        )
+    terminal = _pair(diff.get("terminal_status_diff"))
+    if terminal is not None:
+        current, baseline = terminal
+        lines.append(
+            f"Terminal state changed from {_inline(baseline)} to {_inline(current)}."
+        )
+    return lines
+
+
+def _all_behavior_lines(trials: list[TrialRecord]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            sentence
+            for trial in trials
+            for sentence in _behavior_lines(trial.baseline_diff)
+        )
+    )
+
+
+def _check_label(check_name: str) -> str:
+    return _CHECK_LABELS.get(check_name, check_name.replace("_", " ").capitalize())
+
+
+def _result_title(result: StatisticalResult) -> str:
+    label = _check_label(result.check_name)
+    violations = int(result.evidence.get("violations", 0) or 0)
+    trials = result.trials_used
+    trial_word = _plural(trials, "trial")
+    if result.verdict is GateVerdict.PASS:
+        if result.check_name == "agent_process":
+            return "Agent execution stayed healthy."
+        return f"{label} stayed within the allowed range."
+    if result.verdict is GateVerdict.INCONCLUSIVE:
+        if result.check_name == "task_pass_rate":
+            return "Successful behavior is still inconclusive."
+        return f"{label} is still inconclusive."
+    if result.check_name == "agent_process":
+        return f"Agent execution failed in {violations} of {trials} {trial_word}."
+    if result.check_name in {"no_loops", "loop_warning_count"}:
+        return f"Loops appeared in {violations} of {trials} {trial_word}."
+    if result.check_name == "no_guardrails":
+        return f"Guardrails triggered in {violations} of {trials} {trial_word}."
+    if result.check_name == "stop_condition_reached":
+        return "The agent did not reach a successful terminal state."
+    if result.check_name == "latency_ms":
+        return "Latency increased beyond the allowed range."
+    if result.check_name == "step_count":
+        return "Steps increased beyond the allowed range."
+    if result.check_name == "cost_tokens":
+        return "Tokens increased beyond the allowed range."
+    if result.check_name == "task_pass_rate":
+        return "Successful behavior fell below the required rate."
+    return f"{label} violated the policy."
+
+
+def _measurement(value: object, check_name: str) -> str:
+    suffix = " ms" if check_name == "latency_ms" else ""
+    return f"{_number(value)}{suffix}"
+
+
+def _result_evidence(result: StatisticalResult) -> str | None:
+    evidence = result.evidence
+    if result.kind == "measured":
+        parts: list[str] = []
+        baseline = evidence.get("baseline")
+        if baseline is not None:
+            parts.append(f"baseline {_measurement(baseline, result.check_name)}")
+        delta = evidence.get("delta")
+        if (
+            result.check_name == "step_count"
+            and isinstance(delta, (int, float))
+            and delta
+        ):
+            parts.append(f"delta {_signed_number(delta)}")
+        allowed = evidence.get("allowed") or {}
+        lower = allowed.get("lower") if isinstance(allowed, dict) else None
+        upper = allowed.get("upper") if isinstance(allowed, dict) else None
+        if lower is not None and upper is not None:
+            parts.append(
+                "allowed between "
+                f"{_measurement(lower, result.check_name)} and "
+                f"{_measurement(upper, result.check_name)}"
+            )
+        elif upper is not None:
+            parts.append(f"allowed at most {_measurement(upper, result.check_name)}")
+        elif lower is not None:
+            parts.append(f"allowed at least {_measurement(lower, result.check_name)}")
+        observed = _measurement(evidence.get("observed", 0), result.check_name)
+        return f"Observed {observed}" + (f" ({'; '.join(parts)})." if parts else ".")
+    if result.kind == "invariant":
+        if result.check_name == "agent_process" and result.verdict is GateVerdict.PASS:
+            return (
+                f"All {result.trials_used} {_plural(result.trials_used, 'trial')} "
+                "completed successfully."
+            )
+        return None
+
+    bounds = evidence.get("confidence_bounds") or {}
+    lower = float(bounds.get("lower", 0.0))
+    upper = float(bounds.get("upper", 1.0))
+    confidence = float(evidence.get("confidence", 0.0)) * 100
+    observed_rate = float(evidence.get("observed_rate", 0.0))
+    if result.mode == "report_only":
+        return (
+            f"Observed pass rate {observed_rate:.3f}; {confidence:g}% confidence "
+            f"range {lower:.3f}–{upper:.3f}."
+        )
+    successes = int(evidence.get("successes", result.successes))
+    threshold = evidence.get("threshold", 0.0)
+    if isinstance(threshold, dict):
+        target = (
+            f"target {_number(threshold.get('lower'))}–"
+            f"{_number(threshold.get('upper'))}"
+        )
+    elif result.direction == "upper":
+        target = f"target at most {float(threshold):.3f}"
+    else:
+        target = f"target at least {float(threshold):.3f}"
+    return (
+        f"{successes}/{result.trials_used} trials passed; {confidence:g}% "
+        f"confidence range {lower:.3f}–{upper:.3f} ({target})."
+    )
+
+
+def _result_line(result: StatisticalResult, *, report_only: bool = False) -> str:
+    if report_only:
+        icon = "ℹ️"
+        title = f"{_check_label(result.check_name)} were observed without blocking the gate."
+    else:
+        icon = {
             GateVerdict.PASS: "✅",
             GateVerdict.FAIL: "❌",
             GateVerdict.INCONCLUSIVE: "⚪",
-        }
-        heading = "Maida drift check" if self.report_kind == "drift" else "Maida gate"
-        sample_description = (
-            f"{len(self.trials)} traces in window"
-            if self.report_kind == "drift"
-            else f"{len(self.trials)}/{self.trials_requested} trials used"
+        }[result.verdict]
+        title = _result_title(result)
+    line = f"- {icon} **{title}** {_inline(result.check_name)}"
+    if evidence := _result_evidence(result):
+        line += f" — {evidence}"
+    return line
+
+
+def _count_summary(report: TrialRunReport) -> str:
+    failures = sum(
+        result.verdict is GateVerdict.FAIL for result in report.aggregate_results
+    )
+    inconclusive = sum(
+        result.verdict is GateVerdict.INCONCLUSIVE
+        for result in report.aggregate_results
+    )
+    blocking = sum(result.verdict is not None for result in report.aggregate_results)
+    if failures:
+        check_summary = f"{failures} blocking {_plural(failures, 'check')} failed"
+        if inconclusive:
+            check_summary += (
+                f", {inconclusive} {_plural(inconclusive, 'check')} inconclusive"
+            )
+    elif inconclusive:
+        check_summary = (
+            f"{inconclusive} blocking {_plural(inconclusive, 'check')} inconclusive"
         )
-        lines = [
-            f"## {icons[self.verdict]} {heading}: {self.verdict.value}",
-            "",
-            f"**{sample_description}** · stopping rule `{self.stopping_rule}`",
-        ]
-        if self.abort_reason:
-            lines.append(f" · aborted: `{self.abort_reason}`")
-        trace_value_heading = (
-            "Run status" if self.report_kind == "drift" else "Process exit"
+    else:
+        check_summary = f"{blocking} blocking {_plural(blocking, 'check')} passed"
+
+    completed = len(report.trials)
+    if completed < report.trials_requested:
+        trial_summary = f"{completed}/{report.trials_requested} trials completed"
+    else:
+        passed = sum(trial.passed for trial in report.trials)
+        trial_summary = f"{passed}/{report.trials_requested} trials passed"
+    return f"**{check_summary}** · **{trial_summary}**"
+
+
+def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
+    short_trace = report.trials[0].trace_id[:8] if report.trials else "TRACE_ID"
+    safe_baseline = _markdown_table_cell(baseline_path) if baseline_path else None
+    if report.verdict is GateVerdict.PASS:
+        if report.trials:
+            return [
+                f"- No gate action needed. Inspect the trace: `maida view {short_trace}`"
+            ]
+        return ["- No gate action needed."]
+    if report.verdict is GateVerdict.INCONCLUSIVE:
+        rerun = (
+            f"maida drift --window RUNS_DIR --baseline {safe_baseline}"
+            if report.report_kind == "drift" and safe_baseline
+            else f"maida run AGENT.py --trials {report.trials_requested}"
         )
-        sample_item_heading = "Trace" if self.report_kind == "drift" else "Trial"
+        steps = [f"- Collect the remaining evidence and rerun: `{rerun}`"]
+        if report.trials:
+            steps.append(f"- Open the trace locally: `maida view {short_trace}`")
+        return steps
+
+    steps = ["- Review the behavioral changes and blocking checks above."]
+    if safe_baseline:
+        steps.append(
+            f"- Inspect the full diff: `maida diff {short_trace} --baseline {safe_baseline}`"
+        )
+    if report.trials:
+        steps.append(f"- Open the trace locally: `maida view {short_trace}`")
+    if safe_baseline:
+        steps.extend(
+            [
+                "- If this change is intentional, comment `/maida accept` on the PR "
+                "or accept locally: "
+                f"`maida accept {short_trace} --baseline {safe_baseline} "
+                '--reason "..."`',
+                "- Otherwise fix the agent behavior and rerun: "
+                f"`maida run AGENT.py --baseline {safe_baseline}`",
+            ]
+        )
+    else:
+        steps.append(
+            "- Otherwise fix the agent behavior or policy, then rerun the gate."
+        )
+    return steps
+
+
+def _render_trial_report_markdown(
+    report: TrialRunReport, *, baseline_path: str | None
+) -> str:
+    icons = {
+        GateVerdict.PASS: "✅",
+        GateVerdict.FAIL: "❌",
+        GateVerdict.INCONCLUSIVE: "⚪",
+    }
+    heading = "Maida drift check" if report.report_kind == "drift" else "Maida verdict"
+    lines = [
+        f"## {icons[report.verdict]} {heading}: {report.verdict.value}",
+        "",
+        _count_summary(report),
+    ]
+    if report.abort_reason:
         lines.extend(
             [
                 "",
-                "| Metric | Kind | Mode | Direction | Verdict | Evidence |",
-                "| --- | --- | --- | --- | --- | --- |",
+                f"> Sample stopped early: {_inline(report.abort_reason)}.",
             ]
         )
-        for result in self.aggregate_results:
-            verdict = (
-                result.verdict.value.upper()
-                if result.verdict is not None
-                else "REPORT ONLY"
-            )
-            evidence = result.evidence
-            if result.kind == "measured":
-                delta = evidence.get("delta")
-                delta_text = "n/a" if delta is None else f"{delta:+.3g}"
-                sample = evidence.get("sample") or {}
-                detail = (
-                    f"delta {delta_text}; min/median/max "
-                    f"{sample.get('min')}/{sample.get('median')}/{sample.get('max')}"
-                )
-            elif result.kind == "invariant":
-                detail = (
-                    f"violated in {evidence.get('violations', 0)}/"
-                    f"{result.trials_used} trials"
-                )
-            elif result.mode == "report_only":
-                detail = (
-                    f"observed rate {evidence.get('observed_rate', 0):.3f}; "
-                    "no confidence verdict"
-                )
-            else:
-                bounds = evidence.get("confidence_bounds") or {}
-                detail = (
-                    f"one-sided bounds "
-                    f"{bounds.get('lower', 0):.3f}–{bounds.get('upper', 1):.3f}"
-                )
-            lines.append(
-                f"| `{result.check_name}` | {result.kind} | {result.mode} | "
-                f"{result.direction or 'n/a'} | **{verdict}** | {detail} |"
-            )
-        lines.extend(
-            [
-                "",
-                (
-                    "### Window traces"
-                    if self.report_kind == "drift"
-                    else "### Trial traces"
-                ),
-                "",
-                f"| {sample_item_heading} | Outcome | Trace | {trace_value_heading} | Baseline changes |",
-                "| ---: | --- | --- | ---: | --- |",
-            ]
+    lines.extend(["", "### Behavior vs baseline", ""])
+    behavior_lines = _all_behavior_lines(report.trials)
+    baseline_configured = any(
+        trial.baseline_diff is not None for trial in report.trials
+    )
+    if behavior_lines:
+        lines.extend(f"- {sentence}" for sentence in behavior_lines)
+    elif baseline_configured:
+        lines.append(
+            "No behavior changed from the accepted baseline across the sampled trials."
         )
-        for trial in self.trials:
-            diff = trial.baseline_diff
-            changes = "not configured"
-            if diff is not None:
-                changed = list((diff.get("summary_diff") or {}).keys())
-                changed.extend(
-                    f"new tool: {tool}" for tool in diff.get("new_tools", [])
-                )
-                changes = ", ".join(changed) if changed else "none"
-            if self.report_kind == "drift":
-                execution_value = trial.run_status or "unknown"
-            else:
-                execution_value = str(trial.process_exit_code)
-            lines.append(
-                f"| {trial.trial} | {'PASS' if trial.passed else 'FAIL'} | "
-                f"`{trial.trace_id[:8]}` | {execution_value} | {changes} |"
-            )
-        if self.verdict is GateVerdict.INCONCLUSIVE:
+    else:
+        lines.append("No baseline comparison was configured for this run.")
+
+    blocking_results = [
+        result
+        for result in report.aggregate_results
+        if result.verdict in {GateVerdict.FAIL, GateVerdict.INCONCLUSIVE}
+    ]
+    if blocking_results:
+        lines.extend(["", "### Blocking checks", ""])
+        lines.extend(_result_line(result) for result in blocking_results)
+    if report.verdict is GateVerdict.INCONCLUSIVE:
+        if report.report_kind == "drift":
             lines.extend(
                 [
                     "",
                     "> Neutral result: no blocking failure was established. "
-                    "The CLI exits 0.",
+                    "The CLI exits 0; collect more evidence before promotion.",
                 ]
             )
-        return "\n".join(lines)
+        else:
+            lines.extend(
+                [
+                    "",
+                    "> Maida did not establish a blocking regression, but this sample "
+                    "is too small to approve confidently. Collect more trials and "
+                    "rerun before promotion.",
+                ]
+            )
+
+    lines.extend(_markdown_baseline_provenance(report.baseline_acceptance))
+    if lines[-1]:
+        lines.append("")
+    lines.extend(["### Next steps", "", *_next_steps(report, baseline_path)])
+
+    passing = [
+        result
+        for result in report.aggregate_results
+        if result.verdict is GateVerdict.PASS
+    ]
+    report_only = [
+        result for result in report.aggregate_results if result.verdict is None
+    ]
+    lines.extend(
+        [
+            "",
+            "<details>",
+            "<summary>Passing checks, report-only metrics, and trial evidence</summary>",
+        ]
+    )
+    if passing:
+        lines.extend(["", "#### Passing checks", ""])
+        lines.extend(_result_line(result) for result in passing)
+    if report_only:
+        lines.extend(["", "#### Report-only metrics", ""])
+        lines.extend(_result_line(result, report_only=True) for result in report_only)
+
+    evidence_heading = (
+        "### Window traces" if report.report_kind == "drift" else "#### Trial evidence"
+    )
+    lines.extend(["", evidence_heading, ""])
+    if report.trials:
+        execution_heading = (
+            "Run status" if report.report_kind == "drift" else "Process exit"
+        )
+        item_heading = "Trace" if report.report_kind == "drift" else "Trial"
+        lines.extend(
+            [
+                f"| {item_heading} | Outcome | Trace | {execution_heading} | Behavior changes |",
+                "| ---: | --- | --- | ---: | --- |",
+            ]
+        )
+        for trial in report.trials:
+            if trial.baseline_diff is None:
+                changes = "not configured"
+            else:
+                count = len(_behavior_lines(trial.baseline_diff))
+                changes = (
+                    "none" if count == 0 else f"{count} {_plural(count, 'change')}"
+                )
+            execution = (
+                trial.run_status or "unknown"
+                if report.report_kind == "drift"
+                else str(trial.process_exit_code)
+            )
+            lines.append(
+                f"| {trial.trial} | {'PASS' if trial.passed else 'FAIL'} | "
+                f"`{trial.trace_id[:8]}` | {execution} | {changes} |"
+            )
+    else:
+        lines.append("No trial evidence was recorded.")
+    lines.extend(
+        [
+            "",
+            "</details>",
+            "",
+            "---",
+            "*Gated by [Maida](https://maida.ai) — the local-first behavioral"
+            " regression gate for AI agents.*",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _workspace_files(project_root: Path) -> list[Path]:
@@ -483,4 +868,9 @@ def run_trials(
         stopping_rule=stopping_rule,
         abort_reason=abort_reason,
         environment_fingerprint=_environment_fingerprint(root),
+        baseline_acceptance=(
+            baseline.get("acceptance")
+            if isinstance((baseline or {}).get("acceptance"), dict)
+            else None
+        ),
     )

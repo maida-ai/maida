@@ -10,6 +10,7 @@
     "trials_requested": { "type": "integer", "minimum": 1 },
     "verdict": { "enum": ["pass", "fail", "inconclusive"] },
     "passed": { "type": ["boolean", "null"] },
+    "baseline_acceptance": { "type": ["object", "null"] },
     "metadata": {
       "type": "object",
       "required": ["trials_used", "trials_budgeted", "stopping_rule", "abort_reason", "environment_fingerprint"],

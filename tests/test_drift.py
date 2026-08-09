@@ -206,6 +206,11 @@ def test_drift_cli_evaluates_external_emitter_native_window_read_only(
 
 def test_run_drift_reports_confirmed_structural_variance(tmp_path: Path) -> None:
     baseline = _baseline(tmp_path)
+    acceptance = {
+        "accepted_by": "reviewer-login",
+        "reason": "Expected baseline",
+    }
+    baseline["acceptance"] = acceptance
     runs_dir = tmp_path / "window" / "runs"
     runs_dir.mkdir(parents=True)
     _copy_trace(
@@ -223,6 +228,8 @@ def test_run_drift_reports_confirmed_structural_variance(tmp_path: Path) -> None
     )
 
     assert report.verdict is GateVerdict.FAIL
+    assert report.baseline_acceptance == acceptance
+    assert report.to_dict()["baseline_acceptance"] == acceptance
     assert report.trials[0].baseline_diff is not None
     assert report.trials[0].baseline_diff["new_tools"]
     markdown = report.to_markdown()

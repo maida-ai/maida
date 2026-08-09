@@ -168,7 +168,7 @@ with traced_run(name="json-agent"):
     assert payload["trials"][0]["checks"][0]["check_name"] == "step_count"
 
 
-def test_trial_report_markdown_is_verdict_first_with_intervals_and_traces(
+def test_trial_report_markdown_is_verdict_first_with_behavior_and_details(
     agent_repo: Path, temp_data_dir: Path
 ) -> None:
     _write_agent(
@@ -184,8 +184,13 @@ def test_trial_report_markdown_is_verdict_first_with_intervals_and_traces(
     )
 
     markdown = report.to_markdown()
-    assert markdown.startswith("## ✅ Maida gate: pass")
-    assert "| measured |" in markdown
+    assert markdown.startswith("## ✅ Maida verdict: pass")
+    assert "### Behavior vs baseline" in markdown
+    assert (
+        "<summary>Passing checks, report-only metrics, and trial evidence</summary>"
+        in markdown
+    )
+    assert "**Steps stayed within the allowed range.**" in markdown
     assert "`step_count`" in markdown
     assert f"`{report.trials[0].trace_id[:8]}`" in markdown
 
@@ -197,6 +202,11 @@ def test_trial_report_records_each_baseline_diff(
     with traced_run(name="baseline"):
         record_tool_call("old-tool", args={}, result="ok")
     baseline = create_baseline(get_latest_run_id(config), config)
+    acceptance = {
+        "accepted_by": "reviewer-login",
+        "reason": "Expected tool split",
+    }
+    baseline["acceptance"] = acceptance
     _write_agent(
         agent_repo,
         """
@@ -217,6 +227,8 @@ with traced_run(name="candidate"):
 
     assert report.trials[0].baseline_diff is not None
     assert report.trials[0].baseline_diff["new_tools"] == ["new-tool"]
+    assert report.baseline_acceptance == acceptance
+    assert report.to_dict()["baseline_acceptance"] == acceptance
 
 
 def test_statistical_report_schema_pins_three_verdict_contract() -> None:

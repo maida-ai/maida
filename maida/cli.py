@@ -690,7 +690,9 @@ def run_cmd(
         if output_format == "json":
             rendered = report.to_json()
         elif output_format == "markdown":
-            rendered = report.to_markdown()
+            rendered = report.to_markdown(
+                baseline_path=str(baseline_path) if baseline_path is not None else None
+            )
         else:
             rendered = report.to_text()
         typer.echo(rendered)
@@ -772,7 +774,7 @@ def drift_cmd(
         if output_format == "json":
             rendered = report.to_json()
         elif output_format == "markdown":
-            rendered = report.to_markdown()
+            rendered = report.to_markdown(baseline_path=str(baseline_path))
         else:
             rendered = report.to_text()
         typer.echo(rendered)

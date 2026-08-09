@@ -227,4 +227,9 @@ def run_drift(
         window_input_format="maida_runs",
         baseline_source_run_id=baseline.get("source_run_id"),
         baseline_source_run_name=baseline.get("source_run_name"),
+        baseline_acceptance=(
+            baseline.get("acceptance")
+            if isinstance(baseline.get("acceptance"), dict)
+            else None
+        ),
     )
