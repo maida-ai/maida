@@ -116,6 +116,21 @@ def test_baseline_provenance_contract_is_documented():
     assert missing == []
 
 
+def test_scheduled_checks_document_current_external_emitter_contract():
+    text = " ".join(
+        (ROOT / "docs/scheduled-checks.md").read_text(encoding="utf-8").split()
+    )
+
+    required_snippets = [
+        "External emitters that follow the native trace contract",
+        "`maida export` JSON window inputs remain a future source format",
+        "Directory fanout is intentionally reserved",
+    ]
+
+    assert [snippet for snippet in required_snippets if snippet not in text] == []
+    assert "[#172]" not in text
+
+
 def test_adapter_conformance_contract_covers_required_behavior():
     text = " ".join(
         (ROOT / "maida/integrations/CONTRIBUTING.md")
@@ -229,3 +244,115 @@ def test_langfuse_docs_cover_read_only_import_and_mapping_contract():
 
     assert "Maida is an observability platform" not in combined
     assert "Maida is a monitoring platform" not in combined
+
+
+def test_scheduled_checks_document_drift_contract_and_future_inputs():
+    guide = (ROOT / "docs/scheduled-checks.md").read_text(encoding="utf-8")
+    cli = (ROOT / "docs/cli.md").read_text(encoding="utf-8")
+    combined = "\n".join([guide, cli])
+
+    for snippet in (
+        "maida drift",
+        "--window",
+        "one baseline per invocation",
+        "Canary promotion",
+        "report_kind: drift",
+        "maida export",
+        "native trace contract",
+        "Directory fanout",
+        "INCONCLUSIVE",
+    ):
+        assert snippet in combined
+
+    assert "monitoring" not in combined.lower()
+
+
+def test_extraction_docs_require_review_and_preserve_local_storage() -> None:
+    guide = (ROOT / "docs/extraction.md").read_text(encoding="utf-8")
+    cli = (ROOT / "docs/cli.md").read_text(encoding="utf-8")
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    combined = "\n".join([guide, cli, index])
+
+    for snippet in (
+        "maida extract --window",
+        "--workflow",
+        "draft_version: 1.0.0",
+        "review_required: true",
+        "draft.json",
+        "baseline.json",
+        "policy.yaml",
+        "human review",
+        "never writes to `.maida`",
+        "prompts, responses, tool arguments, or tool results",
+        "Exit `0`",
+        "Exit `2`",
+        "Exit `10`",
+    ):
+        assert snippet in combined
+
+    assert "auto-adopt" not in combined.lower()
+    assert "automatically activates" not in combined.lower()
+
+
+def test_two_tier_acceptance_design_covers_v3_safety_contract():
+    design_path = ROOT / "docs/design/policy-v3-two-tier-acceptance.md"
+    text = design_path.read_text(encoding="utf-8")
+    normalized = " ".join(text.replace("**", "").replace(">", "").casefold().split())
+
+    required_sections = [
+        "## Status and scope",
+        "## Proposed policy v3 shape",
+        "## Acceptance matrix",
+        "## Cumulative human-anchor rule",
+        "## Provenance contract",
+        "## Canary and drift verdicts",
+        "## Self-improvement flow",
+        "## Follow-up implementation issues",
+    ]
+    required_contracts = [
+        "Non-normative, non-indexed design proposal",
+        "does not change current Maida behavior",
+        "future breaking `version: 3`",
+        "human-owned `envelope`",
+        "plastic `baseline`",
+        "allowed tools",
+        "data surfaces",
+        "approval requirements",
+        "hard ceilings",
+        "cumulative refresh bounds",
+        "auto-refresh is disabled by default",
+        "Every envelope change requires human acceptance",
+        "regardless of whether its author is a human or an agent",
+        "Agents may author changes, but can never approve an envelope change",
+        "Baseline-only + PASS",
+        "FAIL holds promotion and refresh",
+        "INCONCLUSIVE defers promotion and refresh",
+        "last human-approved anchor",
+        "never merely against the rolling baseline",
+        "`max_updates`",
+        "`max_age`",
+        "`anchor_tolerances`",
+        "replaces the full baseline sample",
+        "does not append or accumulate traces",
+        "author identity",
+        "automatic acceptance identity",
+        "approver identity",
+        "source revision",
+        "source report",
+        "previous artifact hash",
+        "human-anchor hash",
+        "Policy loading and migration",
+        "Two-tier evaluation",
+        "Baseline refresh and provenance",
+        "Accept-flow UX",
+        "Drift and canary integration",
+        "Both founders must review and approve this proposal before merge",
+    ]
+
+    assert [section for section in required_sections if section not in text] == []
+    assert [
+        item for item in required_contracts if item.casefold() not in normalized
+    ] == []
+
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    assert design_path.name not in index

@@ -102,3 +102,35 @@ def test_gate_exit_code_contract_keeps_inconclusive_neutral(
     monkeypatch.setattr("maida.cli.run_trials", explode)
     internal = runner.invoke(app, ["run", str(script)])
     assert internal.exit_code == 10
+
+
+def test_run_markdown_forwards_baseline_path(tmp_path, monkeypatch) -> None:
+    script = tmp_path / "agent.py"
+    script.write_text("pass\n", encoding="utf-8")
+    baseline_path = tmp_path / "accepted-baseline.json"
+    seen: dict[str, str | None] = {}
+
+    class FakeReport:
+        verdict = GateVerdict.PASS
+
+        def to_markdown(self, baseline_path: str | None = None) -> str:
+            seen["baseline_path"] = baseline_path
+            return "markdown"
+
+    monkeypatch.setattr("maida.cli.load_baseline", lambda path: {"path": str(path)})
+    monkeypatch.setattr("maida.cli.run_trials", lambda *args, **kwargs: FakeReport())
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(script),
+            "--baseline",
+            str(baseline_path),
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert seen == {"baseline_path": str(baseline_path)}

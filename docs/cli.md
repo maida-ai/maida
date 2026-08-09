@@ -1,6 +1,6 @@
 # CLI
 
-The `maida` CLI runs the bundled demo, scaffolds a project, validates and imports existing traces, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates runs against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
+The `maida` CLI runs the bundled demo, scaffolds a project, validates and imports existing traces, lists runs, starts the local viewer, exports runs to JSON, updates baselines intentionally, and gates individual runs or completed windows against baselines. Storage is under `~/.maida/` by default (overridable with `MAIDA_DATA_DIR`). For all configuration options and precedence, see the [configuration reference](reference/config.md).
 
 Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) default to the **latest run** when the ID is omitted. The selected run is announced on stderr so stdout stays machine-readable.
 
@@ -428,6 +428,64 @@ maida run my_agent.py --baseline .maida/baselines/my_agent.json \
 ```
 
 Each trial must create exactly one completed trace. Exit `1` is reserved for FAIL; PASS and the provider-neutral INCONCLUSIVE verdict exit `0`, so CI consumers must read the JSON `verdict` rather than infer uncertainty from the process status. Missing inputs exit `2` and internal execution failures exit `10`.
+
+## `maida extract`
+
+Derives inactive, review-required gate drafts from a completed native trace
+window without changing the source window or active `.maida` storage.
+
+```bash
+maida extract --window RUNS_DIR --out DRAFT_DIR [options]
+```
+
+| Argument/Option | Default | Description |
+|---|---|---|
+| `--window` | required | Native Maida `runs/` directory containing completed traces |
+| `--out` | required | New directory for the atomic draft output |
+| `--workflow` | every nonempty `run_name` | Exact workflow group; repeat for multiple groups |
+| `--json` | `false` | Print `draft.json` content to stdout; notices remain on stderr |
+
+The output contains `draft.json` plus one commented policy-v2 and immutable
+baseline pair per workflow. It remains inactive until human review and an
+intentional copy into the repository's gate paths. Exit `0` means extraction and
+self-consistency verification succeeded, `2` means invalid input or selection,
+and `10` means extraction or persistence failed without installing partial
+output.
+
+See [Extract reviewable gate drafts](extraction.md) for grouping, privacy,
+artifact layout, policy candidates, and review guidance.
+
+## `maida drift`
+
+Evaluates a completed native Maida trace window against one agent baseline
+without executing the agent or changing the source traces.
+
+```bash
+maida drift --window RUNS_DIR --baseline BASELINE [options]
+```
+
+| Argument/Option | Default | Description |
+|---|---|---|
+| `--window` | required | Native Maida `runs/` directory containing completed traces |
+| `--baseline`, `-b` | required | Baseline JSON for one agent; directories are not yet accepted |
+| `--policy` | `.maida/policy.yaml` | Tier-aware gate policy |
+| `--agent` | baseline `source_run_name` | Explicit agent selector for legacy baselines |
+| `--format`, `-f` | `text` | `text`, `json`, or verdict-first `markdown` |
+| `--json-out` | - | Atomically write report schema `2.0.0` to a sidecar |
+
+```bash
+maida drift --window /srv/agents/orders/runs \
+  --baseline .maida/baselines/orders-agent.json \
+  --policy .maida/policy.yaml \
+  --format markdown --json-out orders-agent-drift.json
+```
+
+The baseline selects matching `run_name` values from a mixed-agent window. Run
+the command once per baseline. Exit `0` means PASS or neutral INCONCLUSIVE,
+`1` means FAIL, `2` means invalid input, and `10` means an internal error.
+
+See [Scheduled behavioral regression checks](scheduled-checks.md) for sample
+validation, scheduler guidance, canary promotion, and planned input adapters.
 
 ## `maida assert`
 

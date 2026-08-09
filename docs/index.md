@@ -59,7 +59,9 @@ After any run, inspect evidence with `maida view`, capture baselines with `maida
 | [Getting started](getting-started.md) | Installation (uv/pip), quickstart, data dir, redaction |
 | [Guardrails](guardrails.md) | Stop runaway runs with loop, count, and duration limits |
 | [Regression testing](regression-testing.md) | Baseline, assert, and diff workflow for catching agent regressions |
-| [CLI](cli.md) | `demo`, `init`, `validate-trace`, `list`, `view`, `export`, `baseline`, `accept`, `assert`, `diff` with options and exit codes |
+| [Scheduled checks](scheduled-checks.md) | Batch verdicts over completed production trace windows |
+| [Gate draft extraction](extraction.md) | Derive inactive policy and baseline drafts from real trace windows for human review |
+| [CLI](cli.md) | `demo`, `init`, `validate-trace`, `import`, `run`, `extract`, `drift`, `list`, `view`, `export`, `baseline`, `accept`, `assert`, `diff` with options and exit codes |
 | [Viewer](viewer.md) | Timeline UI usage, URL params, live refresh, and development |
 | [SDK](sdk.md) | `@trace`, `traced_run`, `has_active_run`, `record_llm_call`, `record_tool_call`, `record_state` |
 | [Integrations](integrations.md) | LangChain handler, OpenAI Agents adapter, and planned adapters |

@@ -6,9 +6,11 @@
   "required": ["report_version", "verdict", "passed", "metadata", "trials", "aggregate_results"],
   "properties": {
     "report_version": { "const": "2.0.0" },
+    "report_kind": { "enum": ["drift"] },
     "trials_requested": { "type": "integer", "minimum": 1 },
     "verdict": { "enum": ["pass", "fail", "inconclusive"] },
     "passed": { "type": ["boolean", "null"] },
+    "baseline_acceptance": { "type": ["object", "null"] },
     "metadata": {
       "type": "object",
       "required": ["trials_used", "trials_budgeted", "stopping_rule", "abort_reason", "environment_fingerprint"],
@@ -30,7 +32,8 @@
           "trial": { "type": "integer", "minimum": 1 },
           "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
           "run_name": { "type": ["string", "null"] },
-          "process_exit_code": { "type": "integer" },
+          "process_exit_code": { "type": ["integer", "null"] },
+          "run_status": { "type": ["string", "null"], "enum": ["ok", "error", "running", null] },
           "passed": { "type": "boolean" },
           "checks": { "type": "array", "items": { "type": "object" } },
           "metric_values": { "type": "object", "additionalProperties": { "type": "number" } },

@@ -875,7 +875,7 @@ if os.environ["MAIDA_TRIAL_INDEX"] == "3":
     )
 
     assert result.exit_code == 1, result.output
-    assert result.stdout.startswith("## ❌ Maida gate: fail")
+    assert result.stdout.startswith("## ❌ Maida verdict: fail")
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
     assert payload["report_version"] == "2.0.0"
     assert payload["verdict"] == "fail"
