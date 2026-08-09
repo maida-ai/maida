@@ -60,10 +60,11 @@ treat INCONCLUSIVE as a request for more evidence rather than a failure.
 
 ## Input compatibility
 
-This first release accepts native Maida run directories only. The window
-loader is adapter-based so the published external interchange contract from
-[#172](https://github.com/maida-ai/maida/issues/172) and `maida export` JSON
-bundles can be added later without changing the per-agent verdict body.
+This release accepts native Maida run directories. External emitters that
+follow the native trace contract can write their completed traces directly
+beneath `runs/`; the same validation and drift analysis apply without an
+emitter-specific adapter. `maida export` JSON window inputs remain a future
+source format that can be added without changing the per-agent verdict body.
 
 Baseline paths are files today. Directory fanout is intentionally reserved for
 a later release; automation should invoke once per baseline and should not

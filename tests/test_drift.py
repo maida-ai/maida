@@ -17,10 +17,21 @@ from maida.config import load_config
 from maida.drift import DriftWindowError, run_drift
 from maida.policy_types import MetricDirection, MetricKind, MetricMode, MetricPolicy
 from maida.statistics import GateVerdict
+from maida.trace_validation import validate_trace_path
 
 
 ROOT = Path(__file__).parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "traces" / "current"
+EXTERNAL_EMITTER_FIXTURE = (
+    ROOT
+    / "tests"
+    / "fixtures"
+    / "traces"
+    / "external"
+    / "emitter"
+    / "current"
+    / "multithread"
+)
 runner = CliRunner()
 
 
@@ -76,6 +87,14 @@ def _hash_tree(path: Path) -> dict[str, str]:
     }
 
 
+def _read_tree(path: Path) -> dict[str, bytes]:
+    return {
+        item.relative_to(path).as_posix(): item.read_bytes()
+        for item in sorted(path.rglob("*"))
+        if item.is_file()
+    }
+
+
 def test_run_drift_filters_one_agent_and_does_not_modify_window(tmp_path: Path) -> None:
     baseline = _baseline(tmp_path)
     runs_dir = tmp_path / "window" / "runs"
@@ -109,6 +128,80 @@ def test_run_drift_filters_one_agent_and_does_not_modify_window(tmp_path: Path) 
     assert report.trials[0].run_status == "ok"
     assert report.verdict is GateVerdict.PASS
     assert _hash_tree(runs_dir) == before
+
+
+def test_drift_cli_evaluates_external_emitter_native_window_read_only(
+    tmp_path: Path,
+) -> None:
+    trace_id = "80000000000000000000000000000001"
+    source_before = _read_tree(EXTERNAL_EMITTER_FIXTURE)
+
+    baseline_data = tmp_path / "baseline-data"
+    baseline_runs = baseline_data / "runs"
+    baseline_runs.mkdir(parents=True)
+    shutil.copytree(EXTERNAL_EMITTER_FIXTURE, baseline_runs / trace_id)
+    baseline_config = load_config()
+    baseline_config.data_dir = baseline_data
+    baseline_path = tmp_path / "baseline.json"
+    save_baseline(create_baseline(trace_id, baseline_config), baseline_path)
+
+    window_runs = tmp_path / "partner-window" / "runs"
+    window_runs.mkdir(parents=True)
+    emitted_run = window_runs / trace_id
+    shutil.copytree(EXTERNAL_EMITTER_FIXTURE, emitted_run)
+    window_before = _read_tree(window_runs)
+
+    validated = validate_trace_path(emitted_run)
+    assert [span["parent_span_id"] for span in validated.spans[2:]] == [
+        "8000000000000000",
+        "8000000000000002",
+        "8000000000000003",
+    ]
+
+    result = runner.invoke(
+        app,
+        [
+            "drift",
+            "--window",
+            str(window_runs),
+            "--baseline",
+            str(baseline_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["report_version"] == "2.0.0"
+    assert payload["report_kind"] == "drift"
+    assert payload["metadata"]["window_input_format"] == "maida_runs"
+    assert payload["verdict"] == "pass"
+    trial = payload["trials"][0]
+    assert trial["trace_id"] == trace_id
+    assert trial["metric_values"] == {
+        "step_count": 4.0,
+        "tool_call_count": 2.0,
+        "cost_tokens": 28.0,
+        "latency_ms": 500.0,
+        "llm_call_count": 2.0,
+        "error_count": 0.0,
+        "loop_warning_count": 0.0,
+    }
+    assert trial["structural_signature"]["tool_call_sequence"] == [
+        "delegate",
+        "read",
+    ]
+    assert trial["structural_signature"]["event_type_sequence"] == [
+        "RUN_START",
+        "LLM_CALL",
+        "TOOL_CALL",
+        "LLM_CALL",
+        "TOOL_CALL",
+        "RUN_END",
+    ]
+    assert _read_tree(window_runs) == window_before
+    assert _read_tree(EXTERNAL_EMITTER_FIXTURE) == source_before
 
 
 def test_run_drift_reports_confirmed_structural_variance(tmp_path: Path) -> None:

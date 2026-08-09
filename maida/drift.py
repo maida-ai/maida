@@ -38,15 +38,15 @@ class LoadedWindowTrace:
 
 
 class TraceWindowSource(Protocol):
-    """Adapter boundary for native and future interchange trace windows."""
+    """Source boundary for native runs and future exported-window formats."""
 
     analysis_config: MaidaConfig
 
     def load(self, agent_name: str) -> list[LoadedWindowTrace]: ...
 
 
-# TODO(#172): add external-interchange and ``maida export`` window sources after
-# the published trace validator defines their stable ingestion contract.
+# Conforming external emitters already produce native ``runs/<trace_id>/``
+# directories. A future source can add ``maida export`` JSON window inputs.
 
 
 def _parse_started_at(trace_id: str, value: object) -> datetime:

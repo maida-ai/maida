@@ -116,6 +116,21 @@ def test_baseline_provenance_contract_is_documented():
     assert missing == []
 
 
+def test_scheduled_checks_document_current_external_emitter_contract():
+    text = " ".join(
+        (ROOT / "docs/scheduled-checks.md").read_text(encoding="utf-8").split()
+    )
+
+    required_snippets = [
+        "External emitters that follow the native trace contract",
+        "`maida export` JSON window inputs remain a future source format",
+        "Directory fanout is intentionally reserved",
+    ]
+
+    assert [snippet for snippet in required_snippets if snippet not in text] == []
+    assert "[#172]" not in text
+
+
 def test_adapter_conformance_contract_covers_required_behavior():
     text = " ".join(
         (ROOT / "maida/integrations/CONTRIBUTING.md")
@@ -243,7 +258,7 @@ def test_scheduled_checks_document_drift_contract_and_future_inputs():
         "Canary promotion",
         "report_kind: drift",
         "maida export",
-        "issues/172",
+        "native trace contract",
         "Directory fanout",
         "INCONCLUSIVE",
     ):
