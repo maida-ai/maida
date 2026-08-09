@@ -158,6 +158,14 @@ def test_extract_window_writes_reviewable_multi_workflow_draft_atomically(
     ]
     assert orders["clusters"][0]["trace_ids"] == ["1" * 32, "4" * 32]
     assert orders["clusters"][0]["count"] == 2
+    assert orders["clusters"][0]["signature"] == {
+        "tool_path": ["search"],
+        "tool_call_sequence": ["search"],
+        "tool_call_counts": {"search": 1},
+        "llm_models_used": ["gpt-4o-mini"],
+        "event_type_sequence": ["RUN_START", "LLM_CALL", "TOOL_CALL", "RUN_END"],
+        "final_status": "ok",
+    }
     assert orders["tools"] == {
         "intersection": ["search"],
         "union": ["calculator", "fetch_profile", "search", "summarize"],
@@ -376,6 +384,13 @@ def test_extract_window_rejects_unsafe_output_and_cleans_failed_staging(
         extract_window(runs_dir, out_dir=existing, config=load_config())
     assert (existing / "keep.txt").read_text(encoding="utf-8") == "keep"
 
+    dangling = tmp_path / "dangling"
+    dangling.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+    with pytest.raises(ExtractionInputError, match="already exists"):
+        extract_window(runs_dir, out_dir=dangling, config=load_config())
+    assert dangling.is_symlink()
+    assert not (tmp_path / "missing-target").exists()
+
     with pytest.raises(ExtractionInputError, match="inside the trace window"):
         extract_window(
             runs_dir,
@@ -394,6 +409,27 @@ def test_extract_window_rejects_unsafe_output_and_cleans_failed_staging(
     assert not failed_out.exists()
     assert not list(tmp_path.glob(".failed-draft.*.tmp"))
     assert _read_tree(runs_dir)
+
+
+def test_completed_error_window_fails_self_consistency_without_installing_output(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "error-window" / "runs"
+    runs_dir.mkdir(parents=True)
+    _copy_trace(
+        "guardrail",
+        runs_dir,
+        trace_id="7" * 32,
+        run_name="Known error workflow",
+        started_at="2026-08-07T00:00:00.000Z",
+    )
+    out_dir = tmp_path / "error-draft"
+
+    with pytest.raises(RuntimeError, match="did not pass its source window"):
+        extract_window(runs_dir, out_dir=out_dir, config=load_config())
+
+    assert not out_dir.exists()
+    assert not list(tmp_path.glob(".error-draft.*.tmp"))
 
 
 def test_workflow_artifact_names_use_safe_slug_and_stable_hash(tmp_path: Path) -> None:

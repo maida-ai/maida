@@ -26,6 +26,8 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
 
     assert "maida/__init__.py" in names
     assert "maida/cli.py" in names
+    assert "maida/drift.py" in names
+    assert "maida/extract.py" in names
     assert "maida/server.py" in names
     assert "maida/ui_static/index.html" in names
     assert "maida = maida.cli:main" in entry_points

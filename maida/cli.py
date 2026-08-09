@@ -1,7 +1,7 @@
 """
 Typer CLI for Maida.
 
-Commands: list, export, validate-trace, view, baseline, accept, assert, diff, import.
+Commands: list, export, validate-trace, extract, view, baseline, accept, assert, diff, import.
 Entrypoint: main() for console script maida.cli:main.
 """
 
@@ -57,6 +57,7 @@ from maida.demo import (
 from maida.diff import compute_diff, format_diff_text
 from maida.drift import DriftWindowError, run_drift
 from maida.evaluation import evaluate_stored_run_against_baseline
+from maida.extract import ExtractionInputError, extract_window
 from maida.integrations.langfuse import (
     LangfuseImportError,
     LangfuseInputError,
@@ -787,6 +788,53 @@ def drift_cmd(
         raise Exit(EXIT_NOT_FOUND)
     except Exception as error:
         typer.echo(f"error: {error}", err=True)
+        raise Exit(EXIT_INTERNAL)
+
+
+@app.command(name="extract")
+def extract_cmd(
+    window: Path = typer.Option(
+        ..., "--window", help="Native Maida runs directory to extract"
+    ),
+    out_dir: Path = typer.Option(
+        ..., "--out", help="New directory for the inactive gate draft"
+    ),
+    workflow: list[str] | None = typer.Option(
+        None,
+        "--workflow",
+        help="Exact run_name to include; repeat to select multiple workflows",
+    ),
+    json_out: bool = typer.Option(
+        False, "--json", help="Print the machine-readable draft manifest"
+    ),
+) -> None:
+    """Extract review-required gate drafts from completed native traces."""
+    try:
+        draft = extract_window(
+            window,
+            out_dir=out_dir,
+            config=load_config(),
+            workflows=workflow,
+        )
+        if json_out:
+            typer.echo(json.dumps(draft, ensure_ascii=False, indent=2))
+        else:
+            count = len(draft["workflows"])
+            suffix = "" if count == 1 else "s"
+            typer.echo(f"Extracted {count} workflow draft{suffix}:")
+            for item in draft["workflows"]:
+                typer.echo(f"- {item['run_name']} -> {item['artifact_dir']}")
+        typer.echo(
+            f"Draft written to {out_dir}. Human review is required before activation.",
+            err=True,
+        )
+    except Exit:
+        raise
+    except ExtractionInputError as error:
+        typer.echo(f"Invalid extraction input: {error}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except Exception as error:
+        typer.echo(f"Extraction failed: {error}", err=True)
         raise Exit(EXIT_INTERNAL)
 
 

@@ -123,6 +123,7 @@ def _workflow_summary(
             identifier,
             {
                 "signature_id": identifier,
+                "signature": item["signature"],
                 "representative_trace_id": trace_id,
                 "trace_ids": [],
                 "count": 0,
@@ -321,7 +322,10 @@ def extract_window(
     workflows: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """Create an atomic, inactive draft directory for selected workflow groups."""
-    final_dir = out_dir.expanduser().resolve()
+    requested_out = out_dir.expanduser()
+    if requested_out.exists() or requested_out.is_symlink():
+        raise ExtractionInputError(f"output directory already exists: {out_dir}")
+    final_dir = requested_out.resolve()
     source_dir = runs_dir.expanduser().resolve()
     if final_dir.exists() or final_dir.is_symlink():
         raise ExtractionInputError(f"output directory already exists: {out_dir}")

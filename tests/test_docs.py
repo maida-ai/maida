@@ -265,3 +265,30 @@ def test_scheduled_checks_document_drift_contract_and_future_inputs():
         assert snippet in combined
 
     assert "monitoring" not in combined.lower()
+
+
+def test_extraction_docs_require_review_and_preserve_local_storage() -> None:
+    guide = (ROOT / "docs/extraction.md").read_text(encoding="utf-8")
+    cli = (ROOT / "docs/cli.md").read_text(encoding="utf-8")
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    combined = "\n".join([guide, cli, index])
+
+    for snippet in (
+        "maida extract --window",
+        "--workflow",
+        "draft_version: 1.0.0",
+        "review_required: true",
+        "draft.json",
+        "baseline.json",
+        "policy.yaml",
+        "human review",
+        "never writes to `.maida`",
+        "prompts, responses, tool arguments, or tool results",
+        "Exit `0`",
+        "Exit `2`",
+        "Exit `10`",
+    ):
+        assert snippet in combined
+
+    assert "auto-adopt" not in combined.lower()
+    assert "automatically activates" not in combined.lower()
