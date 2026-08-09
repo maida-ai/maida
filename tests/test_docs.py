@@ -292,3 +292,67 @@ def test_extraction_docs_require_review_and_preserve_local_storage() -> None:
 
     assert "auto-adopt" not in combined.lower()
     assert "automatically activates" not in combined.lower()
+
+
+def test_two_tier_acceptance_design_covers_v3_safety_contract():
+    design_path = ROOT / "docs/design/policy-v3-two-tier-acceptance.md"
+    text = design_path.read_text(encoding="utf-8")
+    normalized = " ".join(text.replace("**", "").replace(">", "").casefold().split())
+
+    required_sections = [
+        "## Status and scope",
+        "## Proposed policy v3 shape",
+        "## Acceptance matrix",
+        "## Cumulative human-anchor rule",
+        "## Provenance contract",
+        "## Canary and drift verdicts",
+        "## Self-improvement flow",
+        "## Follow-up implementation issues",
+    ]
+    required_contracts = [
+        "Non-normative, non-indexed design proposal",
+        "does not change current Maida behavior",
+        "future breaking `version: 3`",
+        "human-owned `envelope`",
+        "plastic `baseline`",
+        "allowed tools",
+        "data surfaces",
+        "approval requirements",
+        "hard ceilings",
+        "cumulative refresh bounds",
+        "auto-refresh is disabled by default",
+        "Every envelope change requires human acceptance",
+        "regardless of whether its author is a human or an agent",
+        "Agents may author changes, but can never approve an envelope change",
+        "Baseline-only + PASS",
+        "FAIL holds promotion and refresh",
+        "INCONCLUSIVE defers promotion and refresh",
+        "last human-approved anchor",
+        "never merely against the rolling baseline",
+        "`max_updates`",
+        "`max_age`",
+        "`anchor_tolerances`",
+        "replaces the full baseline sample",
+        "does not append or accumulate traces",
+        "author identity",
+        "automatic acceptance identity",
+        "approver identity",
+        "source revision",
+        "source report",
+        "previous artifact hash",
+        "human-anchor hash",
+        "Policy loading and migration",
+        "Two-tier evaluation",
+        "Baseline refresh and provenance",
+        "Accept-flow UX",
+        "Drift and canary integration",
+        "Both founders must review and approve this proposal before merge",
+    ]
+
+    assert [section for section in required_sections if section not in text] == []
+    assert [
+        item for item in required_contracts if item.casefold() not in normalized
+    ] == []
+
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    assert design_path.name not in index
