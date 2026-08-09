@@ -42,6 +42,8 @@ class TraceWindowSource(Protocol):
 
     analysis_config: MaidaConfig
 
+    def load_all(self) -> list[LoadedWindowTrace]: ...
+
     def load(self, agent_name: str) -> list[LoadedWindowTrace]: ...
 
 
@@ -78,7 +80,8 @@ class NativeTraceWindowSource:
             )
         self.analysis_config = replace(config, data_dir=self.runs_dir.parent)
 
-    def load(self, agent_name: str) -> list[LoadedWindowTrace]:
+    def load_all(self) -> list[LoadedWindowTrace]:
+        """Validate and load every completed trace in stable oldest-first order."""
         candidates = sorted(
             entry
             for entry in self.runs_dir.iterdir()
@@ -105,21 +108,25 @@ class NativeTraceWindowSource:
                     "can enter a drift window"
                 )
             started_at = _parse_started_at(trace_id, meta.get("started_at"))
-            if meta.get("run_name") == agent_name:
-                loaded.append(
-                    LoadedWindowTrace(
-                        trace_id=trace_id,
-                        meta=meta,
-                        events=events,
-                        started_at=started_at,
-                    )
+            loaded.append(
+                LoadedWindowTrace(
+                    trace_id=trace_id,
+                    meta=meta,
+                    events=events,
+                    started_at=started_at,
                 )
+            )
+        loaded.sort(key=lambda item: (item.started_at, item.trace_id))
+        return loaded
 
+    def load(self, agent_name: str) -> list[LoadedWindowTrace]:
+        loaded = [
+            item for item in self.load_all() if item.meta.get("run_name") == agent_name
+        ]
         if not loaded:
             raise DriftWindowError(
                 f"Trace window contains no completed traces for agent {agent_name!r}"
             )
-        loaded.sort(key=lambda item: (item.started_at, item.trace_id))
         return loaded
 
 
