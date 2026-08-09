@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from click import unstyle
 from typer.testing import CliRunner
 
 from maida.cli import app
@@ -39,11 +40,12 @@ def test_extract_cli_help_documents_required_and_repeatable_options() -> None:
     result = runner.invoke(app, ["extract", "--help"])
 
     assert result.exit_code == 0, result.output
-    assert "--window" in result.stdout
-    assert "--out" in result.stdout
-    assert "--workflow" in result.stdout
-    assert "repeat" in result.stdout.lower()
-    assert "--json" in result.stdout
+    help_text = unstyle(result.stdout)
+    assert "--window" in help_text
+    assert "--out" in help_text
+    assert "--workflow" in help_text
+    assert "repeat" in help_text.lower()
+    assert "--json" in help_text
 
 
 def test_extract_cli_json_stdout_is_machine_readable_and_notices_use_stderr(
