@@ -49,7 +49,7 @@ These operations use `POST /api/runs/{trace_id}/rename` and `DELETE /api/runs/{t
 ### Live refresh
 
 - The **run list** is polled every few seconds (see `poll_runs`). New runs appear in the sidebar without a full page reload. Runs that no longer exist on disk (e.g. you deleted the run directory) are removed from the sidebar on the next poll; if the run you were viewing is removed, the UI switches to another run or shows “No runs yet.”
-- When the **current run** has status **running**, the **event list** is polled every few seconds (see `poll_events`). The timeline and summary update in place. Polling for that run stops when the run finishes (status `ok` or `error`).
+- When the **current run** has status **running**, the **span endpoint** is polled every few seconds (see `poll_events`). The timeline and summary update in place from the projected event view. Polling for that run stops when the run finishes (status `ok` or `error`).
 - Polling **pauses** when the browser tab is not visible (Page Visibility API). It resumes when you switch back to the tab.
 
 ---
@@ -71,9 +71,9 @@ The server (see [Architecture](architecture.md)) serves these at `/`, `/styles.c
 
 ### Key behavior (app.js)
 
-- **Initial load:** `loadRuns()` fetches `GET /api/runs`, renders the sidebar, selects a run from URL or latest, then `loadRunMeta` + `loadEvents` for that run.
+- **Initial load:** `loadRuns()` fetches `GET /api/runs`, renders the sidebar, selects a run from URL or latest, then `loadRunMeta` + `loadEvents` for that run. `loadEvents` fetches `GET /api/runs/{trace_id}/spans`, which returns the stored OTel `spans` alongside an `events` projection.
 - **Run list polling:** `pollRunList()` runs on an interval (when tab visible). It fetches `/api/runs`, merges new/updated runs into the sidebar (`mergeRunListIntoSidebar`), removes runs that are no longer in the API response, and syncs `currentRunMeta` from the list. Intervals are set from URL params `poll_runs` and `poll_events` (seconds, clamped 1–60).
-- **Event polling:** When `currentRunMeta.status === 'running'` and the tab is visible, `pollEventsForCurrentRun()` runs on an interval: it fetches run meta and events, updates the timeline and summary, and stops the interval when the run is no longer running.
+- **Event polling:** When `currentRunMeta.status === 'running'` and the tab is visible, `pollEventsForCurrentRun()` runs on an interval: it fetches run meta and the `/spans` response, updates the timeline and summary from the `events` projection, and stops the interval when the run is no longer running.
 - **Visibility:** A `visibilitychange` listener clears both intervals when the tab is hidden and restarts them (and triggers an immediate run-list poll) when the tab becomes visible.
 
 ### Making changes
