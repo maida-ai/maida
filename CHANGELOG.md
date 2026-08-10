@@ -4,12 +4,26 @@
 
 ### Highlights
 
+- **Statistical gate (`maida run`)** - the primary gate command. Runs an agent over multiple isolated trials, aggregates them with a Wilson-bound three-verdict rule (pass / fail / inconclusive), and publishes tri-state statistical gate reports (`report_version` `2.0.0`).
+- **Policy v2** - tiered, directional policy with two-tier acceptance semantics. Individual assertions can be disabled outright, and unreachable policy configurations are rejected at load time.
+- **`maida accept`** - explicit baseline acceptance that records provenance, plus the scaffolded `/maida accept` PR command for authorized maintainers.
+- **External trace contract** - versioned native trace schemas, an emitter guide, and `maida validate-trace` let systems emit and validate Maida traces without an SDK, with cross-repo conformance vectors.
+- **Claude Code capture** - `maida capture claude-code` (OTLP receiver) and `maida capture claude-hook` (passive hook), `maida import claude-code` to normalize captures into Maida traces, and `maida scenario run` for isolated scenarios.
+- **Langfuse import** - `maida import langfuse` normalizes Langfuse observations into local runs so you can gate traces you already collect.
+- **`maida drift`** - windowed drift evaluation over completed trace windows, for scheduled (non-PR) checks.
+- **`maida extract`** - derives inactive policy and baseline drafts from real trace windows for human review.
+- **Adapter conformance** - LangChain, OpenAI Agents, and CrewAI adapters verified against a shared conformance contract, including payload-privacy protections.
+
+## v0.4
+
+### Highlights
+
 - **`maida demo`** - bundled simulated agent: `pip install maida-ai && maida demo` produces a traced run with no repo clone, no network, and no API keys.
 - **`maida demo --regression`** - the full gate story in one command: baseline a known-good run, run a "refactored" agent that loops, calls a new tool, and burns more tokens, then show the failing report with a PR-comment preview.
 - **`maida init`** - scaffolds a commented starter `.maida/policy.yaml`, and with `--github` a ready-to-edit workflow currently tracking `maida-ai/maida-assert@main`.
 - **Latest-run defaults** - `maida assert`, `maida baseline`, `maida export`, and `maida diff` no longer require a run ID; they default to the most recent run (announced on stderr so stdout stays machine-readable).
-- **External trace contract** - versioned native trace schemas, an emitter guide, and `maida validate-trace` let systems emit and validate Maida traces without an SDK.
 - **Richer gate reports** - the markdown report (the PR comment) now leads with a verdict, lists failed checks first with expected vs actual values, collapses passing checks, embeds a "What changed vs baseline" structural diff, and ends with a local-repro snippet. The text report appends the same diff on failure.
+- **OTel storage contract** - run lifecycle, storage APIs, CLI, server, and viewer moved onto trace-ID/`meta.json`/`spans.jsonl` storage, with JSON schemas updated to match.
 
 ## v0.3
 
