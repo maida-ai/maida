@@ -8,7 +8,11 @@ on:
       - pyproject.toml
       - uv.lock
       - pytest.toml
+      - README.md
+      - contracts/**
+      - docs/**
       - maida/**
+      - scripts/check_cross_repo_sync.py
       - tests/**
       - .github/workflows/**
 

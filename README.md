@@ -7,14 +7,13 @@
 
 Maida is a local-first, CI-first behavioral regression gate for AI agents. It captures structured traces, turns known-good runs into checked-in baselines, and fails changes when structural behavior regresses: more steps, unexpected tool calls, loops, latency spikes, or cost blowups.
 
-Add `@trace`, capture a baseline, then gate future runs (commands default to the latest run):
+Add `@trace`, capture a baseline sample, then run the current policy-v2 gate:
 
 ```bash
-python my_agent.py
-maida baseline --out baselines/my_agent.json
+maida run my_agent.py --trials 25 --no-fail-fast --json-out baseline-report.json
+maida baseline --from-report baseline-report.json --out baselines/my_agent.json
 # ...after your next change:
-python my_agent.py
-maida assert --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
+maida run my_agent.py --baseline baselines/my_agent.json --policy .maida/policy.yaml --format markdown
 ```
 
 For local inspection, use:
@@ -33,10 +32,11 @@ The viewer shows the execution timeline behind a pass/fail decision, but the cor
 
 ## Try it in 60 seconds
 
-Three commands. No repo clone, no config files, no API keys, no sign-up:
+Until the `0.5.x` release, install the current engine from GitHub `main`. The
+demo still needs no repo clone, config file, API key, or sign-up:
 
 ```bash
-pip install maida-ai
+uv tool install "maida-ai @ git+https://github.com/maida-ai/maida.git@main"
 maida demo
 maida view
 ```
@@ -92,7 +92,8 @@ def run_agent():
 run_agent()
 ```
 
-Then use `maida baseline`, `maida assert`, or `maida view` depending on whether you want to gate, compare, or inspect the run.
+Then use `maida run` to execute the policy-v2 gate, `maida baseline` to capture
+reviewed evidence, or `maida view` to inspect a run.
 
 ### What gets captured
 
@@ -174,7 +175,7 @@ Each run produces `meta.json` (metadata, status, counts) and `spans.jsonl` (Open
 ## What Maida is
 
 - **A behavioral regression gate**: compare agent runs against checked-in baselines and policy.
-- **CI-first**: `maida assert` returns stable exit codes and markdown/JSON output for pull request checks.
+- **CI-first**: `maida run` returns stable exit codes and markdown/JSON output for pull request checks.
 - **Local-first**: traces are JSONL on disk. No cloud, no accounts, no telemetry by default.
 - **Framework-agnostic**: works with any Python code and optional framework adapters.
 - **Redacted by default**: secrets are scrubbed before writing to disk.
@@ -247,15 +248,24 @@ maida baseline                                      # latest run -> .maida/basel
 maida baseline <TRACE_ID> --out baselines/v1.json   # specific run, custom path
 ```
 
-### Assert against a baseline
+### Run the policy-v2 gate
 
 ```bash
-maida assert --baseline .maida/baselines/my_agent.json    # latest run
-maida assert <TRACE_ID> --max-steps 80 --no-loops          # standalone thresholds
-maida assert --baseline baseline.json --format markdown    # for CI summaries / PR comments
+maida run my_agent.py \
+  --policy .maida/policy.yaml \
+  --baseline .maida/baselines/my_agent.json \
+  --format markdown \
+  --json-out maida-report.json
 ```
 
-Exit code `0` = pass, `1` = fail. With a baseline, the markdown report starts with the verdict and includes top behavior changes (steps, tool path, loops/cycles, guardrails, terminal state, latency/cost, and models) plus next steps so a failing check explains itself. See [docs/regression-testing.md](docs/regression-testing.md) for the full workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy YAML configuration.
+Exit code `0` = PASS or INCONCLUSIVE and `1` = FAIL. The Markdown report starts
+with the verdict and includes top behavior changes, tier evidence, and next
+steps. See [docs/regression-testing.md](docs/regression-testing.md) for the full
+workflow and [docs/reference/policy.md](docs/reference/policy.md) for policy v2.
+
+The single-run `maida assert` interface remains available for v1 migration and
+direct inspection of an already-completed trace. New gates should use
+`maida run`; see the [CLI compatibility section](docs/cli.md#maida-assert).
 
 ### Accept an intentional baseline change
 
@@ -332,14 +342,16 @@ manifest contract and CI safety controls.
 
 ## Regression testing
 
-Baselines, assertions, and diffs let you catch agent regressions locally or in CI. The workflow:
+Policies, immutable baseline samples, and structural reports catch agent
+regressions locally or in CI. The current workflow is:
 
-1. **Baseline** a known-good run (`maida baseline`)
-2. **Assert** future runs against it (`maida assert --baseline ...`)
-3. **Diff** failures to see what changed (`maida diff`)
-4. **Accept** intentional changes only after review (`maida accept --baseline ... --reason ...`)
+1. **Sample** known-good trials (`maida run --no-fail-fast --json-out ...`)
+2. **Baseline** the reviewed sample (`maida baseline --from-report ...`)
+3. **Gate** candidate trials (`maida run --baseline ...`)
+4. **Diff** failures to see what changed (`maida diff`)
 
-Control assertion thresholds via a committed `.maida/policy.yaml` file or CLI flags. Supports text, JSON, and markdown output formats.
+Control acceptance criteria through a committed policy-v2
+`.maida/policy.yaml`. Reports support text, JSON, and Markdown output.
 
 See [docs/regression-testing.md](docs/regression-testing.md) for the end-to-end guide and [docs/reference/policy.md](docs/reference/policy.md) for the policy file reference.
 
@@ -423,7 +435,7 @@ Maida is framework-agnostic at its core. The SDK works with any Python code.
 Optional callback handler that auto-records LLM and tool events. Requires `langchain-core`:
 
 ```bash
-pip install maida-ai[langchain]
+uv add "maida-ai[langchain] @ git+https://github.com/maida-ai/maida.git@main"
 ```
 
 ```python
@@ -445,7 +457,7 @@ See `examples/langchain/minimal.py` for a runnable example.
 Optional tracing adapter that auto-records generation, function, and handoff spans. Requires `openai-agents`:
 
 ```bash
-pip install maida-ai[openai]
+uv add "maida-ai[openai] @ git+https://github.com/maida-ai/maida.git@main"
 ```
 
 ```python
@@ -466,7 +478,7 @@ See `examples/openai_agents/minimal.py` for a runnable fake-data example with no
 Optional execution-hook adapter that auto-records LLM and tool events from CrewAI crews and flows. Requires `crewai[tools]`:
 
 ```bash
-pip install maida-ai[crewai]
+uv add "maida-ai[crewai] @ git+https://github.com/maida-ai/maida.git@main"
 ```
 
 ```python

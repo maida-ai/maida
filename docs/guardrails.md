@@ -9,7 +9,8 @@ They are runtime safety limits and evidence capture tools, not the post-run poli
 - Raise a dedicated exception so your code knows the run was stopped on purpose
 - Keep default behavior unchanged unless you enable a guardrail
 
-Use `maida assert` for behavioral policy enforcement against a completed run.
+Use the policy-v2 `maida run` gate for behavioral policy enforcement while it
+executes isolated candidate trials.
 
 ---
 

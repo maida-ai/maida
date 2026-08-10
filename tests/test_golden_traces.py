@@ -91,7 +91,9 @@ EXTERNAL_LOOP_EXPECTATIONS = {
         "tool_name": "lookup",
         "tool_args": {"id": "A"},
         "signature": "TOOL_CALL:lookup args:{id:str}",
-        "stored_pattern": "TOOL_CALL:lookup",
+        "stored_pattern": "TOOL_CALL:lookup args:{id:str}",
+        "pattern_type": "repeated_call",
+        "pattern_length": 1,
     },
     "opencode-plugin": {
         "trace_id": "70000000000000000000000000000002",
@@ -537,6 +539,9 @@ def test_external_tool_loop_run_projects_loop_structure(
     )
     assert loop_warning["payload"]["pattern"] == expected["stored_pattern"]
     assert loop_warning["payload"]["repetitions"] == 3
+    if "pattern_type" in expected:
+        assert loop_warning["payload"]["pattern_type"] == expected["pattern_type"]
+        assert loop_warning["payload"]["pattern_length"] == expected["pattern_length"]
 
 
 @pytest.mark.parametrize(

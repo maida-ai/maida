@@ -287,7 +287,10 @@ These commands read from or write to the storage contract documented here:
 - [`maida validate-trace`](../cli.md#maida-validate-trace) validates an external native trace without installing or modifying it.
 - [`maida baseline`](../cli.md#maida-baseline) reads a run and captures stable structural metrics for future comparison.
 - [`maida accept`](../cli.md#maida-accept) reads a run and rewrites an existing baseline after an intentional behavior change.
-- [`maida assert`](../cli.md#maida-assert) reads a run, baseline, and policy to evaluate behavioral regression checks.
+- [`maida run`](../cli.md#maida-run) executes isolated candidate trials and
+  evaluates the current policy-v2 behavioral regression gate.
+- [`maida assert`](../cli.md#maida-assert) remains the legacy single-run reader
+  for migration and direct completed-trace inspection.
 - [`maida diff`](../cli.md#maida-diff) reads two runs or a run plus baseline and reports structural differences.
 
 ### Changes from v0.1

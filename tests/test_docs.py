@@ -168,7 +168,7 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
     example = (ROOT / "examples/openai_agents/minimal.py").read_text(encoding="utf-8")
 
     required_docs = [
-        'pip install "maida-ai[openai]"',
+        'uv add "maida-ai[openai] @ git+https://github.com/maida-ai/maida.git@main"',
         "openai-agents-baseline.json",
         "examples/openai_agents/minimal.py --regression",
         "RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END",
@@ -188,7 +188,7 @@ def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
     example = (ROOT / "examples/crewai/minimal.py").read_text(encoding="utf-8")
 
     for snippet in (
-        'pip install "maida-ai[crewai]"',
+        'uv add "maida-ai[crewai] @ git+https://github.com/maida-ai/maida.git@main"',
         "examples/crewai/minimal.py",
         "--regression",
     ):

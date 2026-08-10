@@ -1,0 +1,130 @@
+"""Machine-readable contracts shared with Maida's sibling repositories."""
+
+from __future__ import annotations
+
+import copy
+import json
+from pathlib import Path
+
+import pytest
+
+from maida.cli import app
+from maida.loopdetect import detect_loop
+from maida.schema_versions import (
+    BASELINE_SCHEMA_VERSION,
+    POLICY_SCHEMA_VERSION,
+    REPORT_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION,
+)
+from maida.trace_validation import TraceValidationError, validate_trace_payload
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CONTRACTS = ROOT / "contracts"
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_current_main_contract_matches_python_source_of_truth() -> None:
+    contract = _read_json(CONTRACTS / "current-main.json")
+
+    assert contract["schemas"] == {
+        "trace": TRACE_SCHEMA_VERSION,
+        "baseline": BASELINE_SCHEMA_VERSION,
+        "policy": POLICY_SCHEMA_VERSION,
+        "report": REPORT_SCHEMA_VERSION,
+    }
+    assert contract["engine_ref"] == "main"
+    assert contract["action_ref"] == "maida-ai/maida-assert@main"
+    assert contract["cli"]["primary_gate"] == "run"
+    assert contract["cli"]["legacy_gate"] == "assert"
+    assert (
+        sorted(command.name for command in app.registered_commands)
+        == contract["cli"]["top_level_commands"]
+    )
+    assert (
+        sorted(group.name for group in app.registered_groups)
+        == contract["cli"]["command_groups"]
+    )
+
+
+def test_primary_public_docs_use_the_current_main_channel() -> None:
+    contract = _read_json(CONTRACTS / "current-main.json")
+    for relative in ("README.md", "docs/index.md", "docs/getting-started.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert contract["install_requirement"] in text
+        assert "pip install maida-ai" not in text
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "maida run my_agent.py" in readme
+    assert "maida assert --baseline" not in readme.split("## CLI reference", 1)[0]
+
+
+def test_core_ci_covers_contract_sources_and_public_docs() -> None:
+    unit_workflow = (ROOT / ".github" / "workflows" / "unittest-fast.yml").read_text(
+        encoding="utf-8"
+    )
+    for path_filter in ("README.md", "contracts/**", "docs/**"):
+        assert f"- {path_filter}" in unit_workflow
+
+    sync_workflow = (ROOT / ".github" / "workflows" / "cross-repo-sync.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "schedule:" in sync_workflow
+    assert "workflow_dispatch:" in sync_workflow
+    for repository in (
+        "maida-ai/maida-assert",
+        "maida-ai/maida-ts",
+        "maida-ai/maida-ai.github.io",
+    ):
+        assert f"repository: {repository}" in sync_workflow
+    assert "scripts/check_cross_repo_sync.py" in sync_workflow
+
+
+@pytest.mark.parametrize(
+    "case",
+    _read_json(CONTRACTS / "conformance" / "loop-vectors.json")["cases"],
+    ids=lambda case: case["name"],
+)
+def test_loop_conformance_vectors(case: dict) -> None:
+    assert (
+        detect_loop(case["events"], case["window"], case["repetitions"])
+        == case["expected"]
+    )
+
+
+def _validation_case_payload(vectors: dict, case: dict) -> tuple[dict, list[dict]]:
+    meta = copy.deepcopy(vectors["base"]["meta"])
+    spans = copy.deepcopy(vectors["base"]["spans"])
+    meta.update(case.get("meta_overrides", {}))
+    for index, overrides in case.get("span_overrides", {}).items():
+        spans[int(index)].update(overrides)
+    for span_index, events in case.get("event_overrides", {}).items():
+        for event_index, overrides in events.items():
+            spans[int(span_index)]["events"][int(event_index)].update(overrides)
+    return meta, spans
+
+
+_VALIDATION_VECTORS = _read_json(
+    CONTRACTS / "conformance" / "trace-validation-vectors.json"
+)
+
+
+@pytest.mark.parametrize(
+    "case",
+    _VALIDATION_VECTORS["cases"],
+    ids=lambda case: case["name"],
+)
+def test_trace_validation_conformance_vectors(case: dict) -> None:
+    meta, spans = _validation_case_payload(_VALIDATION_VECTORS, case)
+    if case["expected_valid"]:
+        validate_trace_payload(meta, spans)
+        return
+
+    with pytest.raises(TraceValidationError) as excinfo:
+        validate_trace_payload(meta, spans)
+    assert case["diagnostic_code"] in {
+        diagnostic.code for diagnostic in excinfo.value.diagnostics
+    }
