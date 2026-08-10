@@ -34,6 +34,12 @@ jobs:
           ref: main
           path: maida-ai.github.io
 
+      - uses: actions/checkout@v7
+        with:
+          repository: maida-ai/maida-tutorials
+          ref: main
+          path: maida-tutorials
+
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           version: "0.11.14"

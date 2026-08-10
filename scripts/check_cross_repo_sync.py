@@ -52,6 +52,7 @@ def check_workspace(workspace: Path) -> list[str]:
         workspace / "maida-assert" / "tests" / "contracts" / "current-main.json",
         workspace / "maida-ts" / "tests" / "contracts" / "current-main.json",
         workspace / "maida-ai.github.io" / "tests" / "contracts" / "current-main.json",
+        workspace / "maida-tutorials" / "tests" / "contracts" / "current-main.json",
     ):
         problems.extend(compare_file(current_contract, consumer))
 

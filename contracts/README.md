@@ -5,7 +5,8 @@ for Maida sibling repositories. `current-main.json` records the current engine,
 schema, CLI, installation, and Action channel. `conformance/` contains
 Python-owned behavioral vectors for mirrors such as `maida-ts`.
 
-Consumer repositories vendor exact snapshots under `tests/contracts/` because
+Consumer repositories -- `maida-assert`, `maida-ts`, `maida-ai.github.io`, and
+`maida-tutorials` -- vendor exact snapshots under `tests/contracts/` because
 those copies are test inputs, not independently owned public contracts. Update
 the Python source first, copy the affected snapshot, and run:
 
