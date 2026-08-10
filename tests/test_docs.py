@@ -81,7 +81,7 @@ def test_action_version_references_match_scaffold():
         (ROOT / rel_path).read_text(encoding="utf-8") for rel_path in docs
     )
 
-    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@main"
+    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@v5"
     assert MAIDA_ASSERT_ACTION_REF in combined
     assert MAIDA_ACCEPT_ACTION_REF in combined
     assert "maida-ai/maida-assert@v2" not in combined
@@ -168,7 +168,7 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
     example = (ROOT / "examples/openai_agents/minimal.py").read_text(encoding="utf-8")
 
     required_docs = [
-        'uv add "maida-ai[openai] @ git+https://github.com/maida-ai/maida.git@main"',
+        'uv add "maida-ai[openai]>=0.5"',
         "openai-agents-baseline.json",
         "examples/openai_agents/minimal.py --regression",
         "RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END",
@@ -188,7 +188,7 @@ def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
     example = (ROOT / "examples/crewai/minimal.py").read_text(encoding="utf-8")
 
     for snippet in (
-        'uv add "maida-ai[crewai] @ git+https://github.com/maida-ai/maida.git@main"',
+        'uv add "maida-ai[crewai]>=0.5"',
         "examples/crewai/minimal.py",
         "--regression",
     ):
@@ -236,7 +236,7 @@ def test_langfuse_docs_cover_read_only_import_and_mapping_contract():
         "fully synthetic",
         "read-only",
         "trace-command:",
-        "maida-ai/maida-assert@main",
+        "maida-ai/maida-assert@v5",
         "fixed one-trial gate",
         "maida-tutorials/tree/main/demos/langfuse_import",
     ):

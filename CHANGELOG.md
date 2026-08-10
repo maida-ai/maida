@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.5.0
+
+First PyPI release of the synchronized cross-repository contract. Install with
+`uv tool install "maida-ai>=0.5"`; the GitHub Action moves to
+`maida-ai/maida-assert@v5`.
+
 ### Highlights
 
 - **Statistical gate (`maida run`)** - the primary gate command. Runs an agent over multiple isolated trials, aggregates them with a Wilson-bound three-verdict rule (pass / fail / inconclusive), and publishes tri-state statistical gate reports (`report_version` `2.0.0`).
@@ -14,13 +20,29 @@
 - **`maida extract`** - derives inactive policy and baseline drafts from real trace windows for human review.
 - **Adapter conformance** - LangChain, OpenAI Agents, and CrewAI adapters verified against a shared conformance contract, including payload-privacy protections.
 
+### Upgrading
+
+- **Install from PyPI.** Replace the `git+https://github.com/maida-ai/maida.git@main` requirement with `maida-ai>=0.5`.
+- **Repin the Action.** Workflows tracking `maida-ai/maida-assert@main` should move to `maida-ai/maida-assert@v5`, and the `accept-command` and `write-back` sub-actions with it. The Action now defaults `maida-version` to `v0.5.0` instead of the development channel.
+- **`maida run` is the primary gate.** `maida assert` remains supported for single-run evaluation; new workflows should call `maida run`.
+- **Policy files must declare `version: 2`.** Unreachable metric configurations are now rejected when the policy loads rather than silently passing.
+
+### Contract
+
+| Surface | Version |
+|---------|---------|
+| Trace schema | `0.2.0` |
+| Baseline schema | `0.3.0` |
+| Policy schema | `2` |
+| Report schema | `2.0.0` |
+
 ## v0.4
 
 ### Highlights
 
 - **`maida demo`** - bundled simulated agent: `pip install maida-ai && maida demo` produces a traced run with no repo clone, no network, and no API keys.
 - **`maida demo --regression`** - the full gate story in one command: baseline a known-good run, run a "refactored" agent that loops, calls a new tool, and burns more tokens, then show the failing report with a PR-comment preview.
-- **`maida init`** - scaffolds a commented starter `.maida/policy.yaml`, and with `--github` a ready-to-edit workflow currently tracking `maida-ai/maida-assert@main`.
+- **`maida init`** - scaffolds a commented starter `.maida/policy.yaml`, and with `--github` a ready-to-edit gate workflow.
 - **Latest-run defaults** - `maida assert`, `maida baseline`, `maida export`, and `maida diff` no longer require a run ID; they default to the most recent run (announced on stderr so stdout stays machine-readable).
 - **Richer gate reports** - the markdown report (the PR comment) now leads with a verdict, lists failed checks first with expected vs actual values, collapses passing checks, embeds a "What changed vs baseline" structural diff, and ends with a local-repro snippet. The text report appends the same diff on failure.
 - **OTel storage contract** - run lifecycle, storage APIs, CLI, server, and viewer moved onto trace-ID/`meta.json`/`spans.jsonl` storage, with JSON schemas updated to match.

@@ -1,8 +1,8 @@
 {
   "contract_version": 1,
-  "engine_ref": "main",
-  "install_requirement": "maida-ai @ git+https://github.com/maida-ai/maida.git@main",
-  "action_ref": "maida-ai/maida-assert@main",
+  "engine_ref": "v0.5.0",
+  "install_requirement": "maida-ai>=0.5",
+  "action_ref": "maida-ai/maida-assert@v5",
   "schemas": {
     "trace": "0.2.0",
     "baseline": "0.3.0",

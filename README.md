@@ -32,11 +32,10 @@ The viewer shows the execution timeline behind a pass/fail decision, but the cor
 
 ## Try it in 60 seconds
 
-Until the `0.5.x` release, install the current engine from GitHub `main`. The
-demo still needs no repo clone, config file, API key, or sign-up:
+No repo clone, config file, API key, or sign-up:
 
 ```bash
-uv tool install "maida-ai @ git+https://github.com/maida-ai/maida.git@main"
+uv tool install "maida-ai>=0.5"
 maida demo
 maida view
 ```
@@ -435,7 +434,7 @@ Maida is framework-agnostic at its core. The SDK works with any Python code.
 Optional callback handler that auto-records LLM and tool events. Requires `langchain-core`:
 
 ```bash
-uv add "maida-ai[langchain] @ git+https://github.com/maida-ai/maida.git@main"
+uv add "maida-ai[langchain]>=0.5"
 ```
 
 ```python
@@ -457,7 +456,7 @@ See `examples/langchain/minimal.py` for a runnable example.
 Optional tracing adapter that auto-records generation, function, and handoff spans. Requires `openai-agents`:
 
 ```bash
-uv add "maida-ai[openai] @ git+https://github.com/maida-ai/maida.git@main"
+uv add "maida-ai[openai]>=0.5"
 ```
 
 ```python
@@ -478,7 +477,7 @@ See `examples/openai_agents/minimal.py` for a runnable fake-data example with no
 Optional execution-hook adapter that auto-records LLM and tool events from CrewAI crews and flows. Requires `crewai[tools]`:
 
 ```bash
-uv add "maida-ai[crewai] @ git+https://github.com/maida-ai/maida.git@main"
+uv add "maida-ai[crewai]>=0.5"
 ```
 
 ```python

@@ -132,8 +132,7 @@ history.
 
 ## GitHub Actions
 
-`maida init --github` currently tracks `maida-ai/maida-assert@main`. The Action
+`maida init --github` pins `maida-ai/maida-assert@v5`. The Action
 consumes report schema 2, keeps INCONCLUSIVE neutral, and posts the tier-aware
 Markdown as a sticky PR comment and check summary. The action contract is
-maintained in the separate `maida-assert` repository. Pin a released major
-after this contract is tagged.
+maintained in the separate `maida-assert` repository.

@@ -17,7 +17,7 @@ Maida is **framework-agnostic** at the core. The SDK is a thin layer: you call `
 **Requirements:** `langchain-core` must be installed. Install the optional dependency group:
 
 ```bash
-uv add "maida-ai[langchain] @ git+https://github.com/maida-ai/maida.git@main"
+uv add "maida-ai[langchain]>=0.5"
 ```
 
 If `langchain-core` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.
@@ -86,7 +86,7 @@ All guardrails work with the callback handler. When a guardrail fires, the handl
 **Requirements:** `openai-agents` must be installed. Install Maida with the optional OpenAI dependency group:
 
 ```bash
-uv add "maida-ai[openai] @ git+https://github.com/maida-ai/maida.git@main"
+uv add "maida-ai[openai]>=0.5"
 ```
 
 If `openai-agents` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.
@@ -165,7 +165,7 @@ As a defensive fallback, the exception is also stored on `PROCESSOR.abort_except
 **Requirements:** `crewai[tools]` must be installed. Install the optional dependency group:
 
 ```bash
-uv add "maida-ai[crewai] @ git+https://github.com/maida-ai/maida.git@main"
+uv add "maida-ai[crewai]>=0.5"
 ```
 
 If `crewai` is not installed, importing the integration raises a clear `ImportError` with install instructions.
