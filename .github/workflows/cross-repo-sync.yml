@@ -1,0 +1,43 @@
+name: Cross-repository contract sync
+
+on:
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: maida
+
+      - uses: actions/checkout@v7
+        with:
+          repository: maida-ai/maida-assert
+          ref: main
+          path: maida-assert
+
+      - uses: actions/checkout@v7
+        with:
+          repository: maida-ai/maida-ts
+          ref: main
+          path: maida-ts
+
+      - uses: actions/checkout@v7
+        with:
+          repository: maida-ai/maida-ai.github.io
+          ref: main
+          path: maida-ai.github.io
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          version: "0.11.14"
+          python-version: "3.12"
+
+      - name: Compare contracts and fixtures
+        run: uv run --no-project python maida/scripts/check_cross_repo_sync.py --workspace "$GITHUB_WORKSPACE"

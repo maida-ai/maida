@@ -79,7 +79,9 @@ Default bind: `127.0.0.1:8712`. The UI fetches runs and events from these endpoi
 
 ## Guardrails
 
-Guardrails are opt-in limits that stop a run before it burns more time, tokens, or tool calls than you intended. They are runtime safety limits and evidence capture tools; post-run policy enforcement belongs to `maida assert`.
+Guardrails are opt-in limits that stop a run before it burns more time, tokens,
+or tool calls than you intended. They are runtime safety limits and evidence
+capture tools; candidate policy enforcement belongs to `maida run`.
 
 **Available guardrails:** `stop_on_loop`, `stop_on_loop_min_repetitions`, `max_llm_calls`, `max_tool_calls`, `max_events`, `max_duration_s`. All default to disabled.
 

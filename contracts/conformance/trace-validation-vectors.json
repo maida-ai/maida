@@ -1,0 +1,122 @@
+{
+  "contract_version": 1,
+  "base": {
+    "meta": {
+      "spec_version": "0.2.0",
+      "trace_id": "11111111111111111111111111111111",
+      "run_name": "contract-vector",
+      "started_at": "2026-08-10T12:00:00.000Z",
+      "ended_at": "2026-08-10T12:00:01.000Z",
+      "duration_ms": 1000,
+      "status": "ok",
+      "counts": {"llm_calls": 0, "tool_calls": 1, "errors": 0, "loop_warnings": 0}
+    },
+    "spans": [
+      {
+        "trace_id": "11111111111111111111111111111111",
+        "span_id": "1111111111111111",
+        "parent_span_id": null,
+        "name": "contract-vector",
+        "kind": "INTERNAL",
+        "start_time": "2026-08-10T12:00:00.000Z",
+        "end_time": "2026-08-10T12:00:01.000Z",
+        "duration_ms": 1000,
+        "attributes": {},
+        "events": [],
+        "status_code": "OK",
+        "status_description": ""
+      },
+      {
+        "trace_id": "11111111111111111111111111111111",
+        "span_id": "2222222222222222",
+        "parent_span_id": "1111111111111111",
+        "name": "lookup",
+        "kind": "INTERNAL",
+        "start_time": "2026-08-10T12:00:00.100Z",
+        "end_time": "2026-08-10T12:00:00.200Z",
+        "duration_ms": 100,
+        "attributes": {"maida.tool_name": "lookup"},
+        "events": [
+          {"name": "maida.tool.args", "timestamp": "2026-08-10T12:00:00.110Z", "attributes": {"args": "{}"}}
+        ],
+        "status_code": "OK",
+        "status_description": ""
+      }
+    ]
+  },
+  "cases": [
+    {"name": "valid_completed_trace", "expected_valid": true},
+    {
+      "name": "running_trace_may_reference_an_unwritten_parent",
+      "meta_overrides": {"status": "running", "ended_at": null, "duration_ms": null},
+      "span_overrides": {"1": {"parent_span_id": "ffffffffffffffff"}},
+      "expected_valid": true
+    },
+    {
+      "name": "invalid_rfc3339_meta_timestamp",
+      "meta_overrides": {"started_at": "2026-08-10 12:00:00Z"},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_datetime"
+    },
+    {
+      "name": "invalid_rfc3339_span_timestamp",
+      "span_overrides": {"1": {"start_time": "2026-08-10T12:00:00"}},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_datetime"
+    },
+    {
+      "name": "invalid_rfc3339_event_timestamp",
+      "event_overrides": {"1": {"0": {"timestamp": "not-a-time"}}},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_datetime"
+    },
+    {
+      "name": "span_id_must_be_a_string",
+      "span_overrides": {"1": {"span_id": 2222222222222222}},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_id"
+    },
+    {
+      "name": "span_kind_must_be_supported",
+      "span_overrides": {"1": {"kind": "UNKNOWN"}},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_value"
+    },
+    {
+      "name": "duration_must_not_be_boolean",
+      "span_overrides": {"1": {"duration_ms": true}},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_value"
+    },
+    {
+      "name": "event_attributes_must_be_an_object",
+      "event_overrides": {"1": {"0": {"attributes": []}}},
+      "expected_valid": false,
+      "diagnostic_code": "invalid_type"
+    },
+    {
+      "name": "duplicate_span_id",
+      "span_overrides": {"1": {"span_id": "1111111111111111"}},
+      "expected_valid": false,
+      "diagnostic_code": "duplicate_span_id"
+    },
+    {
+      "name": "multiple_roots",
+      "span_overrides": {"1": {"parent_span_id": null}},
+      "expected_valid": false,
+      "diagnostic_code": "multiple_roots"
+    },
+    {
+      "name": "completed_trace_missing_parent",
+      "span_overrides": {"1": {"parent_span_id": "ffffffffffffffff"}},
+      "expected_valid": false,
+      "diagnostic_code": "missing_parent"
+    },
+    {
+      "name": "parent_cycle",
+      "span_overrides": {"0": {"parent_span_id": "2222222222222222"}},
+      "expected_valid": false,
+      "diagnostic_code": "parent_cycle"
+    }
+  ]
+}

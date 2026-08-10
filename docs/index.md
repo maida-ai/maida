@@ -10,11 +10,14 @@
 
 ## In 60 seconds
 
-**1. Install:**
+**1. Install the current `main` contract:**
 
 ```bash
-pip install maida-ai
+uv tool install "maida-ai @ git+https://github.com/maida-ai/maida.git@main"
 ```
+
+This temporary development-channel install will be replaced with the next
+`0.5.x` package after the synchronized contract is tagged.
 
 **2. Run the bundled demo agent** (simulated; no repo clone, no API keys):
 
@@ -30,7 +33,9 @@ maida view
 
 A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.maida/runs/<trace_id>/`.
 
-From there, capture a baseline with `maida baseline`, gate future runs with `maida assert`, and scaffold your own project with `maida init`. To watch the gate catch a regression end-to-end on canned data, run:
+From there, capture a baseline sample and gate candidate trials with `maida
+run`, or scaffold your own project with `maida init`. To watch the gate catch a
+regression end-to-end on canned data, run:
 
 ```bash
 maida demo --regression
@@ -48,7 +53,8 @@ maida demo --regression
 | **LangChain customer support** (advanced) | `examples/langchain/` | Set API keys, then follow `_customer_support/README.md` |
 | **Demos** (short scripts) | `examples/demo/` | `python examples/demo/pure_python.py` or `python examples/demo/langchain.py` |
 
-After any run, inspect evidence with `maida view`, capture baselines with `maida baseline`, and check regressions with `maida assert`.
+After any run, inspect evidence with `maida view`. For a real project, use the
+policy-v2 workflow in [Regression testing](regression-testing.md).
 
 ---
 
@@ -58,7 +64,7 @@ After any run, inspect evidence with `maida view`, capture baselines with `maida
 |------|-------------|
 | [Getting started](getting-started.md) | Installation (uv/pip), quickstart, data dir, redaction |
 | [Guardrails](guardrails.md) | Stop runaway runs with loop, count, and duration limits |
-| [Regression testing](regression-testing.md) | Baseline, assert, and diff workflow for catching agent regressions |
+| [Regression testing](regression-testing.md) | Policy-v2 baseline sampling and candidate gate workflow |
 | [Scheduled checks](scheduled-checks.md) | Batch verdicts over completed production trace windows |
 | [Gate draft extraction](extraction.md) | Derive inactive policy and baseline drafts from real trace windows for human review |
 | [CLI](cli.md) | `demo`, `init`, `validate-trace`, `import`, `run`, `extract`, `drift`, `list`, `view`, `export`, `baseline`, `accept`, `assert`, `diff` with options and exit codes |

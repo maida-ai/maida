@@ -1,0 +1,77 @@
+{
+  "contract_version": 1,
+  "cases": [
+    {
+      "name": "same_tool_different_argument_shapes_is_not_a_loop",
+      "window": 12,
+      "repetitions": 3,
+      "events": [
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {"tool_name": "lookup", "args": {"id": "A"}}
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {"tool_name": "lookup", "args": {"ids": ["A", "B"]}}
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {"tool_name": "lookup", "args": {"query": {"id": "A"}}}
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "same_structural_shape_ignores_scalar_values",
+      "window": 12,
+      "repetitions": 3,
+      "events": [
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {"tool_name": "lookup", "args": {"id": "A", "retry": 1}}
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {"tool_name": "lookup", "args": {"id": "B", "retry": 2}}
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {"tool_name": "lookup", "args": {"id": "C", "retry": 3}}
+        }
+      ],
+      "expected": {
+        "pattern": "TOOL_CALL:lookup args:{id:str,retry:int}",
+        "pattern_type": "repeated_call",
+        "pattern_length": 1,
+        "repetitions": 3,
+        "window_size": 3,
+        "evidence_event_ids": ["e-1", "e-2", "e-3"]
+      }
+    },
+    {
+      "name": "alternating_calls_are_a_cycle",
+      "window": 12,
+      "repetitions": 2,
+      "events": [
+        {"event_id": "e-1", "event_type": "TOOL_CALL", "payload": {"tool_name": "search"}},
+        {"event_id": "e-2", "event_type": "TOOL_CALL", "payload": {"tool_name": "summarize"}},
+        {"event_id": "e-3", "event_type": "TOOL_CALL", "payload": {"tool_name": "search"}},
+        {"event_id": "e-4", "event_type": "TOOL_CALL", "payload": {"tool_name": "summarize"}}
+      ],
+      "expected": {
+        "pattern": "TOOL_CALL:search -> TOOL_CALL:summarize",
+        "pattern_type": "cycle",
+        "pattern_length": 2,
+        "repetitions": 2,
+        "window_size": 4,
+        "evidence_event_ids": ["e-1", "e-2", "e-3", "e-4"]
+      }
+    }
+  ]
+}

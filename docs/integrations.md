@@ -17,7 +17,7 @@ Maida is **framework-agnostic** at the core. The SDK is a thin layer: you call `
 **Requirements:** `langchain-core` must be installed. Install the optional dependency group:
 
 ```bash
-pip install "maida-ai[langchain]"
+uv add "maida-ai[langchain] @ git+https://github.com/maida-ai/maida.git@main"
 ```
 
 If `langchain-core` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.
@@ -86,7 +86,7 @@ All guardrails work with the callback handler. When a guardrail fires, the handl
 **Requirements:** `openai-agents` must be installed. Install Maida with the optional OpenAI dependency group:
 
 ```bash
-pip install "maida-ai[openai]"
+uv add "maida-ai[openai] @ git+https://github.com/maida-ai/maida.git@main"
 ```
 
 If `openai-agents` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.
@@ -119,6 +119,10 @@ maida assert --baseline openai-agents-baseline.json
 ```
 
 The known-good structural signature is `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END`, with one `gpt-4o-mini` call, the tool sequence `lookup_docs -> handoff`, 22 total tokens, and terminal status `ok`.
+
+The deterministic examples below retain the legacy single-run interface only
+as a migration aid for comparing already-completed adapter traces. New
+multi-trial gates should execute the agent with `maida run` and policy v2.
 
 Run the same offline example in regression mode to repeat the documentation lookup:
 
@@ -161,7 +165,7 @@ As a defensive fallback, the exception is also stored on `PROCESSOR.abort_except
 **Requirements:** `crewai[tools]` must be installed. Install the optional dependency group:
 
 ```bash
-pip install "maida-ai[crewai]"
+uv add "maida-ai[crewai] @ git+https://github.com/maida-ai/maida.git@main"
 ```
 
 If `crewai` is not installed, importing the integration raises a clear `ImportError` with install instructions.

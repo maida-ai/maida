@@ -1,0 +1,36 @@
+{
+  "contract_version": 1,
+  "engine_ref": "main",
+  "install_requirement": "maida-ai @ git+https://github.com/maida-ai/maida.git@main",
+  "action_ref": "maida-ai/maida-assert@main",
+  "schemas": {
+    "trace": "0.2.0",
+    "baseline": "0.3.0",
+    "policy": "2",
+    "report": "2.0.0"
+  },
+  "cli": {
+    "primary_gate": "run",
+    "legacy_gate": "assert",
+    "top_level_commands": [
+      "accept",
+      "assert",
+      "baseline",
+      "demo",
+      "diff",
+      "drift",
+      "export",
+      "extract",
+      "init",
+      "list",
+      "run",
+      "validate-trace",
+      "view"
+    ],
+    "command_groups": [
+      "capture",
+      "import",
+      "scenario"
+    ]
+  }
+}
