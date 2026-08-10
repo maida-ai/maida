@@ -56,7 +56,7 @@ Notes:
 
 ## LangChain / LangGraph
 
-Guardrails work with LangChain/LangGraph via `LangChainCallbackHandler`. When a guardrail fires, the handler raises `_AbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor — stopping the run immediately and preventing further token-wasting LLM calls.
+Guardrails work with LangChain/LangGraph via `LangChainCallbackHandler`. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor — stopping the run immediately and preventing further token-wasting LLM calls.
 
 ```python
 from maida import LoopAbort, trace

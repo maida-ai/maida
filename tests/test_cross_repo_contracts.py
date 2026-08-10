@@ -78,6 +78,7 @@ def test_core_ci_covers_contract_sources_and_public_docs() -> None:
         "maida-ai/maida-assert",
         "maida-ai/maida-ts",
         "maida-ai/maida-ai.github.io",
+        "maida-ai/maida-tutorials",
     ):
         assert f"repository: {repository}" in sync_workflow
     assert "scripts/check_cross_repo_sync.py" in sync_workflow
