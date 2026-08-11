@@ -8,9 +8,9 @@ import json
 
 from fastapi.testclient import TestClient
 
-from maida.config import load_config
-from maida.server import create_app
 from maida import storage
+from maida.config import load_config
+from maida.server import UI_APP_JS_PATH, UI_STYLES_PATH, create_app
 
 
 def _write_run(config, trace_id, run_name="test"):
@@ -196,6 +196,18 @@ def test_server_can_rename_run(temp_data_dir):
 
     reloaded = storage.load_run_meta(trace_id, config)
     assert reloaded["run_name"] == "after"
+
+
+def test_viewer_assets_highlight_and_filter_all_failed_events(temp_data_dir):
+    javascript = UI_APP_JS_PATH.read_text(encoding="utf-8")
+    styles = UI_STYLES_PATH.read_text(encoding="utf-8")
+
+    assert "function isFailedEvent(ev)" in javascript
+    assert "const isError = isFailedEvent(ev);" in javascript
+    assert "events.findIndex((ev) => isFailedEvent(ev))" in javascript
+    assert "currentFilter === 'ERROR' ? isFailedEvent(ev)" in javascript
+    assert "event-status error" in javascript
+    assert ".event-summary .event-status.error" in styles
 
 
 def test_server_rename_invalid_and_missing_run_id(temp_data_dir):

@@ -284,6 +284,14 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
 .event-summary .toggle { color: var(--muted); font-size: 0.7rem; }
 .event-summary .type { font-weight: 600; min-width: 6rem; }
 .event-summary .name { color: var(--muted); flex: 0 1 auto; min-width: 0; }
+.event-summary .event-status.error {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--error-border);
+  border-radius: 3px;
+  color: #ff8888;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
 .event-summary .duration { font-size: 0.75rem; color: var(--muted); }
 .event-summary .ts { margin-left: auto; font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
 .event-details {
