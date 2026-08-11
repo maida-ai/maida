@@ -36,8 +36,8 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
         "policy": POLICY_SCHEMA_VERSION,
         "report": REPORT_SCHEMA_VERSION,
     }
-    assert contract["engine_ref"] == "main"
-    assert contract["action_ref"] == "maida-ai/maida-assert@main"
+    assert contract["engine_ref"] == "v0.5.0"
+    assert contract["action_ref"] == "maida-ai/maida-assert@v5"
     assert contract["cli"]["primary_gate"] == "run"
     assert contract["cli"]["legacy_gate"] == "assert"
     assert (
@@ -50,12 +50,12 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
     )
 
 
-def test_primary_public_docs_use_the_current_main_channel() -> None:
+def test_primary_public_docs_use_the_released_channel() -> None:
     contract = _read_json(CONTRACTS / "current-main.json")
     for relative in ("README.md", "docs/index.md", "docs/getting-started.md"):
         text = (ROOT / relative).read_text(encoding="utf-8")
         assert contract["install_requirement"] in text
-        assert "pip install maida-ai" not in text
+        assert "git+https://github.com/maida-ai/maida.git@main" not in text
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "maida run my_agent.py" in readme

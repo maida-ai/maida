@@ -15,7 +15,7 @@ Until the importer is included in the next PyPI release, install the current
 `main` revision:
 
 ```bash
-uv tool install "maida-ai @ git+https://github.com/maida-ai/maida.git@main"
+uv tool install "maida-ai>=0.5"
 ```
 
 Source checkouts using `uv sync` already have the importer.
@@ -147,7 +147,7 @@ importer rather than a traced Python entrypoint. Keep credentials in GitHub
 secrets and select exactly one completed trace:
 
 ```yaml
-- uses: maida-ai/maida-assert@main
+- uses: maida-ai/maida-assert@v5
   env:
     LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
     LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
