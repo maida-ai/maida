@@ -19,7 +19,9 @@ This starts a server at **http://127.0.0.1:8712** (configurable with `--host` an
 - **Sidebar (run list):** Recent runs, newest first. Each row shows run name, started time, status, and duration. A **pulsing dot** (or “live” indicator) marks runs that are still **running**.
 - **Main area:** For the selected run:
   - **Run summary:** Status badge (OK / ERROR / RUNNING), KPIs (LLM calls, tools, errors, loop warnings), quick filters (All, LLM, Tools, Errors, State, Loops), and optional callouts (e.g. jump to first error).
-  - **Timeline:** Events in order; each event can be expanded to see payload and meta as JSON.
+  - **Timeline:** Events in order; each event can be expanded to see payload and meta as JSON. Every failed event is highlighted and marked **ERROR**, including failed LLM/tool calls and `RUN_END(status=error)`.
+
+The **Errors** filter and first-error callout use the same failure signal. They include both standalone `ERROR` events and any event whose payload has `status: "error"`.
 
 ### URL parameters
 

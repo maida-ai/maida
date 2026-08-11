@@ -31,6 +31,12 @@ const escapeDiv = document.createElement('div');
 const FILTER_URL_MAP = { all: 'all', llm: 'LLM_CALL', tools: 'TOOL_CALL', errors: 'ERROR', state: 'STATE_UPDATE', loops: 'LOOP_WARNING' };
 const FILTER_LABELS = { all: 'All', LLM_CALL: 'LLM', TOOL_CALL: 'Tools', ERROR: 'Errors', STATE_UPDATE: 'State', LOOP_WARNING: 'Loops' };
 
+function isFailedEvent(ev) {
+  if ((ev?.event_type || '').toUpperCase() === 'ERROR') return true;
+  const status = ev?.payload?.status;
+  return typeof status === 'string' && status.trim().toLowerCase() === 'error';
+}
+
 /** Poll intervals in ms. Read from URL ?poll_runs=5&poll_events=3 (seconds); defaults 3s and 2s; clamped 1–60s. */
 function getPollIntervalSeconds(name, defaultSec) {
   const url = new URL(window.location.href);
@@ -419,7 +425,7 @@ function renderRunSummary(run, events) {
   // Callouts: only when relevant; jump links only when events available
   runSummaryCalloutsEl.textContent = '';
   if (errors > 0 && Array.isArray(events) && events.length > 0) {
-    const firstErrorIdx = events.findIndex((ev) => (ev.event_type || '') === 'ERROR');
+    const firstErrorIdx = events.findIndex((ev) => isFailedEvent(ev));
     if (firstErrorIdx !== -1) {
       const eventNum = firstErrorIdx + 1;
       const link = document.createElement('button');
@@ -538,7 +544,7 @@ function durationLabel(ms) {
 // Build one timeline event element. indexInCurrentEvents is used for jump-to-event (data-event-index).
 function buildEventEl(ev, indexInCurrentEvents) {
   const isLoop = ev.event_type === 'LOOP_WARNING';
-  const isError = ev.event_type === 'ERROR';
+  const isError = isFailedEvent(ev);
   let className = 'event';
   if (isLoop) className += ' loop-warning';
   if (isError) className += ' error';
@@ -548,7 +554,8 @@ function buildEventEl(ev, indexInCurrentEvents) {
   if (indexInCurrentEvents != null) div.dataset.eventIndex = String(indexInCurrentEvents);
   const summary = document.createElement('div');
   summary.className = 'event-summary';
-  summary.innerHTML = '<span class="toggle">▶</span><span class="type">' + escapeHtml(ev.event_type || '') + '</span><span class="name">' + escapeHtml(ev.name || '') + '</span><span class="duration">' + escapeHtml(durationLabel(ev.duration_ms)) + '</span><span class="ts">' + escapeHtml(ev.ts || '') + '</span>';
+  const errorStatus = isError ? '<span class="event-status error">ERROR</span>' : '';
+  summary.innerHTML = '<span class="toggle">▶</span><span class="type">' + escapeHtml(ev.event_type || '') + '</span><span class="name">' + escapeHtml(ev.name || '') + '</span>' + errorStatus + '<span class="duration">' + escapeHtml(durationLabel(ev.duration_ms)) + '</span><span class="ts">' + escapeHtml(ev.ts || '') + '</span>';
   const details = document.createElement('div');
   details.className = 'event-details';
   details.style.display = 'none';
@@ -580,7 +587,8 @@ function renderToolbar(events) {
 function renderEvents() {
   const frag = document.createDocumentFragment();
   currentEvents.forEach((ev, i) => {
-    if (currentFilter === 'all' || (ev.event_type || '') === currentFilter) {
+    const matchesFilter = currentFilter === 'ERROR' ? isFailedEvent(ev) : (ev.event_type || '') === currentFilter;
+    if (currentFilter === 'all' || matchesFilter) {
       frag.appendChild(buildEventEl(ev, i));
     }
   });
