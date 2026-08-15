@@ -21,8 +21,6 @@ dependencies = [
     "uvicorn>=0.49.0,<0.50.0",
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
-
   "Intended Audience :: Developers",
   "Topic :: Software Development :: Quality Assurance",
 

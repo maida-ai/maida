@@ -1,5 +1,7 @@
 """Maida: pre-merge behavioral regression gate for AI agents."""
 
+__path__ = __import__("pkgutil").extend_path(__path__, __name__)
+
 from maida.exceptions import GuardrailExceeded, LoopAbort
 from maida.tracing import (
     has_active_run,
