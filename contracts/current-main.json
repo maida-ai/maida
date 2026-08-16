@@ -5,9 +5,10 @@
   "action_ref": "maida-ai/maida-assert@v5",
   "schemas": {
     "trace": "0.2.0",
-    "baseline": "0.3.0",
-    "policy": "2",
-    "report": "2.0.0"
+    "baseline": "0.3.1",
+    "policy": "2.1",
+    "report": "2.0.1",
+    "plan": "0.1.0"
   },
   "cli": {
     "primary_gate": "run",

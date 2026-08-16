@@ -22,6 +22,7 @@ from maida.cli import _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
 from maida.policy import load_policy
+from maida.schema_versions import BASELINE_SCHEMA_VERSION, REPORT_SCHEMA_VERSION
 from maida.scaffold import (
     CHECKOUT_ACTION_REF,
     MAIDA_ACCEPT_ACTION_REF,
@@ -469,7 +470,7 @@ def test_accept_updates_baseline_with_metadata_and_diff(empty_data_dir):
         "path": str(baseline_path),
         "source_run_id": baseline_run,
         "created_at": data["acceptance"]["previous_baseline"]["created_at"],
-        "schema_version": "0.3.0",
+        "schema_version": BASELINE_SCHEMA_VERSION,
         "sha256": previous_hash,
     }
 
@@ -877,7 +878,7 @@ if os.environ["MAIDA_TRIAL_INDEX"] == "3":
     assert result.exit_code == 1, result.output
     assert result.stdout.startswith("## ❌ Maida verdict: fail")
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
-    assert payload["report_version"] == "2.0.0"
+    assert payload["report_version"] == REPORT_SCHEMA_VERSION
     assert payload["verdict"] == "fail"
     assert payload["passed"] is False
     assert payload["aggregate_results"][0]["decision_rule"] == "invariant"

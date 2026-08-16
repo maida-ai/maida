@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maida-ai/maida/schemas/plan-artifact.schema.json",
+  "title": "Maida canonical plan artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "plan_id",
+    "source_signature_version",
+    "signature",
+    "trusted_context"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "artifact_id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "source_signature_version": { "type": "string", "minLength": 1 },
+    "signature": {
+      "type": "object",
+      "required": [
+        "aggregate_budget",
+        "approval_requirements",
+        "effectful_modules",
+        "max_depth",
+        "max_fanout",
+        "module_composition",
+        "node_count",
+        "output_schema_digests",
+        "required_grant",
+        "topology_digest"
+      ],
+      "properties": {
+        "aggregate_budget": { "$ref": "#/$defs/budget" },
+        "approval_requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["effect_name", "node_key"],
+            "properties": {
+              "effect_name": { "type": "string", "minLength": 1 },
+              "node_key": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "effectful_modules": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "max_depth": { "type": "integer", "minimum": 1 },
+        "max_fanout": { "type": "integer", "minimum": 0 },
+        "module_composition": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["count", "module_digest", "module_id"],
+            "properties": {
+              "count": { "type": "integer", "minimum": 1 },
+              "module_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "module_id": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "node_count": { "type": "integer", "minimum": 1 },
+        "output_schema_digests": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "required_grant": { "$ref": "#/$defs/grant" },
+        "topology_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "trusted_context": {
+      "type": "object",
+      "required": ["alias_provenance", "region_grant"],
+      "properties": {
+        "alias_provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["alias", "node_key"],
+            "properties": {
+              "alias": { "type": "string", "minLength": 1 },
+              "node_key": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "region_grant": { "$ref": "#/$defs/grant" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "budget": {
+      "type": "object",
+      "required": ["cost_usd", "model_tokens", "tool_calls", "wall_time_ms"],
+      "properties": {
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "model_tokens": { "type": "integer", "minimum": 0 },
+        "tool_calls": { "type": "integer", "minimum": 0 },
+        "wall_time_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "grant": {
+      "type": "object",
+      "required": ["capabilities", "effects"],
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "effects": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

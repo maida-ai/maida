@@ -13,6 +13,7 @@ from maida.assertions import AssertionPolicy
 from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.runner import RunExecutionError, run_trials
+from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict
 from tests.conftest import get_latest_run_id
 
@@ -157,7 +158,7 @@ with traced_run(name="json-agent"):
     )
 
     payload = json.loads(report.to_json())
-    assert payload["report_version"] == "2.0.0"
+    assert payload["report_version"] == REPORT_SCHEMA_VERSION
     assert payload["metadata"]["trials_used"] == 1
     assert payload["metadata"]["trials_budgeted"] == 1
     assert payload["passed"] is True
@@ -240,7 +241,7 @@ def test_statistical_report_schema_pins_three_verdict_contract() -> None:
         ).read_text(encoding="utf-8")
     )
 
-    assert schema["properties"]["report_version"]["const"] == "2.0.0"
+    assert schema["properties"]["report_version"]["const"] == REPORT_SCHEMA_VERSION
     assert schema["properties"]["verdict"]["enum"] == [
         "pass",
         "fail",

@@ -42,6 +42,8 @@ class MetricPolicy:
     require: bool | None = None
     none_of: tuple[str, ...] = ()
     all_of: tuple[str, ...] = ()
+    allowed: tuple[str, ...] = ()
+    approval_required_for: tuple[str, ...] = ()
     tolerance_relative: float | None = None
     tolerance_absolute: float | None = None
     limit: float | tuple[float, float] | None = None
@@ -60,6 +62,14 @@ class MetricPolicy:
             result["mode"] = self.mode.value
         if self.aggregate:
             result["aggregate"] = self.aggregate
+        if self.none_of:
+            result["none_of"] = list(self.none_of)
+        if self.all_of:
+            result["all_of"] = list(self.all_of)
+        if self.allowed:
+            result["allowed"] = list(self.allowed)
+        if self.approval_required_for:
+            result["approval_required_for"] = list(self.approval_required_for)
         return result
 
 
@@ -75,11 +85,30 @@ CANONICAL_METRIC_NAMES = frozenset(
         "cost_tokens",
         "latency_ms",
         "task_pass_rate",
+        "plan_depth",
+        "plan_fanout",
+        "plan_budget_cost_usd",
+        "plan_budget_model_tokens",
+        "plan_budget_tool_calls",
+        "plan_budget_wall_time_ms",
+        "plan_effectful_modules",
+        "plan_grants",
     }
 )
 
 NUMERIC_METRIC_NAMES = frozenset(
-    {"step_count", "tool_call_count", "cost_tokens", "latency_ms"}
+    {
+        "step_count",
+        "tool_call_count",
+        "cost_tokens",
+        "latency_ms",
+        "plan_depth",
+        "plan_fanout",
+        "plan_budget_cost_usd",
+        "plan_budget_model_tokens",
+        "plan_budget_tool_calls",
+        "plan_budget_wall_time_ms",
+    }
 )
 
 INVARIANT_METRIC_NAMES = frozenset(
@@ -89,5 +118,20 @@ INVARIANT_METRIC_NAMES = frozenset(
         "required_tools",
         "no_loops",
         "no_guardrails",
+        "plan_effectful_modules",
+        "plan_grants",
+    }
+)
+
+PLAN_METRIC_NAMES = frozenset(
+    {
+        "plan_depth",
+        "plan_fanout",
+        "plan_budget_cost_usd",
+        "plan_budget_model_tokens",
+        "plan_budget_tool_calls",
+        "plan_budget_wall_time_ms",
+        "plan_effectful_modules",
+        "plan_grants",
     }
 )

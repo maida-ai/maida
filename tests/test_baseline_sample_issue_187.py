@@ -1,6 +1,7 @@
 """Immutable baseline sample coverage for issue #187."""
 
 from maida.baseline_sample import create_baseline_from_report
+from maida.schema_versions import BASELINE_SCHEMA_VERSION
 
 
 def test_baseline_from_report_keeps_vectors_and_deduplicates_signatures() -> None:
@@ -37,7 +38,7 @@ def test_baseline_from_report_keeps_vectors_and_deduplicates_signatures() -> Non
     }
     baseline = create_baseline_from_report(report)
     sample = baseline["trial_sample"]
-    assert baseline["schema_version"] == "0.3.0"
+    assert baseline["schema_version"] == BASELINE_SCHEMA_VERSION
     assert sample["metrics"]["step_count"] == [12.0, 11.0, 12.0]
     assert sample["environment_fingerprint"] == {"workspace": "abc"}
     assert len(sample["signatures"]) == 1

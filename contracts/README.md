@@ -2,8 +2,9 @@
 
 This directory is the authoritative, implementation-checked contract source
 for Maida sibling repositories. `current-main.json` records the current engine,
-schema, CLI, installation, and Action channel. `conformance/` contains
-Python-owned behavioral vectors for mirrors such as `maida-ts`.
+trace, baseline, policy, report, plan, CLI, installation, and Action channel.
+`conformance/` contains Python-owned behavioral vectors for mirrors such as
+`maida-ts`.
 
 Consumer repositories -- `maida-assert`, `maida-ts`, `maida-ai.github.io`, and
 `maida-tutorials` -- vendor exact snapshots under `tests/contracts/` because

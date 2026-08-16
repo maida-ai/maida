@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from maida.cli import app
+from maida.schema_versions import BASELINE_SCHEMA_VERSION
 from maida.statistics import GateVerdict
 
 
@@ -63,7 +64,7 @@ def test_baseline_cli_binds_full_report_sample(tmp_path) -> None:
     )
     assert result.exit_code == 0, result.output
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-    assert baseline["schema_version"] == "0.3.0"
+    assert baseline["schema_version"] == BASELINE_SCHEMA_VERSION
     assert baseline["trial_sample"]["environment_fingerprint"] == {"workspace": "abc"}
 
 

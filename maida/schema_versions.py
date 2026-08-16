@@ -1,14 +1,15 @@
-"""Independent compatibility rules for Maida's four schema streams."""
+"""Independent compatibility rules for Maida's five schema streams."""
 
 from __future__ import annotations
 
 import re
 
 
-POLICY_SCHEMA_VERSION = "2"
+POLICY_SCHEMA_VERSION = "2.1"
 TRACE_SCHEMA_VERSION = "0.2.0"
-BASELINE_SCHEMA_VERSION = "0.3.0"
-REPORT_SCHEMA_VERSION = "2.0.0"
+BASELINE_SCHEMA_VERSION = "0.3.1"
+REPORT_SCHEMA_VERSION = "2.0.1"
+PLAN_SCHEMA_VERSION = "0.1.0"
 
 _SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 

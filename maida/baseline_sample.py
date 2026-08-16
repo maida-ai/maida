@@ -8,7 +8,12 @@ from collections import Counter
 from typing import Any
 
 from maida.events import utc_now_iso_ms_z
-from maida.schema_versions import BASELINE_SCHEMA_VERSION
+from maida.plan_contract import PlanEvidence, plan_metric_values, plan_set_values
+from maida.schema_versions import (
+    BASELINE_SCHEMA_VERSION,
+    REPORT_SCHEMA_VERSION,
+    machine_minor_compatible,
+)
 
 LEGACY_BASELINE_VERSIONS = frozenset({"0.2", "0.2.0"})
 
@@ -22,8 +27,12 @@ def _signature_id(signature: dict[str, Any]) -> str:
 
 def create_baseline_from_report(report: dict[str, Any]) -> dict[str, Any]:
     """Create one reviewed, immutable baseline trial sample from report v2."""
-    if report.get("report_version") != "2.0.0":
-        raise ValueError("baseline --from-report requires report_version 2.0.0")
+    if not machine_minor_compatible(
+        report.get("report_version"), REPORT_SCHEMA_VERSION, stream="report"
+    ):
+        raise ValueError(
+            f"baseline --from-report requires report_version {REPORT_SCHEMA_VERSION}"
+        )
     trials = report.get("trials")
     if not isinstance(trials, list) or not trials:
         raise ValueError("report must contain at least one completed trial")
@@ -76,7 +85,7 @@ def create_baseline_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "errors": first_values.get("error_count", 0),
         "loop_warnings": first_values.get("loop_warning_count", 0),
     }
-    return {
+    baseline = {
         "schema_version": BASELINE_SCHEMA_VERSION,
         "created_at": utc_now_iso_ms_z(),
         "source_run_id": first.get("trace_id"),
@@ -97,6 +106,42 @@ def create_baseline_from_report(report: dict[str, Any]) -> dict[str, Any]:
             "signature_ids": signature_order,
             "signature_counts": dict(sorted(counts.items())),
             "signatures": signatures,
+        },
+    }
+    raw_plan_evidence = report.get("plan_evidence")
+    if raw_plan_evidence is not None:
+        baseline["plan_sample"] = _create_plan_sample(raw_plan_evidence)
+    return baseline
+
+
+def _create_plan_sample(raw_evidence: object) -> dict[str, Any]:
+    if not isinstance(raw_evidence, list) or not raw_evidence:
+        raise ValueError("report plan_evidence must be a non-empty array")
+    evidence = [PlanEvidence.from_dict(item) for item in raw_evidence]
+    if any(not item.valid or item.artifact is None for item in evidence):
+        raise ValueError("baseline reports cannot contain invalid plan evidence")
+    artifacts = [item.artifact for item in evidence if item.artifact is not None]
+    plan_ids = {artifact.plan_id for artifact in artifacts}
+    if len(plan_ids) != 1:
+        raise ValueError("baseline plan evidence must describe one stable plan_id")
+    artifact_ids = [artifact.artifact_id for artifact in artifacts]
+    counts = Counter(artifact_ids)
+    by_id = {artifact.artifact_id: artifact.to_dict() for artifact in artifacts}
+    metric_names = tuple(plan_metric_values(artifacts[0]))
+    set_names = tuple(plan_set_values(artifacts[0]))
+    return {
+        "plans": len(artifacts),
+        "plan_id": next(iter(plan_ids)),
+        "artifact_ids": artifact_ids,
+        "artifact_counts": dict(sorted(counts.items())),
+        "artifacts": dict(sorted(by_id.items())),
+        "metrics": {
+            name: [plan_metric_values(artifact)[name] for artifact in artifacts]
+            for name in metric_names
+        },
+        "sets": {
+            name: [list(plan_set_values(artifact)[name]) for artifact in artifacts]
+            for name in set_names
         },
     }
 

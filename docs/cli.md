@@ -420,7 +420,7 @@ maida run AGENT_SCRIPT [options]
 | `--policy` | `.maida/policy.yaml` | Assertion and statistical gate settings |
 | `--format`, `-f` | `text` | `text`, `json`, or verdict-first `markdown` |
 | `--fail-fast` / `--no-fail-fast` | policy value (`true`) | Stop on an irreversible blocking failure, or force the full fixed-N sample |
-| `--json-out` | - | Atomically write report schema `2.0.0` to a sidecar |
+| `--json-out` | - | Atomically write report schema `2.0.1` to a sidecar |
 
 ```bash
 maida run my_agent.py --baseline .maida/baselines/my_agent.json \
@@ -471,7 +471,7 @@ maida drift --window RUNS_DIR --baseline BASELINE [options]
 | `--policy` | `.maida/policy.yaml` | Tier-aware gate policy |
 | `--agent` | baseline `source_run_name` | Explicit agent selector for legacy baselines |
 | `--format`, `-f` | `text` | `text`, `json`, or verdict-first `markdown` |
-| `--json-out` | - | Atomically write report schema `2.0.0` to a sidecar |
+| `--json-out` | - | Atomically write report schema `2.0.1` to a sidecar |
 
 ```bash
 maida drift --window /srv/agents/orders/runs \

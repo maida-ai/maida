@@ -20,7 +20,9 @@ from maida.policy_types import (
     MetricKind,
     MetricMode,
     MetricPolicy,
+    PLAN_METRIC_NAMES,
 )
+from maida.schema_versions import POLICY_SCHEMA_VERSION
 
 try:
     import yaml
@@ -32,7 +34,7 @@ class PolicyDeprecationWarning(UserWarning):
     """A legacy policy was loaded through the compatibility migration."""
 
 
-_POLICY_VERSION = (2, 0)
+_POLICY_VERSION = tuple(int(part) for part in POLICY_SCHEMA_VERSION.split("."))
 _VERSION_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
 _TOP_LEVEL_KEYS = frozenset({"version", "trials", "fail_fast", "metrics"})
 _PREDICATES = frozenset({"all_invariants_passed"})
@@ -194,6 +196,10 @@ def _parse_limit(
 
 def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
     allowed = {"kind", "require", "none_of", "all_of"}
+    if name in {"plan_effectful_modules", "plan_grants"}:
+        allowed.add("allowed")
+    if name == "plan_grants":
+        allowed.add("approval_required_for")
     _reject_unknown(data, allowed, f"metrics.{name}")
     metric = MetricPolicy(name=name, kind=MetricKind.INVARIANT, aggregate="")
     if name == "forbidden_tools":
@@ -206,6 +212,29 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
         if "all_of" not in data:
             raise ValueError("metrics.required_tools requires all_of")
         metric.all_of = _string_tuple(data["all_of"], "metrics.required_tools.all_of")
+    elif name in {"plan_effectful_modules", "plan_grants"}:
+        configured = {
+            field_name
+            for field_name in ("none_of", "all_of", "allowed", "approval_required_for")
+            if field_name in data
+        }
+        if not configured:
+            raise ValueError(
+                f"metrics.{name} requires none_of, all_of, allowed, or "
+                "approval_required_for"
+            )
+        metric.none_of = _string_tuple(
+            data.get("none_of", []), f"metrics.{name}.none_of"
+        )
+        metric.all_of = _string_tuple(data.get("all_of", []), f"metrics.{name}.all_of")
+        metric.allowed = _string_tuple(
+            data.get("allowed", []), f"metrics.{name}.allowed"
+        )
+        if name == "plan_grants":
+            metric.approval_required_for = _string_tuple(
+                data.get("approval_required_for", []),
+                "metrics.plan_grants.approval_required_for",
+            )
     else:
         require = data.get("require", True)
         if not isinstance(require, bool):
@@ -343,7 +372,7 @@ def _parse_statistical(name: str, data: dict[str, Any], *, trials: int) -> Metri
     )
 
 
-def _parse_v2(data: dict[str, Any]) -> AssertionPolicy:
+def _parse_v2(data: dict[str, Any], version: tuple[int, int]) -> AssertionPolicy:
     _reject_unknown(data, set(_TOP_LEVEL_KEYS), "policy")
     trials = data.get("trials", 3)
     if isinstance(trials, bool) or not isinstance(trials, int) or trials < 1:
@@ -361,6 +390,8 @@ def _parse_v2(data: dict[str, Any]) -> AssertionPolicy:
             raise ValueError(f"unknown metric: {name}")
         if not isinstance(raw_metric, dict):
             raise ValueError(f"metrics.{name} must be an object")
+        if name in PLAN_METRIC_NAMES and version < (2, 1):
+            raise ValueError(f"metric {name} requires policy version 2.1")
         try:
             kind = MetricKind(raw_metric.get("kind"))
         except (TypeError, ValueError) as error:
@@ -400,7 +431,7 @@ def _parse_v2(data: dict[str, Any]) -> AssertionPolicy:
         confidence_level=confidence,
         pass_rate_threshold=threshold,
         fail_fast=fail_fast,
-        policy_version=_POLICY_VERSION,
+        policy_version=version,
         source_format="v2",
         metrics=metrics,
     )
@@ -527,7 +558,7 @@ def load_policy(path: Path) -> AssertionPolicy:
     version = _parse_policy_version(text, data)
     if version is None or version[0] == 1:
         return _parse_v1(data)
-    return _parse_v2(data)
+    return _parse_v2(data, version)
 
 
 def merge_policy(

@@ -10,6 +10,7 @@ from typing import Any, Iterable
 from maida.assertions import AssertionPolicy
 from maida.policy import minimum_trials_for_pass
 from maida.policy_types import MetricDirection, MetricKind, MetricMode, MetricPolicy
+from maida.policy_types import PLAN_METRIC_NAMES
 from maida.statistics import (
     GateVerdict,
     StatisticalResult,
@@ -224,6 +225,14 @@ def aggregate_metrics(
 
     for name, metric in policy.metrics.items():
         values = [trial[name] for trial in trial_values if name in trial]
+        if (
+            name in PLAN_METRIC_NAMES
+            and not values
+            and metric.kind is not MetricKind.INVARIANT
+        ):
+            raise ValueError(
+                f"metrics.{name} requires pre-execution plan evidence from a plan backend"
+            )
         if metric.kind is MetricKind.INVARIANT:
             outcomes = [trial.get(name, False) for trial in trial_invariants]
             passed = all(outcomes)
