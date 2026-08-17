@@ -30,7 +30,7 @@ metrics:
 
 Policy is hand-authored input and fails closed. Unknown fields are errors.
 The version uses `major[.minor]`: `version: 2` normalizes to `(2, 0)`;
-`version: 2.1` is valid when supported; `version: 2.0.0` is not.
+`version: 2.1` enables the plan metrics below; `version: 2.0.0` is not valid.
 
 ## Metric kinds
 
@@ -54,7 +54,8 @@ contracts are visible. Reclassify an intermittent property instead of weakening
 the invariant rule.
 
 Supported invariants are `stop_condition_reached`, `forbidden_tools`,
-`required_tools`, `no_loops`, and `no_guardrails`.
+`required_tools`, `no_loops`, `no_guardrails`, `plan_effectful_modules`, and
+`plan_grants`.
 
 ### Measured
 
@@ -68,6 +69,41 @@ A one-in-25 tail event is not a measured question. Express “the rate of
 
 Relative and absolute tolerances are additive around the baseline aggregate.
 When a hard limit is also present, the stricter boundary applies.
+
+### Pre-execution plan rules
+
+Policy 2.1 adds the deliberately small vocabulary used to judge a generated
+plan before it executes:
+
+```yaml
+version: 2.1
+metrics:
+  plan_depth: {kind: measured, direction: upper, limit: 4}
+  plan_fanout: {kind: measured, direction: upper, limit: 2}
+  plan_budget_cost_usd: {kind: measured, direction: upper, limit: 1.5}
+  plan_budget_model_tokens: {kind: measured, direction: upper, limit: 2000}
+  plan_budget_tool_calls: {kind: measured, direction: upper, limit: 10}
+  plan_budget_wall_time_ms: {kind: measured, direction: upper, limit: 10000}
+  plan_effectful_modules:
+    kind: invariant
+    allowed: [demo.deliver]
+    none_of: [untrusted.shell]
+  plan_grants:
+    kind: invariant
+    allowed: [records.context.read, messages.deliver]
+    approval_required_for: [messages.deliver]
+```
+
+`allowed` requires the observed set to be a subset of the declared values, so
+an explicit `allowed: []` permits no values. `none_of` forbids any overlap;
+`all_of` requires named values to be present. An empty `none_of`, `all_of`, or
+`approval_required_for` clause is rejected when it would make the whole rule a
+no-op. For `plan_grants`, `approval_required_for` requires the resolved artifact
+to carry an approval requirement for each named effect that the plan actually
+requests; unrelated policy-listed effects do not reject a harmless plan. Plan
+metrics require complete pre-execution evidence from a plan backend for every
+trial; a trace-only or partially evidenced gate fails closed rather than
+pretending to evaluate them.
 
 ### Distributional
 
@@ -172,20 +208,23 @@ maida baseline --from-report report.json --out .maida/baselines/agent.json
 ```
 
 The checked-in baseline stores each per-trial numeric and invariant outcome
-vector, structural signatures deduplicated by hash with counts, and an
-environment fingerprint. It is never mutated or accumulated by gate runs.
-Recapture explicitly when more evidence is desired.
+vector, trace structural signatures deduplicated by hash with counts, and an
+environment fingerprint. When the report includes plan evidence, the additive
+`plan_sample` stores its numeric vectors, set values, and canonical plan
+artifacts deduplicated by artifact ID. It is never mutated or accumulated by
+gate runs. Recapture explicitly when more evidence is desired.
 
 ## Version streams
 
-The four formats are intentionally not harmonized:
+The five formats are intentionally not harmonized:
 
 | Stream | Current | Form | Compatibility |
 | --- | --- | --- | --- |
-| Policy | `2` | `major[.minor]` | Hand-authored; unknown keys and unsupported minor versions reject |
+| Policy | `2.1` | `major[.minor]` | Hand-authored; unknown keys and unsupported minor versions reject; 2.0 remains valid for trace-only rules |
 | Trace | `0.2.0` | full semver | Generated; legacy `0.2` loads and patch drift within 0.2 is accepted |
-| Baseline | `0.3.0` | full semver | Generated; legacy `0.2` loads |
-| Report | `2.0.0` | full semver | Generated external contract; consumers must ignore unknown fields within a major |
+| Baseline | `0.3.1` | full semver | Generated; 0.3 patch drift and legacy `0.2` load |
+| Report | `2.0.1` | full semver | Generated external contract; consumers must ignore unknown fields within a major |
+| Plan | `0.1.0` | full semver | Generated canonical artifact; exact version and content digest are validated |
 
 Report fields are never removed or repurposed within a major. Report consumers
 must ignore unknown fields. Policy loaders do the opposite because silently

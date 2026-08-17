@@ -10,6 +10,7 @@ import pytest
 
 from maida.assertions import AssertionReport
 from maida.runner_v2 import TrialRecord, TrialRunReport
+from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict, StatisticalResult
 
 
@@ -364,7 +365,9 @@ def test_trial_report_baseline_acceptance_is_additive_json() -> None:
     assert "baseline_acceptance" not in legacy_payload
     assert current_payload["baseline_acceptance"] == acceptance
     assert (
-        current_payload["report_version"] == legacy_payload["report_version"] == "2.0.0"
+        current_payload["report_version"]
+        == legacy_payload["report_version"]
+        == REPORT_SCHEMA_VERSION
     )
     assert current_payload["verdict"] == legacy_payload["verdict"] == "pass"
 

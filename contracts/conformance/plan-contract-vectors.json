@@ -1,0 +1,104 @@
+{
+  "vector_version": 1,
+  "base": {
+    "version": "0.3.0",
+    "region_id": "request-plan",
+    "aggregate_budget": {
+      "cost_usd": 0.0,
+      "model_tokens": 0,
+      "tool_calls": 2,
+      "wall_time_ms": 4000
+    },
+    "max_depth": 4,
+    "max_fanout": 2,
+    "node_count": 5,
+    "module_composition": [
+      {
+        "count": 1,
+        "module_digest": "cc6edd3cda2b1c5570337049da7841d1d84e4b67a47167c42cbe990778a710af",
+        "module_id": "demo.audit"
+      },
+      {
+        "count": 1,
+        "module_digest": "d8a1c7282f7f4f75c640405728ccff0980fbc267f1b33a287ab5e2a89240f816",
+        "module_id": "demo.context"
+      },
+      {
+        "count": 1,
+        "module_digest": "2470e8c53961ead9a41ed36824364f47ebdba2109d6152cf4f6a3f2c897ed997",
+        "module_id": "demo.deliver"
+      },
+      {
+        "count": 1,
+        "module_digest": "4e19a0acf35fe471f62586d0d41218235223471818f69811a39f5f61be9c5e2a",
+        "module_id": "demo.draft"
+      },
+      {
+        "count": 1,
+        "module_digest": "72c7bbe6be167ec3dbd51d3c1f8a443cc19e0115afb39460abd5c43320afcbce",
+        "module_id": "demo.normalize"
+      }
+    ],
+    "required_grant": {
+      "capabilities": ["records.context.read"],
+      "effects": ["messages.deliver"]
+    },
+    "region_grant": {
+      "capabilities": ["records.context.read"],
+      "effects": ["messages.deliver"]
+    },
+    "approval_requirements": [],
+    "topology_digest": "6586bc26a660b6b42ee7ab6342efd962e1aa28bdb31cf124ac1a31f1547bb455",
+    "output_schema_digests": [
+      "00404e686415370f1711c4d7acfa2905444d3cf23cef2e10c47d445ebe690f96"
+    ],
+    "alias_provenance": [
+      {"alias": "text.audit", "node_key": "audit"},
+      {"alias": "records.context", "node_key": "context"},
+      {"alias": "messages.deliver", "node_key": "deliver"},
+      {"alias": "text.draft", "node_key": "draft"},
+      {"alias": "text.normalize", "node_key": "normalize"}
+    ],
+    "resolved_nodes": [
+      {"key": "audit", "module_id": "demo.audit", "effects": []},
+      {"key": "context", "module_id": "demo.context", "effects": []},
+      {
+        "key": "deliver",
+        "module_id": "demo.deliver",
+        "effects": [{"name": "messages.deliver"}]
+      },
+      {"key": "draft", "module_id": "demo.draft", "effects": []},
+      {"key": "normalize", "module_id": "demo.normalize", "effects": []}
+    ]
+  },
+  "cases": [
+    {
+      "name": "real-thorough-plan",
+      "expected_valid": true,
+      "artifact_id": "b873c1e031e08fc0da3d0189129625d8d1c51b402a758778fa9b6339d46460dc",
+      "metrics": {
+        "plan_depth": 4.0,
+        "plan_fanout": 2.0,
+        "plan_budget_cost_usd": 0.0,
+        "plan_budget_model_tokens": 0.0,
+        "plan_budget_tool_calls": 2.0,
+        "plan_budget_wall_time_ms": 4000.0
+      },
+      "sets": {
+        "plan_effectful_modules": ["demo.deliver"],
+        "plan_grants": ["messages.deliver", "records.context.read"]
+      }
+    },
+    {
+      "name": "required-grant-exceeds-region",
+      "signature_overrides": {
+        "required_grant": {
+          "capabilities": ["admin.delete", "records.context.read"],
+          "effects": ["messages.deliver"]
+        }
+      },
+      "expected_valid": false,
+      "diagnostic_code": "PLAN_REQUIRED_GRANT_EXCEEDS_REGION"
+    }
+  ]
+}

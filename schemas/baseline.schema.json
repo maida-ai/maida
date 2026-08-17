@@ -11,7 +11,7 @@
     "trial_sample"
   ],
   "properties": {
-    "schema_version": { "const": "0.3.0" },
+    "schema_version": { "const": "0.3.1" },
     "created_at": { "type": "string", "format": "date-time" },
     "source_run_id": { "type": ["string", "null"] },
     "source_run_ids": {
@@ -61,6 +61,55 @@
         "signatures": {
           "type": "object",
           "additionalProperties": { "type": "object" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan_sample": {
+      "type": "object",
+      "required": [
+        "plans",
+        "plan_id",
+        "artifact_ids",
+        "artifact_counts",
+        "artifacts",
+        "metrics",
+        "sets"
+      ],
+      "properties": {
+        "plans": { "type": "integer", "minimum": 1 },
+        "plan_id": { "type": "string", "minLength": 1 },
+        "artifact_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "minItems": 1
+        },
+        "artifact_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": { "$ref": "plan-artifact.schema.json" }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 1
+          }
+        },
+        "sets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "minItems": 1
+          }
         }
       },
       "additionalProperties": false

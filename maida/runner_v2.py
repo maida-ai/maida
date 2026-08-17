@@ -34,6 +34,7 @@ from maida.gate import (
     structural_signature,
 )
 from maida.policy import merge_policy
+from maida.plan_contract import PlanEvidence
 from maida.statistics import GateVerdict, StatisticalResult, aggregate_verdict
 from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.storage import load_run_for_analysis
@@ -125,6 +126,7 @@ class TrialRunReport:
     baseline_source_run_id: str | None = None
     baseline_source_run_name: str | None = None
     baseline_acceptance: dict[str, Any] | None = None
+    plan_evidence: list[PlanEvidence] = field(default_factory=list)
 
     @property
     def verdict(self) -> GateVerdict:
@@ -169,6 +171,8 @@ class TrialRunReport:
             )
         if self.baseline_acceptance is not None:
             payload["baseline_acceptance"] = self.baseline_acceptance
+        if self.plan_evidence:
+            payload["plan_evidence"] = [item.to_dict() for item in self.plan_evidence]
         return payload
 
     def to_json(self) -> str:

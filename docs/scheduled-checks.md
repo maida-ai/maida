@@ -38,7 +38,7 @@ Drift checks preserve the gate's current metric semantics:
 
 Markdown starts with PASS, FAIL, or INCONCLUSIVE and includes the same metric
 evidence and baseline-change language as the gate report. JSON uses report
-schema `2.0.0`, adds `report_kind: drift`, and records every source trace ID and
+schema `2.0.1`, adds `report_kind: drift`, and records every source trace ID and
 run status.
 
 | Exit | Meaning |

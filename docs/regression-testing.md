@@ -73,7 +73,7 @@ aggregation, migration, and schema compatibility.
 
 ## Baseline contents
 
-Baseline schema `0.3.0` stores:
+Baseline schema `0.3.1` stores:
 
 - raw per-trial numeric and invariant outcome vectors;
 - an environment fingerprint;
@@ -89,7 +89,7 @@ emits a one-trial sample. Prefer `--from-report` for new gates.
 
 ## Reports and exit codes
 
-Report schema `2.0.0` includes the metric kind, direction, mode, named decision
+Report schema `2.0.1` includes the metric kind, direction, mode, named decision
 rule, stopping rule, trials used/budgeted, raw outcomes, and tier evidence.
 Report consumers must ignore unknown fields within a major.
 

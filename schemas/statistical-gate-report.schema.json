@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["report_version", "verdict", "passed", "metadata", "trials", "aggregate_results"],
   "properties": {
-    "report_version": { "const": "2.0.0" },
+    "report_version": { "const": "2.0.1" },
     "report_kind": { "enum": ["drift"] },
     "trials_requested": { "type": "integer", "minimum": 1 },
     "verdict": { "enum": ["pass", "fail", "inconclusive"] },
@@ -63,6 +63,92 @@
           "evidence": { "type": "object" }
         },
         "additionalProperties": true
+      }
+    },
+    "plan_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["trial", "checked_before_execution", "valid", "artifact", "issues", "graph_changes"],
+        "properties": {
+          "trial": { "type": ["integer", "null"], "minimum": 1 },
+          "checked_before_execution": { "const": true },
+          "valid": { "type": "boolean" },
+          "artifact": {
+            "anyOf": [
+              { "$ref": "plan-artifact.schema.json" },
+              { "type": "null" }
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": { "type": "string", "minLength": 1 },
+                "message": { "type": "string", "minLength": 1 },
+                "location": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "graph_changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "location", "before", "after", "resolvable"],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "MODULE_DIGEST_CHANGED",
+                    "BUDGET_CHANGED",
+                    "CAPABILITY_CHANGED",
+                    "EFFECT_CHANGED",
+                    "CONNECTOR_CHANGED",
+                    "POLICY_CHANGED",
+                    "SCHEMA_CHANGED",
+                    "INSERTION",
+                    "DELETION",
+                    "REORDER",
+                    "TOPOLOGY_CHANGED",
+                    "CONTROL_FLOW_CHANGED"
+                  ]
+                },
+                "location": { "type": "string", "minLength": 1 },
+                "before": {},
+                "after": {},
+                "resolvable": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "valid": { "const": true } },
+              "required": ["valid"]
+            },
+            "then": {
+              "properties": {
+                "artifact": { "$ref": "plan-artifact.schema.json" },
+                "issues": { "maxItems": 0 }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "valid": { "const": false } },
+              "required": ["valid"]
+            },
+            "then": {
+              "properties": { "issues": { "minItems": 1 } }
+            }
+          }
+        ],
+        "additionalProperties": false
       }
     }
   },

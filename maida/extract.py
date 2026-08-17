@@ -26,6 +26,7 @@ from maida.drift import (
 )
 from maida.gate import invariant_outcomes, numeric_metrics, structural_signature
 from maida.policy import load_policy
+from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict
 
 
@@ -276,7 +277,7 @@ def _baseline_report(
             }
         )
     return {
-        "report_version": "2.0.0",
+        "report_version": REPORT_SCHEMA_VERSION,
         "metadata": {
             "trials_used": len(trials),
             "trials_budgeted": len(trials),

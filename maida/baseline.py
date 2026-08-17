@@ -18,6 +18,7 @@ from maida.baseline_sample import (
     validate_baseline_version,
 )
 from maida.events import EventType
+from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.storage import load_run_for_analysis
 
 _BASELINE_SCHEMA_VERSION = BASELINE_SCHEMA_VERSION
@@ -105,7 +106,7 @@ def create_baseline(trace_id: str, config: MaidaConfig) -> dict:
     metrics = extract_run_metrics(meta, events)
     summary = metrics["summary"]
     report = {
-        "report_version": "2.0.0",
+        "report_version": REPORT_SCHEMA_VERSION,
         "metadata": {
             "trials_used": 1,
             "trials_budgeted": 1,

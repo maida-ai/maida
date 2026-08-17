@@ -10,8 +10,15 @@ import pytest
 
 from maida.cli import app
 from maida.loopdetect import detect_loop
+from maida.plan_contract import (
+    PlanContractError,
+    plan_artifact_from_resolved_signature,
+    plan_metric_values,
+    plan_set_values,
+)
 from maida.schema_versions import (
     BASELINE_SCHEMA_VERSION,
+    PLAN_SCHEMA_VERSION,
     POLICY_SCHEMA_VERSION,
     REPORT_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION,
@@ -35,6 +42,7 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
         "baseline": BASELINE_SCHEMA_VERSION,
         "policy": POLICY_SCHEMA_VERSION,
         "report": REPORT_SCHEMA_VERSION,
+        "plan": PLAN_SCHEMA_VERSION,
     }
     assert contract["engine_ref"] == "v0.5.0"
     assert contract["action_ref"] == "maida-ai/maida-assert@v5"
@@ -129,3 +137,28 @@ def test_trace_validation_conformance_vectors(case: dict) -> None:
     assert case["diagnostic_code"] in {
         diagnostic.code for diagnostic in excinfo.value.diagnostics
     }
+
+
+_PLAN_VECTORS = _read_json(CONTRACTS / "conformance" / "plan-contract-vectors.json")
+
+
+@pytest.mark.parametrize(
+    "case",
+    _PLAN_VECTORS["cases"],
+    ids=lambda case: case["name"],
+)
+def test_plan_contract_conformance_vectors(case: dict) -> None:
+    signature = copy.deepcopy(_PLAN_VECTORS["base"])
+    signature.update(case.get("signature_overrides", {}))
+    if not case["expected_valid"]:
+        with pytest.raises(PlanContractError) as excinfo:
+            plan_artifact_from_resolved_signature(signature)
+        assert excinfo.value.code == case["diagnostic_code"]
+        return
+
+    artifact = plan_artifact_from_resolved_signature(signature)
+    assert artifact.artifact_id == case["artifact_id"]
+    assert plan_metric_values(artifact) == case["metrics"]
+    assert {
+        name: list(values) for name, values in plan_set_values(artifact).items()
+    } == (case["sets"])

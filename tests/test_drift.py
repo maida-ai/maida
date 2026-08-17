@@ -16,6 +16,7 @@ from maida.cli import app
 from maida.config import load_config
 from maida.drift import DriftWindowError, run_drift
 from maida.policy_types import MetricDirection, MetricKind, MetricMode, MetricPolicy
+from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict
 from maida.trace_validation import validate_trace_path
 
@@ -173,7 +174,7 @@ def test_drift_cli_evaluates_external_emitter_native_window_read_only(
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["report_version"] == "2.0.0"
+    assert payload["report_version"] == REPORT_SCHEMA_VERSION
     assert payload["report_kind"] == "drift"
     assert payload["metadata"]["window_input_format"] == "maida_runs"
     assert payload["verdict"] == "pass"
@@ -475,7 +476,7 @@ def test_drift_cli_writes_machine_report_and_uses_scheduler_exit_codes(
     assert result.exit_code == 1, result.output
     assert result.stdout.startswith("## ❌ Maida drift check: fail")
     payload = json.loads(report_path.read_text(encoding="utf-8"))
-    assert payload["report_version"] == "2.0.0"
+    assert payload["report_version"] == REPORT_SCHEMA_VERSION
     assert payload["report_kind"] == "drift"
     assert payload["metadata"]["agent_name"] == "orders-agent"
     assert payload["metadata"]["window_input_format"] == "maida_runs"
