@@ -93,6 +93,8 @@ CANONICAL_METRIC_NAMES = frozenset(
         "plan_budget_wall_time_ms",
         "plan_effectful_modules",
         "plan_grants",
+        "plan_modules",
+        "plan_shape_seen",
     }
 )
 
@@ -120,6 +122,8 @@ INVARIANT_METRIC_NAMES = frozenset(
         "no_guardrails",
         "plan_effectful_modules",
         "plan_grants",
+        "plan_modules",
+        "plan_shape_seen",
     }
 )
 
@@ -133,5 +137,7 @@ PLAN_METRIC_NAMES = frozenset(
         "plan_budget_wall_time_ms",
         "plan_effectful_modules",
         "plan_grants",
+        "plan_modules",
+        "plan_shape_seen",
     }
 )

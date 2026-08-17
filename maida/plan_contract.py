@@ -624,11 +624,38 @@ def _set_invariant_passes(
     )
 
 
+def _baseline_topology_digests(
+    baseline: Mapping[str, Any] | None, *, plan_id: str
+) -> set[str]:
+    if not isinstance(baseline, Mapping):
+        return set()
+    sample = baseline.get("plan_sample")
+    if not isinstance(sample, Mapping) or sample.get("plan_id") != plan_id:
+        return set()
+    artifacts = sample.get("artifacts")
+    if not isinstance(artifacts, Mapping):
+        return set()
+    result = set()
+    for value in artifacts.values():
+        if not isinstance(value, Mapping):
+            continue
+        accepted = PlanArtifact.from_dict(value)
+        if accepted.plan_id == plan_id:
+            result.add(accepted.topology_digest)
+    return result
+
+
 def plan_invariant_outcomes(
-    artifact: PlanArtifact, policy: "AssertionPolicy"
+    artifact: PlanArtifact,
+    policy: "AssertionPolicy",
+    *,
+    baseline: Mapping[str, Any] | None = None,
 ) -> dict[str, bool]:
     """Evaluate policy 2.1's exact set rules for one plan artifact."""
     plan_sets = plan_set_values(artifact)
+    plan_sets["plan_modules"] = tuple(
+        sorted({module.module_id for module in artifact.module_composition})
+    )
     approved = {
         effect_name for _node_key, effect_name in artifact.approval_requirements
     }
@@ -646,6 +673,15 @@ def plan_invariant_outcomes(
             approved=approved,
             approval_scope=approval_scope,
         )
+    shape_metric = policy.metrics.get("plan_shape_seen")
+    if (
+        shape_metric is not None
+        and getattr(shape_metric.kind, "value", shape_metric.kind) == "invariant"
+    ):
+        seen = artifact.topology_digest in _baseline_topology_digests(
+            baseline, plan_id=artifact.plan_id
+        )
+        outcomes["plan_shape_seen"] = seen is bool(shape_metric.require)
     return outcomes
 
 

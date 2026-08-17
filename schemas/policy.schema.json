@@ -21,7 +21,9 @@
         "plan_budget_tool_calls": { "$ref": "#/$defs/planNumericMetric" },
         "plan_budget_wall_time_ms": { "$ref": "#/$defs/planNumericMetric" },
         "plan_effectful_modules": { "$ref": "#/$defs/planSetInvariant" },
-        "plan_grants": { "$ref": "#/$defs/planGrantInvariant" }
+        "plan_grants": { "$ref": "#/$defs/planGrantInvariant" },
+        "plan_modules": { "$ref": "#/$defs/planSetInvariant" },
+        "plan_shape_seen": { "$ref": "#/$defs/planBooleanInvariant" }
       },
       "propertyNames": {
         "enum": [
@@ -42,7 +44,9 @@
           "plan_budget_tool_calls",
           "plan_budget_wall_time_ms",
           "plan_effectful_modules",
-          "plan_grants"
+          "plan_grants",
+          "plan_modules",
+          "plan_shape_seen"
         ]
       },
       "additionalProperties": { "$ref": "#/$defs/metric" }
@@ -68,7 +72,9 @@
                   "plan_budget_tool_calls",
                   "plan_budget_wall_time_ms",
                   "plan_effectful_modules",
-                  "plan_grants"
+                  "plan_grants",
+                  "plan_modules",
+                  "plan_shape_seen"
                 ]
               }
             }
@@ -165,6 +171,20 @@
               "properties": { "approval_required_for": { "minItems": 1 } }
             }
           ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "planBooleanInvariant": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "type": "object",
+          "required": ["kind", "require"],
+          "properties": {
+            "kind": { "const": "invariant" },
+            "require": { "const": true }
+          },
           "additionalProperties": false
         }
       ]

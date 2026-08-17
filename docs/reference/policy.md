@@ -54,8 +54,8 @@ contracts are visible. Reclassify an intermittent property instead of weakening
 the invariant rule.
 
 Supported invariants are `stop_condition_reached`, `forbidden_tools`,
-`required_tools`, `no_loops`, `no_guardrails`, `plan_effectful_modules`, and
-`plan_grants`.
+`required_tools`, `no_loops`, `no_guardrails`, `plan_effectful_modules`,
+`plan_grants`, `plan_modules`, and `plan_shape_seen`.
 
 ### Measured
 
@@ -92,6 +92,10 @@ metrics:
     kind: invariant
     allowed: [records.context.read, messages.deliver]
     approval_required_for: [messages.deliver]
+  plan_modules:
+    kind: invariant
+    allowed: [demo.audit, demo.context, demo.deliver, demo.draft, demo.normalize]
+  plan_shape_seen: {kind: invariant, require: true}
 ```
 
 `allowed` requires the observed set to be a subset of the declared values, so
@@ -104,6 +108,12 @@ requests; unrelated policy-listed effects do not reject a harmless plan. Plan
 metrics require complete pre-execution evidence from a plan backend for every
 trial; a trace-only or partially evidenced gate fails closed rather than
 pretending to evaluate them.
+
+`plan_modules` applies the same set rules to every trusted resolved module ID,
+not only effectful modules. `plan_shape_seen` compares the candidate topology
+digest with artifacts in the bound baseline for the same plan ID. Requiring it
+without a matching baseline fails closed; omitting it allows novel shapes while
+the remaining configured limits still apply.
 
 ### Distributional
 

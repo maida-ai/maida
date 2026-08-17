@@ -196,7 +196,7 @@ def _parse_limit(
 
 def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
     allowed = {"kind", "require", "none_of", "all_of"}
-    if name in {"plan_effectful_modules", "plan_grants"}:
+    if name in {"plan_effectful_modules", "plan_grants", "plan_modules"}:
         allowed.add("allowed")
     if name == "plan_grants":
         allowed.add("approval_required_for")
@@ -212,7 +212,7 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
         if "all_of" not in data:
             raise ValueError("metrics.required_tools requires all_of")
         metric.all_of = _string_tuple(data["all_of"], "metrics.required_tools.all_of")
-    elif name in {"plan_effectful_modules", "plan_grants"}:
+    elif name in {"plan_effectful_modules", "plan_grants", "plan_modules"}:
         configured = {
             field_name
             for field_name in ("none_of", "all_of", "allowed", "approval_required_for")
@@ -245,6 +245,8 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
         require = data.get("require", True)
         if not isinstance(require, bool):
             raise ValueError(f"metrics.{name}.require must be a boolean")
+        if name == "plan_shape_seen" and require is not True:
+            raise ValueError("metrics.plan_shape_seen.require must be true")
         metric.require = require
     return metric
 
