@@ -15,6 +15,7 @@ import threading
 import time
 import webbrowser
 from datetime import datetime, timedelta, timezone
+from importlib import import_module
 from pathlib import Path
 from typing import Annotated
 
@@ -1388,6 +1389,52 @@ def _demo_single_run(config) -> None:
     typer.echo("  maida demo --regression # watch Maida catch a bad refactor")
 
 
+def _demo_generated_plan(policy_path: Path | None) -> None:
+    """Run the optional workflows backend's deterministic plan-refusal story."""
+    try:
+        backend = import_module("maida.workflows.demo")
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"maida.workflows", "maida.workflows.demo"}:
+            raise
+        typer.echo(
+            "maida-workflows is required for generated-plan gating.\n"
+            "Install the optional backend with: uv add maida-workflows",
+            err=True,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+
+    result = backend.run_plan_demo(policy_path)
+    evidence = result["evidence"]
+    schemas = result["schemas"]
+    typer.echo("Maida generated-plan demo: everything below is simulated and local.")
+    typer.echo("No API keys, database, network calls, or repo clone.")
+    typer.echo("")
+    typer.echo("── Step 1/2 · A simulated planner generates a runtime plan")
+    typer.echo(f"   topology: {result['topology']}")
+    typer.echo(
+        f"   resolved: {result['node_count']} nodes · max fan-out {result['max_fanout']}"
+    )
+    typer.echo(
+        f"   schemas: policy {schemas['policy']} · plan {schemas['plan']} · "
+        f"report {schemas['report']}"
+    )
+    typer.echo("")
+    typer.echo("── Step 2/2 · Gate the trusted plan before execution")
+    typer.echo(f"   policy: {result['policy_rule']}")
+    typer.echo("")
+    typer.echo(result["rendered"])
+    typer.echo("")
+    if evidence.valid:
+        typer.echo(
+            "The supplied policy accepted this plan; the demo still does not execute it."
+        )
+    else:
+        typer.echo("No generated module executed.")
+        typer.echo(
+            "Fix the plan or update .maida/policy.yaml after review, then gate again."
+        )
+
+
 def _demo_regression(config) -> None:
     """Baseline a good run, run a regressed one, and show the failing gate."""
     typer.echo("Maida regression demo: everything below is simulated and local.")
@@ -1492,9 +1539,28 @@ def demo_cmd(
         "--regression",
         help="Full story: baseline a good run, then catch a bad refactor.",
     ),
+    plan: bool = typer.Option(
+        False,
+        "--plan",
+        help="Generate and refuse a runtime plan before execution.",
+    ),
+    policy: Path | None = typer.Option(
+        None,
+        "--policy",
+        help="Core policy 2.1 file for --plan (default: bundled refusal policy).",
+    ),
 ) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""
     try:
+        if plan and regression:
+            typer.echo("Choose either --plan or --regression, not both.", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        if policy is not None and not plan:
+            typer.echo("--policy is only valid with --plan.", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        if plan:
+            _demo_generated_plan(policy)
+            return
         previous_demo_env = ensure_demo_env()
         try:
             config = load_config()

@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 from hashlib import sha256
+from types import SimpleNamespace
 
 import yaml
 
@@ -1297,6 +1298,59 @@ def test_demo_records_a_run(empty_data_dir):
     assert len(runs) == 1
     assert runs[0].get("run_name") == "demo-support-agent"
     assert runs[0].get("status") == "ok"
+
+
+def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch):
+    class DemoBackend:
+        @staticmethod
+        def run_plan_demo(policy_path=None):
+            assert policy_path is None
+            return {
+                "evidence": SimpleNamespace(valid=False),
+                "execution_attempts": 0,
+                "max_fanout": 2,
+                "node_count": 4,
+                "policy_rule": "plan_fanout <= 1",
+                "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
+                "topology": "normalize -> [draft, review] -> publish",
+                "rendered": (
+                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\n"
+                    "Plan fan-out is 2; policy allows at most 1 (plan_fanout)."
+                ),
+            }
+
+    monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
+
+    result = runner.invoke(app, ["demo", "--plan"])
+
+    assert result.exit_code == 0
+    assert "everything below is simulated and local" in result.output
+    assert "policy 2.1 · plan 0.1.0 · report 2.0.1" in result.output
+    assert "normalize -> [draft, review] -> publish" in result.output
+    assert "PLAN REFUSED: PLAN_FANOUT_EXCEEDED" in result.output
+    assert "No generated module executed." in result.output
+
+
+def test_demo_plan_missing_optional_backend_is_actionable(monkeypatch):
+    def missing_backend(name):
+        raise ModuleNotFoundError(
+            "No module named 'maida.workflows'", name="maida.workflows"
+        )
+
+    monkeypatch.setattr("maida.cli.import_module", missing_backend)
+
+    result = runner.invoke(app, ["demo", "--plan"])
+
+    assert result.exit_code == 2
+    assert "maida-workflows is required for generated-plan gating" in result.stderr
+    assert "uv add maida-workflows" in result.stderr
+
+
+def test_demo_plan_rejects_incompatible_demo_options():
+    result = runner.invoke(app, ["demo", "--plan", "--regression"])
+
+    assert result.exit_code == 2
+    assert "Choose either --plan or --regression" in result.stderr
 
 
 def test_demo_run_is_redacted_on_disk(empty_data_dir):
