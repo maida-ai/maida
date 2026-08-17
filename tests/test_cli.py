@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 from hashlib import sha256
+from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
@@ -1300,7 +1301,7 @@ def test_demo_records_a_run(empty_data_dir):
     assert runs[0].get("status") == "ok"
 
 
-def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch):
+def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch, tmp_path):
     class DemoBackend:
         @staticmethod
         def run_plan_demo(policy_path=None):
@@ -1310,7 +1311,6 @@ def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch):
                 "execution_attempts": 0,
                 "max_fanout": 2,
                 "node_count": 4,
-                "policy_rule": "plan_fanout <= 1",
                 "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
                 "topology": "normalize -> [draft, review] -> publish",
                 "rendered": (
@@ -1319,6 +1319,7 @@ def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch):
                 ),
             }
 
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
 
     result = runner.invoke(app, ["demo", "--plan"])
@@ -1326,12 +1327,112 @@ def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch):
     assert result.exit_code == 0
     assert "everything below is simulated and local" in result.output
     assert "policy 2.1 · plan 0.1.0 · report 2.0.1" in result.output
+    assert "policy source: bundled demo refusal policy" in result.output
+    assert "policy: plan_fanout <=" not in result.output
     assert "normalize -> [draft, review] -> publish" in result.output
     assert "PLAN REFUSED: PLAN_FANOUT_EXCEEDED" in result.output
     assert "No generated module executed." in result.output
 
 
-def test_demo_plan_missing_optional_backend_is_actionable(monkeypatch):
+def test_demo_plan_discovers_printed_policy_recovery_path(
+    monkeypatch,
+    tmp_path,
+):
+    selected_policies = []
+
+    class DemoBackend:
+        @staticmethod
+        def run_plan_demo(policy_path=None):
+            selected_policies.append(policy_path)
+            return {
+                "evidence": SimpleNamespace(valid=False),
+                "execution_attempts": 0,
+                "max_fanout": 2,
+                "node_count": 4,
+                "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
+                "topology": "normalize -> [draft, review] -> publish",
+                "rendered": (
+                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\n"
+                    "Plan fan-out is 2; policy allows at most 1 (plan_fanout)."
+                ),
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
+
+    first = runner.invoke(app, ["demo", "--plan"])
+
+    assert first.exit_code == 0
+    assert selected_policies == [None]
+    assert "policy source: bundled demo refusal policy" in first.output
+    assert "update .maida/policy.yaml" in first.output
+
+    policy = tmp_path / ".maida" / "policy.yaml"
+    policy.parent.mkdir()
+    policy.write_text(
+        "version: 2.1\n"
+        "metrics:\n"
+        "  plan_fanout: {kind: measured, direction: upper, limit: 2}\n",
+        encoding="utf-8",
+    )
+
+    second = runner.invoke(app, ["demo", "--plan"])
+
+    assert second.exit_code == 0
+    assert selected_policies == [None, Path(".maida/policy.yaml")]
+    assert "policy source: .maida/policy.yaml" in second.output
+
+
+def test_demo_plan_explicit_policy_wins_over_discovered_default(
+    monkeypatch,
+    tmp_path,
+):
+    selected_policies = []
+
+    class DemoBackend:
+        @staticmethod
+        def run_plan_demo(policy_path=None):
+            selected_policies.append(policy_path)
+            return {
+                "evidence": SimpleNamespace(valid=False),
+                "execution_attempts": 0,
+                "max_fanout": 2,
+                "node_count": 4,
+                "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
+                "topology": "normalize -> [draft, review] -> publish",
+                "rendered": (
+                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\n"
+                    "Plan fan-out is 2; policy allows at most 1 (plan_fanout)."
+                ),
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
+    default_policy = tmp_path / ".maida" / "policy.yaml"
+    default_policy.parent.mkdir()
+    default_policy.write_text("version: 2.1\nmetrics: {}\n", encoding="utf-8")
+    explicit_policy = tmp_path / "reviewed-policy.yaml"
+    explicit_policy.write_text("version: 2.1\nmetrics: {}\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["demo", "--plan", "--policy", str(explicit_policy)],
+    )
+
+    assert result.exit_code == 0
+    assert selected_policies == [explicit_policy]
+    assert f"policy source: {explicit_policy}" in result.output
+    assert f"update {explicit_policy} after review" in result.output
+
+
+def test_demo_plan_missing_optional_backend_uses_canonical_install_instruction(
+    monkeypatch,
+):
+    install_command = (
+        "uv tool install --force --python 3.12 --with "
+        '"maida-workflows>=0.1.0" "maida-ai>0.5.2"'
+    )
+
     def missing_backend(name):
         raise ModuleNotFoundError(
             "No module named 'maida.workflows'", name="maida.workflows"
@@ -1343,7 +1444,9 @@ def test_demo_plan_missing_optional_backend_is_actionable(monkeypatch):
 
     assert result.exit_code == 2
     assert "maida-workflows is required for generated-plan gating" in result.stderr
-    assert "uv add maida-workflows" in result.stderr
+    assert result.stderr.rstrip().endswith(install_command)
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    assert readme.count(install_command) == 1
 
 
 def test_demo_plan_rejects_incompatible_demo_options():

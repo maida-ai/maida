@@ -96,6 +96,10 @@ from maida.trace_validation import (
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
+_PLAN_BACKEND_INSTALL_COMMAND = (
+    "uv tool install --force --python 3.12 --with "
+    '"maida-workflows>=0.1.0" "maida-ai>0.5.2"'
+)
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
 capture_app = typer.Typer(help="Capture external agent behavior locally.")
@@ -1398,12 +1402,16 @@ def _demo_generated_plan(policy_path: Path | None) -> None:
             raise
         typer.echo(
             "maida-workflows is required for generated-plan gating.\n"
-            "Install the optional backend with: uv add maida-workflows",
+            "Install the optional backend with:\n"
+            f"{_PLAN_BACKEND_INSTALL_COMMAND}",
             err=True,
         )
         raise Exit(EXIT_NOT_FOUND)
 
-    result = backend.run_plan_demo(policy_path)
+    selected_policy = policy_path
+    if selected_policy is None and POLICY_RELPATH.is_file():
+        selected_policy = POLICY_RELPATH
+    result = backend.run_plan_demo(selected_policy)
     evidence = result["evidence"]
     schemas = result["schemas"]
     typer.echo("Maida generated-plan demo: everything below is simulated and local.")
@@ -1420,7 +1428,12 @@ def _demo_generated_plan(policy_path: Path | None) -> None:
     )
     typer.echo("")
     typer.echo("── Step 2/2 · Gate the trusted plan before execution")
-    typer.echo(f"   policy: {result['policy_rule']}")
+    policy_source = (
+        str(selected_policy)
+        if selected_policy is not None
+        else "bundled demo refusal policy"
+    )
+    typer.echo(f"   policy source: {policy_source}")
     typer.echo("")
     typer.echo(result["rendered"])
     typer.echo("")
@@ -1430,8 +1443,9 @@ def _demo_generated_plan(policy_path: Path | None) -> None:
         )
     else:
         typer.echo("No generated module executed.")
+        recovery_policy = selected_policy or POLICY_RELPATH
         typer.echo(
-            "Fix the plan or update .maida/policy.yaml after review, then gate again."
+            f"Fix the plan or update {recovery_policy} after review, then gate again."
         )
 
 
@@ -1547,7 +1561,10 @@ def demo_cmd(
     policy: Path | None = typer.Option(
         None,
         "--policy",
-        help="Core policy 2.1 file for --plan (default: bundled refusal policy).",
+        help=(
+            "Core policy 2.1 file for --plan "
+            "(default: .maida/policy.yaml when present, otherwise bundled)."
+        ),
     ),
 ) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""

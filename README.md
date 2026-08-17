@@ -60,9 +60,13 @@ Install the optional local backend, then run the plan story through the same
 `maida` CLI:
 
 ```bash
-uv tool install --with maida-workflows "maida-ai>=0.5"
+uv tool install --force --python 3.12 --with "maida-workflows>=0.1.0" "maida-ai>0.5.2"
 maida demo --plan
 ```
+
+The demo uses `.maida/policy.yaml` when that file exists and names the selected
+policy source in its output. Otherwise it uses the bundled refusal policy;
+`--policy <path>` always takes precedence over both defaults.
 
 The simulated planner emits only graph choices. Trusted application contracts
 resolve the modules, and core policy 2.1 refuses the plan before a generated
