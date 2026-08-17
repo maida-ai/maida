@@ -6,6 +6,10 @@ trace, baseline, policy, report, plan, CLI, installation, and Action channel.
 `conformance/` contains Python-owned behavioral vectors for mirrors such as
 `maida-ts`.
 
+`engine_ref` is the exact released Maida git tag consumers should use when
+exercising this contract. Update it when the contract's required engine release
+changes; do not derive it from a development build's package version.
+
 Consumer repositories -- `maida-assert`, `maida-ts`, `maida-ai.github.io`,
 `maida-tutorials`, and `maida-workflows` -- vendor exact snapshots under
 `tests/contracts/` because those copies are test inputs, not independently

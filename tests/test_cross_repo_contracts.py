@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -44,7 +45,11 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
         "report": REPORT_SCHEMA_VERSION,
         "plan": PLAN_SCHEMA_VERSION,
     }
-    assert contract["engine_ref"] == "v0.5.0"
+    assert contract["engine_ref"] != "main"
+    assert re.fullmatch(
+        r"v\d+\.\d+\.\d+(?:(?:a|b|rc)\d+|\.post\d+)?",
+        contract["engine_ref"],
+    )
     assert contract["action_ref"] == "maida-ai/maida-assert@v5"
     assert contract["cli"]["primary_gate"] == "run"
     assert contract["cli"]["legacy_gate"] == "assert"
