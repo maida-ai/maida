@@ -39,7 +39,11 @@ def _mapping(value: object, field_name: str) -> Mapping[str, Any]:
 
 
 def _exact_fields(
-    value: Mapping[str, Any], expected: set[str], field_name: str
+    value: Mapping[str, Any],
+    expected: set[str],
+    field_name: str,
+    *,
+    code: str = "PLAN_ARTIFACT_INVALID",
 ) -> None:
     actual = set(value)
     if actual != expected:
@@ -51,7 +55,7 @@ def _exact_fields(
         if unknown:
             details.append(f"unknown {', '.join(unknown)}")
         raise _fail(
-            "PLAN_ARTIFACT_INVALID",
+            code,
             f"{field_name} fields do not match the contract ({'; '.join(details)})",
         )
 
@@ -605,13 +609,18 @@ def plan_set_values(artifact: PlanArtifact) -> dict[str, tuple[str, ...]]:
 
 
 def _set_invariant_passes(
-    values: set[str], metric: "MetricPolicy", *, approved: set[str]
+    values: set[str],
+    metric: "MetricPolicy",
+    *,
+    approved: set[str],
+    approval_scope: set[str],
 ) -> bool:
+    required_approvals = set(metric.approval_required_for) & approval_scope
     return (
-        (not metric.allowed or values <= set(metric.allowed))
+        (metric.allowed is None or values <= set(metric.allowed))
         and not bool(values & set(metric.none_of))
         and set(metric.all_of) <= values
-        and set(metric.approval_required_for) <= approved
+        and required_approvals <= approved
     )
 
 
@@ -628,7 +637,15 @@ def plan_invariant_outcomes(
         metric = policy.metrics.get(name)
         if metric is None or getattr(metric.kind, "value", metric.kind) != "invariant":
             continue
-        outcomes[name] = _set_invariant_passes(set(values), metric, approved=approved)
+        approval_scope = (
+            set(artifact.required_grant.effects) if name == "plan_grants" else set()
+        )
+        outcomes[name] = _set_invariant_passes(
+            set(values),
+            metric,
+            approved=approved,
+            approval_scope=approval_scope,
+        )
     return outcomes
 
 
@@ -670,22 +687,29 @@ class PlanGraphChange:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "PlanGraphChange":
+        data = _mapping(value, "plan graph change")
+        _exact_fields(
+            data,
+            {"kind", "location", "before", "after", "resolvable"},
+            "plan graph change",
+            code="PLAN_EVIDENCE_INVALID",
+        )
         try:
-            kind = PlanDiffKind(value.get("kind"))
+            kind = PlanDiffKind(data.get("kind"))
         except (TypeError, ValueError) as error:
             raise _fail(
                 "PLAN_EVIDENCE_INVALID", "unknown plan graph change kind"
             ) from error
-        resolvable = value.get("resolvable")
+        resolvable = data.get("resolvable")
         if not isinstance(resolvable, bool):
             raise _fail(
                 "PLAN_EVIDENCE_INVALID", "graph change resolvable must be boolean"
             )
         return cls(
             kind=kind,
-            location=_string(value.get("location"), "graph change location"),
-            before=value.get("before"),
-            after=value.get("after"),
+            location=_string(data.get("location"), "graph change location"),
+            before=data.get("before"),
+            after=data.get("after"),
             resolvable=resolvable,
         )
 
@@ -706,12 +730,22 @@ class PlanValidationIssue:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "PlanValidationIssue":
-        location = value.get("location")
+        data = _mapping(value, "plan validation issue")
+        expected = {"code", "message"}
+        if "location" in data:
+            expected.add("location")
+        _exact_fields(
+            data,
+            expected,
+            "plan validation issue",
+            code="PLAN_EVIDENCE_INVALID",
+        )
+        location = data.get("location")
         if location is not None:
             location = _string(location, "plan issue location")
         return cls(
-            code=_string(value.get("code"), "plan issue code"),
-            message=_string(value.get("message"), "plan issue message"),
+            code=_string(data.get("code"), "plan issue code"),
+            message=_string(data.get("message"), "plan issue message"),
             location=location,
         )
 
@@ -763,6 +797,19 @@ class PlanEvidence:
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "PlanEvidence":
         data = _mapping(value, "plan evidence")
+        _exact_fields(
+            data,
+            {
+                "trial",
+                "checked_before_execution",
+                "valid",
+                "artifact",
+                "issues",
+                "graph_changes",
+            },
+            "plan evidence",
+            code="PLAN_EVIDENCE_INVALID",
+        )
         artifact_data = data.get("artifact")
         artifact = None
         if artifact_data is not None:

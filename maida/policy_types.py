@@ -42,7 +42,7 @@ class MetricPolicy:
     require: bool | None = None
     none_of: tuple[str, ...] = ()
     all_of: tuple[str, ...] = ()
-    allowed: tuple[str, ...] = ()
+    allowed: tuple[str, ...] | None = None
     approval_required_for: tuple[str, ...] = ()
     tolerance_relative: float | None = None
     tolerance_absolute: float | None = None
@@ -66,7 +66,7 @@ class MetricPolicy:
             result["none_of"] = list(self.none_of)
         if self.all_of:
             result["all_of"] = list(self.all_of)
-        if self.allowed:
+        if self.allowed is not None:
             result["allowed"] = list(self.allowed)
         if self.approval_required_for:
             result["approval_required_for"] = list(self.approval_required_for)

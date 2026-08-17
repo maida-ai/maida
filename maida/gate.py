@@ -98,7 +98,8 @@ def aggregate_value(values: Iterable[float], aggregate: str) -> float:
 
 def baseline_values(baseline: dict[str, Any], name: str) -> list[float]:
     """Read a baseline vector, falling back to one legacy aggregate value."""
-    sample = baseline.get("trial_sample") or {}
+    sample_name = "plan_sample" if name in PLAN_METRIC_NAMES else "trial_sample"
+    sample = baseline.get(sample_name) or {}
     vector = (sample.get("metrics") or {}).get(name)
     if isinstance(vector, list) and vector:
         return [float(value) for value in vector]
@@ -225,13 +226,19 @@ def aggregate_metrics(
 
     for name, metric in policy.metrics.items():
         values = [trial[name] for trial in trial_values if name in trial]
+        missing_plan_trials = [
+            index
+            for index, trial in enumerate(trial_values, start=1)
+            if name not in trial
+        ]
         if (
             name in PLAN_METRIC_NAMES
-            and not values
             and metric.kind is not MetricKind.INVARIANT
+            and missing_plan_trials
         ):
             raise ValueError(
-                f"metrics.{name} requires pre-execution plan evidence from a plan backend"
+                f"metrics.{name} requires pre-execution plan evidence for every trial; "
+                f"missing trial(s): {', '.join(map(str, missing_plan_trials))}"
             )
         if metric.kind is MetricKind.INVARIANT:
             outcomes = [trial.get(name, False) for trial in trial_invariants]

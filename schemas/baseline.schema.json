@@ -90,7 +90,7 @@
         },
         "artifacts": {
           "type": "object",
-          "additionalProperties": { "type": "object" }
+          "additionalProperties": { "$ref": "plan-artifact.schema.json" }
         },
         "metrics": {
           "type": "object",

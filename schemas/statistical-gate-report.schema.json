@@ -75,7 +75,12 @@
           "trial": { "type": ["integer", "null"], "minimum": 1 },
           "checked_before_execution": { "const": true },
           "valid": { "type": "boolean" },
-          "artifact": { "type": ["object", "null"] },
+          "artifact": {
+            "anyOf": [
+              { "$ref": "plan-artifact.schema.json" },
+              { "type": "null" }
+            ]
+          },
           "issues": {
             "type": "array",
             "items": {
@@ -120,6 +125,29 @@
             }
           }
         },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "valid": { "const": true } },
+              "required": ["valid"]
+            },
+            "then": {
+              "properties": {
+                "artifact": { "$ref": "plan-artifact.schema.json" },
+                "issues": { "maxItems": 0 }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "valid": { "const": false } },
+              "required": ["valid"]
+            },
+            "then": {
+              "properties": { "issues": { "minItems": 1 } }
+            }
+          }
+        ],
         "additionalProperties": false
       }
     }

@@ -227,13 +227,19 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
             data.get("none_of", []), f"metrics.{name}.none_of"
         )
         metric.all_of = _string_tuple(data.get("all_of", []), f"metrics.{name}.all_of")
-        metric.allowed = _string_tuple(
-            data.get("allowed", []), f"metrics.{name}.allowed"
-        )
+        if "allowed" in data:
+            metric.allowed = _string_tuple(data["allowed"], f"metrics.{name}.allowed")
         if name == "plan_grants":
             metric.approval_required_for = _string_tuple(
                 data.get("approval_required_for", []),
                 "metrics.plan_grants.approval_required_for",
+            )
+        if metric.allowed is None and not (
+            metric.none_of or metric.all_of or metric.approval_required_for
+        ):
+            raise ValueError(
+                f"metrics.{name} must enforce at least one restriction; "
+                "allowed may be empty to prohibit every value"
             )
     else:
         require = data.get("require", True)

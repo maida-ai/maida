@@ -94,12 +94,16 @@ metrics:
     approval_required_for: [messages.deliver]
 ```
 
-`allowed` requires the observed set to be a subset of the declared values;
-`none_of` forbids any overlap; `all_of` requires named values to be present.
-For `plan_grants`, `approval_required_for` also requires the resolved artifact
-to carry an approval requirement for each named effect. Plan metrics require
-pre-execution evidence from a plan backend; a trace-only gate fails closed
-rather than pretending to evaluate them.
+`allowed` requires the observed set to be a subset of the declared values, so
+an explicit `allowed: []` permits no values. `none_of` forbids any overlap;
+`all_of` requires named values to be present. An empty `none_of`, `all_of`, or
+`approval_required_for` clause is rejected when it would make the whole rule a
+no-op. For `plan_grants`, `approval_required_for` requires the resolved artifact
+to carry an approval requirement for each named effect that the plan actually
+requests; unrelated policy-listed effects do not reject a harmless plan. Plan
+metrics require complete pre-execution evidence from a plan backend for every
+trial; a trace-only or partially evidenced gate fails closed rather than
+pretending to evaluate them.
 
 ### Distributional
 
