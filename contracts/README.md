@@ -6,10 +6,11 @@ trace, baseline, policy, report, plan, CLI, installation, and Action channel.
 `conformance/` contains Python-owned behavioral vectors for mirrors such as
 `maida-ts`.
 
-Consumer repositories -- `maida-assert`, `maida-ts`, `maida-ai.github.io`, and
-`maida-tutorials` -- vendor exact snapshots under `tests/contracts/` because
-those copies are test inputs, not independently owned public contracts. Update
-the Python source first, copy the affected snapshot, and run:
+Consumer repositories -- `maida-assert`, `maida-ts`, `maida-ai.github.io`,
+`maida-tutorials`, and `maida-workflows` -- vendor exact snapshots under
+`tests/contracts/` because those copies are test inputs, not independently
+owned public contracts. Update the Python source first, copy the affected
+snapshot, and run:
 
 ```bash
 uv run python scripts/check_cross_repo_sync.py --workspace ..

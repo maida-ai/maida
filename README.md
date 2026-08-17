@@ -54,6 +54,27 @@ maida demo --regression
 
 One command tells the whole story: Maida baselines a known-good run of the demo agent, then runs a "refactored" version that swaps in a cheaper model, loops on a tool, calls a tool the baseline has never seen, and burns 5x the tokens — while still exiting with status `ok`. The gate fails, the terminal shows exactly what changed, and you get a preview of the PR comment your team would see in CI.
 
+### Refuse a runtime-generated plan before it runs
+
+Install the optional local backend, then run the plan story through the same
+`maida` CLI:
+
+```bash
+uv tool install --force --python 3.12 --with "maida-workflows>=0.1.0" "maida-ai>0.5.2"
+maida demo --plan
+```
+
+The demo uses `.maida/policy.yaml` when that file exists and names the selected
+policy source in its output. Otherwise it uses the bundled refusal policy;
+`--policy <path>` always takes precedence over both defaults.
+
+The simulated planner emits only graph choices. Trusted application contracts
+resolve the modules, and core policy 2.1 refuses the plan before a generated
+module executes. The command needs no repository clone, database, API key, or
+network call at runtime. Core Maida and its ordinary demos keep working without
+`maida-workflows` installed. The optional backend supports Python 3.12 and 3.13;
+core Maida retains its wider Python support when the backend is absent.
+
 ### Set up your own project
 
 ```bash
@@ -197,6 +218,7 @@ Commands that take a run ID (`assert`, `baseline`, `accept`, `export`, `diff`) d
 ```bash
 maida demo               # trace a simulated agent (no network, no API keys)
 maida demo --regression  # baseline a good run, then watch the gate catch a bad refactor
+maida demo --plan        # refuse a generated plan before any child executes
 ```
 
 ### Scaffold a project

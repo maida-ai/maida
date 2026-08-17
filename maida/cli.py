@@ -15,6 +15,7 @@ import threading
 import time
 import webbrowser
 from datetime import datetime, timedelta, timezone
+from importlib import import_module
 from pathlib import Path
 from typing import Annotated
 
@@ -95,6 +96,10 @@ from maida.trace_validation import (
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
+_PLAN_BACKEND_INSTALL_COMMAND = (
+    "uv tool install --force --python 3.12 --with "
+    '"maida-workflows>=0.1.0" "maida-ai>0.5.2"'
+)
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
 capture_app = typer.Typer(help="Capture external agent behavior locally.")
@@ -1388,6 +1393,62 @@ def _demo_single_run(config) -> None:
     typer.echo("  maida demo --regression # watch Maida catch a bad refactor")
 
 
+def _demo_generated_plan(policy_path: Path | None) -> None:
+    """Run the optional workflows backend's deterministic plan-refusal story."""
+    try:
+        backend = import_module("maida.workflows.demo")
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"maida.workflows", "maida.workflows.demo"}:
+            raise
+        typer.echo(
+            "maida-workflows is required for generated-plan gating.\n"
+            "Install the optional backend with:\n"
+            f"{_PLAN_BACKEND_INSTALL_COMMAND}",
+            err=True,
+        )
+        raise Exit(EXIT_NOT_FOUND)
+
+    selected_policy = policy_path
+    if selected_policy is None and POLICY_RELPATH.is_file():
+        selected_policy = POLICY_RELPATH
+    result = backend.run_plan_demo(selected_policy)
+    evidence = result["evidence"]
+    schemas = result["schemas"]
+    typer.echo("Maida generated-plan demo: everything below is simulated and local.")
+    typer.echo("No API keys, database, network calls, or repo clone.")
+    typer.echo("")
+    typer.echo("── Step 1/2 · A simulated planner generates a runtime plan")
+    typer.echo(f"   topology: {result['topology']}")
+    typer.echo(
+        f"   resolved: {result['node_count']} nodes · max fan-out {result['max_fanout']}"
+    )
+    typer.echo(
+        f"   schemas: policy {schemas['policy']} · plan {schemas['plan']} · "
+        f"report {schemas['report']}"
+    )
+    typer.echo("")
+    typer.echo("── Step 2/2 · Gate the trusted plan before execution")
+    policy_source = (
+        str(selected_policy)
+        if selected_policy is not None
+        else "bundled demo refusal policy"
+    )
+    typer.echo(f"   policy source: {policy_source}")
+    typer.echo("")
+    typer.echo(result["rendered"])
+    typer.echo("")
+    if evidence.valid:
+        typer.echo(
+            "The supplied policy accepted this plan; the demo still does not execute it."
+        )
+    else:
+        typer.echo("No generated module executed.")
+        recovery_policy = selected_policy or POLICY_RELPATH
+        typer.echo(
+            f"Fix the plan or update {recovery_policy} after review, then gate again."
+        )
+
+
 def _demo_regression(config) -> None:
     """Baseline a good run, run a regressed one, and show the failing gate."""
     typer.echo("Maida regression demo: everything below is simulated and local.")
@@ -1492,9 +1553,31 @@ def demo_cmd(
         "--regression",
         help="Full story: baseline a good run, then catch a bad refactor.",
     ),
+    plan: bool = typer.Option(
+        False,
+        "--plan",
+        help="Generate and refuse a runtime plan before execution.",
+    ),
+    policy: Path | None = typer.Option(
+        None,
+        "--policy",
+        help=(
+            "Core policy 2.1 file for --plan "
+            "(default: .maida/policy.yaml when present, otherwise bundled)."
+        ),
+    ),
 ) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""
     try:
+        if plan and regression:
+            typer.echo("Choose either --plan or --regression, not both.", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        if policy is not None and not plan:
+            typer.echo("--policy is only valid with --plan.", err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        if plan:
+            _demo_generated_plan(policy)
+            return
         previous_demo_env = ensure_demo_env()
         try:
             config = load_config()
