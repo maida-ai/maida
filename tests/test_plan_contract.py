@@ -298,6 +298,85 @@ metrics:
     }
 
 
+def test_policy_2_1_can_restrict_all_modules_and_unseen_plan_shapes(tmp_path) -> None:
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        """\
+version: 2.1
+metrics:
+  plan_modules:
+    kind: invariant
+    allowed: [demo.audit, demo.context, demo.deliver, demo.draft, demo.normalize]
+  plan_shape_seen: {kind: invariant, require: true}
+""",
+        encoding="utf-8",
+    )
+    policy = load_policy(path)
+    artifact = plan_artifact_from_resolved_signature(_resolved_signature())
+    baseline = {
+        "plan_sample": {
+            "plan_id": artifact.plan_id,
+            "artifacts": {artifact.artifact_id: artifact.to_dict()},
+        }
+    }
+
+    assert plan_invariant_outcomes(artifact, policy, baseline=baseline) == {
+        "plan_modules": True,
+        "plan_shape_seen": True,
+    }
+
+    restricted_path = tmp_path / "restricted-policy.yaml"
+    restricted_path.write_text(
+        "version: 2.1\nmetrics:\n"
+        "  plan_modules: {kind: invariant, allowed: [demo.normalize]}\n"
+        "  plan_shape_seen: {kind: invariant, require: true}\n",
+        encoding="utf-8",
+    )
+    restricted = load_policy(restricted_path)
+    different_shape = _resolved_signature()
+    different_shape["topology_digest"] = _digest("0")
+    other = plan_artifact_from_resolved_signature(different_shape)
+    other_baseline = {
+        "plan_sample": {
+            "plan_id": other.plan_id,
+            "artifacts": {other.artifact_id: other.to_dict()},
+        }
+    }
+
+    assert plan_invariant_outcomes(artifact, restricted, baseline=other_baseline) == {
+        "plan_modules": False,
+        "plan_shape_seen": False,
+    }
+    _published_validator("policy.schema.json").validate(
+        {
+            "version": "2.1",
+            "metrics": {
+                "plan_modules": {
+                    "kind": "invariant",
+                    "allowed": ["demo.normalize"],
+                },
+                "plan_shape_seen": {"kind": "invariant", "require": True},
+            },
+        }
+    )
+
+    false_path = tmp_path / "false-shape-policy.yaml"
+    false_path.write_text(
+        "version: 2.1\nmetrics:\n"
+        "  plan_shape_seen: {kind: invariant, require: false}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="plan_shape_seen.require must be true"):
+        load_policy(false_path)
+    with pytest.raises(ValidationError):
+        _published_validator("policy.schema.json").validate(
+            {
+                "version": "2.1",
+                "metrics": {"plan_shape_seen": {"kind": "invariant", "require": False}},
+            }
+        )
+
+
 def test_policy_2_0_rejects_plan_metrics_that_require_2_1(tmp_path) -> None:
     path = tmp_path / "policy.yaml"
     path.write_text(
