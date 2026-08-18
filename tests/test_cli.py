@@ -6,6 +6,7 @@ Covers: list, export, view, baseline, assert, diff commands.
 
 import json
 import os
+import shlex
 import socket
 import subprocess
 import threading
@@ -17,10 +18,12 @@ from types import SimpleNamespace
 import yaml
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 from typer.testing import CliRunner
 
 from maida import record_llm_call, record_tool_call, traced_run
-from maida.cli import _wait_for_port, app
+from maida.cli import _PLAN_BACKEND_INSTALL_COMMAND, _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
 from maida.policy import load_policy
@@ -1428,10 +1431,7 @@ def test_demo_plan_explicit_policy_wins_over_discovered_default(
 def test_demo_plan_missing_optional_backend_uses_canonical_install_instruction(
     monkeypatch,
 ):
-    install_command = (
-        "uv tool install --force --python 3.12 --with "
-        '"maida-workflows>=0.1.0" "maida-ai>0.5.2"'
-    )
+    install_command = _PLAN_BACKEND_INSTALL_COMMAND
 
     def missing_backend(name):
         raise ModuleNotFoundError(
@@ -1447,6 +1447,24 @@ def test_demo_plan_missing_optional_backend_uses_canonical_install_instruction(
     assert result.stderr.rstrip().endswith(install_command)
     readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
     assert readme.count(install_command) == 1
+
+
+def test_demo_plan_install_instruction_resolves_released_backend_pair():
+    requirements = [
+        Requirement(argument)
+        for argument in shlex.split(_PLAN_BACKEND_INSTALL_COMMAND)
+        if argument.startswith(("maida-ai", "maida-workflows"))
+    ]
+    core = next(
+        requirement for requirement in requirements if requirement.name == "maida-ai"
+    )
+    compatible_releases = [
+        version
+        for version in (Version("0.5.2"), Version("0.5.2.post1"))
+        if version in core.specifier
+    ]
+
+    assert compatible_releases == [Version("0.5.2.post1")]
 
 
 def test_demo_plan_rejects_incompatible_demo_options():

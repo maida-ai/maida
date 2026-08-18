@@ -60,7 +60,7 @@ Install the optional local backend, then run the plan story through the same
 `maida` CLI:
 
 ```bash
-uv tool install --force --python 3.12 --with "maida-workflows>=0.1.0" "maida-ai>0.5.2"
+uv tool install --force --python 3.12 --with "maida-workflows>=0.1.0" "maida-ai>=0.5.2.post1"
 maida demo --plan
 ```
 

@@ -98,7 +98,7 @@ EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
 _PLAN_BACKEND_INSTALL_COMMAND = (
     "uv tool install --force --python 3.12 --with "
-    '"maida-workflows>=0.1.0" "maida-ai>0.5.2"'
+    '"maida-workflows>=0.1.0" "maida-ai>=0.5.2.post1"'
 )
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
