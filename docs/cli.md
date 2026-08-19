@@ -2,6 +2,20 @@
 
 The `maida` CLI captures, inspects, compares, and gates agent runs. Commands that accept a trace ID default to the latest run when the ID is omitted; the selected run is announced on stderr so stdout remains machine-readable.
 
+## Exit codes
+
+Exit codes are a stable contract; CI can branch on them.
+
+| Code | Meaning |
+|---|---|
+| `0` | Success. For gate commands: PASS or INCONCLUSIVE. |
+| `1` | The gate failed: behavior regressed beyond policy. |
+| `2` | Not found, or an invalid selection or argument. |
+| `10` | Internal error. |
+
+Progress messages and run-selection notices go to stderr, so stdout stays
+machine-readable when you redirect JSON or Markdown output.
+
 ## Start and configure
 
 | Command | Use it to |

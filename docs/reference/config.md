@@ -22,6 +22,8 @@ Configuration is merged in this order (highest wins):
 | Env | YAML key | Default | Description |
 |-----|----------|---------|-------------|
 | `MAIDA_DATA_DIR` | `data_dir` | `~/.maida` | Base directory for runs. Runs are stored under `<data_dir>/runs/<trace_id>/`. |
+| `MAIDA_ACCEPTED_BY` | - | *(unset)* | Identity recorded as the accepting party when `maida accept` updates a baseline. Falls back to the detected CI or Git identity. |
+| `MAIDA_TRIAL_INDEX` | - | *(set by `maida run`)* | Zero-based index of the current trial, exported into each trial subprocess. Read it from an agent to vary seeds deterministically per trial; do not set it yourself. |
 
 **Example (env):**
 

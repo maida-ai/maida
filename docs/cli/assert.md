@@ -27,6 +27,7 @@ maida assert [TRACE_ID] [options]
 | `--max-duration-ms` | - | Max run duration in ms |
 | `--duration-tolerance` | `0.5` | Fractional tolerance for duration |
 | `--expect-status` | - | Expected run status (`ok` or `error`) |
+| `--ignore-check` | - | Skip a named check. Repeatable. |
 | `--format`, `-f` | `text` | Output format: `text`, `json`, or `markdown` |
 
 **Precedence:** CLI flags override the policy file, which overrides defaults. See the [Policy YAML reference](../reference/policy.md) for the full override rules and threshold semantics.

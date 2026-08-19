@@ -16,6 +16,7 @@ maida run AGENT_SCRIPT [options]
 | `--policy` | `.maida/policy.yaml` | Assertion and statistical gate settings |
 | `--format`, `-f` | `text` | `text`, `json`, or verdict-first `markdown` |
 | `--fail-fast` / `--no-fail-fast` | policy value (`true`) | Stop on an irreversible blocking failure, or force the full fixed-N sample |
+| `--max-steps` | - | Max total events allowed per trial |
 | `--json-out` | - | Atomically write report schema `2.0.1` to a sidecar |
 
 ```bash

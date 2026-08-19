@@ -2,7 +2,7 @@
 
 ## Installation
 
-Requires Python 3.10+.
+Requires Python 3.10 to 3.13 (`requires-python = ">=3.10,<3.14"`).
 
 **With uv:**
 
