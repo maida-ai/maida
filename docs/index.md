@@ -3,7 +3,7 @@
 > **This directory is the single source of truth for Maida's documentation.**
 > The published version lives at **[maida.ai/docs](https://maida.ai/docs/)**,
 > which builds these files at the pinned engine release. Edit them here, in the
-> same pull request as the behavior they describe — never in the website repo.
+> same pull request as the behavior they describe -- never in the website repo.
 >
 > This page is the only exception: `maida-ai.github.io` keeps its own docs
 > landing page, because that one is presentation rather than content.
@@ -42,7 +42,7 @@ machine.
 | Page | What it covers |
 |---|---|
 | [Getting started](getting-started.md) | Install, first trace, first baseline, redaction |
-| [Regression testing](regression-testing.md) | The end-to-end baseline → policy → gate workflow |
+| [Regression testing](regression-testing.md) | The end-to-end baseline -> policy -> gate workflow |
 | [Guides index](guides/index.md) | All task-oriented walkthroughs |
 
 ## Guides
@@ -97,8 +97,8 @@ Step-by-step notebooks live in
 
 ## Engine-only pages
 
-These are not published to maida.ai — they are working documents for this
+These are not published to maida.ai -- they are working documents for this
 repository:
 
-- [Calibration table (issue #187)](calibration-187.md) — a seeded offline
+- [Calibration table (issue #187)](calibration-187.md) -- a seeded offline
   measurement used to pick policy thresholds.

@@ -56,7 +56,7 @@ Notes:
 
 ## LangChain / LangGraph
 
-Guardrails work with LangChain/LangGraph via `LangChainCallbackHandler`. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor — stopping the run immediately and preventing further token-wasting LLM calls.
+Guardrails work with LangChain/LangGraph via `LangChainCallbackHandler`. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor -- stopping the run immediately and preventing further token-wasting LLM calls.
 
 ```python
 from maida import LoopAbort, trace
@@ -79,7 +79,7 @@ The handler also stores the exception on `handler.abort_exception` as a defensiv
 
 ## OpenAI Agents SDK
 
-Guardrails work with the OpenAI Agents SDK via the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling — stopping the run immediately.
+Guardrails work with the OpenAI Agents SDK via the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling -- stopping the run immediately.
 
 ```python
 from maida import trace, LoopAbort

@@ -68,7 +68,7 @@ The regression signature is `RUN_START -> TOOL_CALL -> TOOL_CALL -> LLM_CALL -> 
 For a multi-node graph, loop failure, and guardrail walkthrough, continue with the [full LangGraph tutorial](https://github.com/maida-ai/maida-tutorials/blob/main/LangChain/Mock%20LangGraph%20Agent.ipynb).
 
 **Guardrails (e.g. `stop_on_loop`) with LangChain / LangGraph:**
-All guardrails work with the callback handler. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor — stopping the run immediately and preventing further token-wasting LLM calls. See [Guardrails](../guardrails.md) for details. To reuse a handler across runs, call `handler.reset()` between runs.
+All guardrails work with the callback handler. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor -- stopping the run immediately and preventing further token-wasting LLM calls. See [Guardrails](../guardrails.md) for details. To reuse a handler across runs, call `handler.reset()` between runs.
 
 **Notes:**
 

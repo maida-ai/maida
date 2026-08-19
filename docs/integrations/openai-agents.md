@@ -29,9 +29,9 @@ The adapter captures:
 - **Tool calls** (`FunctionSpanData`): records tool name, args, result, and error status via `record_tool_call`.
 - **Handoffs** (`HandoffSpanData`): records a `TOOL_CALL` named `handoff`, with framework-specific details stored in `meta`.
 
-The offline example — <a href="/docs/assets/examples/openai-agents-minimal.py" download>download it</a>, or run
+The offline example -- <a href="/docs/assets/examples/openai-agents-minimal.py" download>download it</a>, or run
 [`examples/openai_agents/minimal.py`](https://github.com/maida-ai/maida/blob/main/examples/openai_agents/minimal.py)
-from a checkout — constructs SDK tracing spans with fixed payloads and replaces
+from a checkout -- constructs SDK tracing spans with fixed payloads and replaces
 the SDK processor list with Maida's processor. It requires no API key, provider
 call, or network access:
 
@@ -77,7 +77,7 @@ for SDK signals it cannot observe.
 For an end-to-end agent workflow and guardrail walkthrough, continue with the [full OpenAI Agents tutorial](https://github.com/maida-ai/maida-tutorials/blob/main/OpenAI/Mock%20OpenAI%20Agent.ipynb).
 
 **Guardrails with OpenAI Agents SDK:**
-All guardrails work with the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling — stopping the run immediately:
+All guardrails work with the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling -- stopping the run immediately:
 
 ```python
 from maida import trace, LoopAbort

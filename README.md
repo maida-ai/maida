@@ -12,13 +12,13 @@
 
 <img src="docs/assets/viewer-regression.png" alt="The Maida timeline viewer showing a demo support agent run flagged with a loop warning: seven tool calls where the baseline had three, with search_kb repeated five times" width="840">
 
-<sub><b>A real run, caught.</b> The agent returned a normal answer — and looped <code>search_kb</code> five times to get there.</sub>
+<sub><b>A real run, caught.</b> The agent returned a normal answer -- and looped <code>search_kb</code> five times to get there.</sub>
 
 </div>
 
 ---
 
-Your agent still returns the right answer — but now it calls 3× the tools.
+Your agent still returns the right answer -- but now it calls 3x the tools.
 A retry loop that wasn't there last week. A new tool the baseline has never
 seen. Output evals pass. Review sees a green diff. It ships.
 
@@ -39,7 +39,7 @@ maida demo
 maida view
 ```
 
-`maida demo` runs a bundled, simulated customer-support agent — tool calls, LLM
+`maida demo` runs a bundled, simulated customer-support agent -- tool calls, LLM
 calls, state updates, automatic secret redaction, all canned data. `maida view`
 opens the timeline at `http://127.0.0.1:8712` with every event, input, output,
 and timing. Leave it running: new runs appear in the sidebar as you go.
@@ -54,10 +54,10 @@ maida demo --regression
 
 Maida baselines a known-good run, then runs a "refactored" agent that swaps in a
 cheaper model, loops on a tool, calls a tool the baseline has never seen, and
-burns 5× the tokens — **while still exiting with status `ok`.**
+burns 5x the tokens -- **while still exiting with status `ok`.**
 
 ```
-── Step 3/3 · Gate the new run against the baseline
+── Step 3/3 | Gate the new run against the baseline
    policy: no new tools, no loops, status ok, and cost near baseline
 
   ✗ step_count   [step_count_exceeded]     11 steps (baseline: 6, tolerance: 50%)
@@ -79,7 +79,7 @@ RESULT: FAILED (5 of 7 active checks failed)
 ```markdown
 ## ❌ Maida verdict: fail
 
-**5 of 7 checks failed** · run `40ced8d7` vs baseline `9612a7b6`
+**5 of 7 checks failed** | run `40ced8d7` vs baseline `9612a7b6`
 
 ### Top behavior changes
 
@@ -91,9 +91,9 @@ RESULT: FAILED (5 of 7 active checks failed)
 | Tool calls | 3 | 7 | +133% |
 
 **Tool changes:**
-- ➕ `escalate_to_human` — new tool, not in baseline
-- ➖ `send_reply` — no longer called
-- 🔁 `search_kb` — repeated 1 -> 5 calls
+- ➕ `escalate_to_human` -- new tool, not in baseline
+- ➖ `send_reply` -- no longer called
+- 🔁 `search_kb` -- repeated 1 -> 5 calls
 ```
 
 The report leads with the verdict, groups failures by stable reason code, and
@@ -159,8 +159,8 @@ maida init            # writes a starter .maida/policy.yaml
 maida init --github   # also writes .github/workflows/maida.yml
 ```
 
-📖 [SDK reference](https://maida.ai/docs/sdk/) ·
-[Getting started](https://maida.ai/docs/getting-started/) ·
+📖 [SDK reference](https://maida.ai/docs/sdk/) |
+[Getting started](https://maida.ai/docs/getting-started/) |
 [Policy reference](https://maida.ai/docs/reference/policy/)
 
 ### Gate it locally
@@ -180,7 +180,7 @@ maida run my_agent.py \
 ### 🚧 Stop runaway runs while you iterate
 
 Guardrails are opt-in development-time safety rails. They abort a run that
-starts looping or blows past your budget — and still write a normal trace you
+starts looping or blows past your budget -- and still write a normal trace you
 can inspect afterwards.
 
 ```python
@@ -213,7 +213,7 @@ same CLI:
 Exit code `0` = pass or inconclusive, `1` = fail. Reports come in text, JSON, or
 Markdown.
 
-📖 [Regression testing guide](https://maida.ai/docs/regression-testing/) ·
+📖 [Regression testing guide](https://maida.ai/docs/regression-testing/) |
 [CLI reference](https://maida.ai/docs/cli/)
 
 ### 🧭 Refuse a generated plan before it runs
@@ -231,7 +231,7 @@ Core Maida and its ordinary demos keep working without the backend installed.
 
 ## 🔌 Integrations
 
-Maida is framework-agnostic at its core — the SDK works with any Python code.
+Maida is framework-agnostic at its core -- the SDK works with any Python code.
 Adapters are optional and import-to-enable; the core package works without any
 of them installed.
 
@@ -245,7 +245,7 @@ of them installed.
 | 🧾 Any emitter (no SDK) | built in | [Emitter guide](https://maida.ai/docs/reference/trace-emitter/) |
 
 Systems that write native traces directly can check them with
-`maida validate-trace` before handing them to the gate — no SDK required.
+`maida validate-trace` before handing them to the gate -- no SDK required.
 
 > **Langfuse tells you what happened; Maida tells you whether it changed.**
 
@@ -267,7 +267,7 @@ Full documentation lives at **[maida.ai/docs](https://maida.ai/docs/)**.
 | 🏗️ [Architecture](https://maida.ai/docs/architecture/) | Schema, storage, loop detection |
 
 Step-by-step notebooks live in
-[maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials) — all
+[maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials) -- all
 runnable without API keys.
 
 ## 🔒 Privacy and local-first guarantees
@@ -310,7 +310,7 @@ pytest
 
 </details>
 
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and
+Contributions welcome -- see [CONTRIBUTING.md](CONTRIBUTING.md) and
 [SECURITY.md](SECURITY.md).
 
 ## 📄 License

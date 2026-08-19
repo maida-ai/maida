@@ -258,7 +258,7 @@ def _inline(value: object) -> str:
 def _sequence(values: object) -> str:
     if not isinstance(values, list) or not values:
         return "(none)"
-    return " → ".join(str(value).replace("\n", " ") for value in values)
+    return " -> ".join(str(value).replace("\n", " ") for value in values)
 
 
 def _pair(value: object) -> tuple[object, object] | None:
@@ -434,13 +434,13 @@ def _result_evidence(result: StatisticalResult) -> str | None:
     if result.mode == "report_only":
         return (
             f"Observed pass rate {observed_rate:.3f}; {confidence:g}% confidence "
-            f"range {lower:.3f}–{upper:.3f}."
+            f"range {lower:.3f}-{upper:.3f}."
         )
     successes = int(evidence.get("successes", result.successes))
     threshold = evidence.get("threshold", 0.0)
     if isinstance(threshold, dict):
         target = (
-            f"target {_number(threshold.get('lower'))}–"
+            f"target {_number(threshold.get('lower'))}-"
             f"{_number(threshold.get('upper'))}"
         )
     elif result.direction == "upper":
@@ -449,7 +449,7 @@ def _result_evidence(result: StatisticalResult) -> str | None:
         target = f"target at least {float(threshold):.3f}"
     return (
         f"{successes}/{result.trials_used} trials passed; {confidence:g}% "
-        f"confidence range {lower:.3f}–{upper:.3f} ({target})."
+        f"confidence range {lower:.3f}-{upper:.3f} ({target})."
     )
 
 
@@ -466,7 +466,7 @@ def _result_line(result: StatisticalResult, *, report_only: bool = False) -> str
         title = _result_title(result)
     line = f"- {icon} **{title}** {_inline(result.check_name)}"
     if evidence := _result_evidence(result):
-        line += f" — {evidence}"
+        line += f" -- {evidence}"
     return line
 
 
@@ -498,7 +498,7 @@ def _count_summary(report: TrialRunReport) -> str:
     else:
         passed = sum(trial.passed for trial in report.trials)
         trial_summary = f"{passed}/{report.trials_requested} trials passed"
-    return f"**{check_summary}** · **{trial_summary}**"
+    return f"**{check_summary}** | **{trial_summary}**"
 
 
 def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
@@ -675,7 +675,7 @@ def _render_trial_report_markdown(
             "</details>",
             "",
             "---",
-            "*Gated by [Maida](https://maida.ai) — the local-first behavioral"
+            "*Gated by [Maida](https://maida.ai) -- the local-first behavioral"
             " regression gate for AI agents.*",
         ]
     )

@@ -39,7 +39,7 @@ maida demo        # trace a bundled simulated agent
 maida view        # inspect the timeline in your browser
 ```
 
-Then watch the gate catch a regression end-to-end — baseline a good run, run a "refactored" agent that loops and calls a new tool, and see the failing report with a PR-comment preview:
+Then watch the gate catch a regression end-to-end -- baseline a good run, run a "refactored" agent that loops and calls a new tool, and see the failing report with a PR-comment preview:
 
 ```bash
 maida demo --regression

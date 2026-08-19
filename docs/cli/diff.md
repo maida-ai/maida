@@ -55,10 +55,10 @@ to stderr; stdout contains only the requested report format.
 
 **Text output sections:**
 
-- **Summary** — metric-by-metric comparison with percentage change (e.g. `step_count: 38 -> 42 (+11%)`)
-- **Tool path** — compact baseline/current tool-call sequences, with long paths truncated in the middle
-- **Tool call changes** — new (`+`), removed (`-`), repeated (`~`), and reordered (`!`) tool calls
-- **Event type distribution** — per-event-type counts with percentage change
+- **Summary** -- metric-by-metric comparison with percentage change (e.g. `step_count: 38 -> 42 (+11%)`)
+- **Tool path** -- compact baseline/current tool-call sequences, with long paths truncated in the middle
+- **Tool call changes** -- new (`+`), removed (`-`), repeated (`~`), and reordered (`!`) tool calls
+- **Event type distribution** -- per-event-type counts with percentage change
 
 ## Reusable stored-run evaluator
 

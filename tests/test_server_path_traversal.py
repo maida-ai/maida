@@ -74,5 +74,5 @@ def test_traversal_payloads_never_succeed(monkeypatch, tmp_path, rid_raw, endpoi
     )  # keep any %xx sequences you already provided
     r = client.get(endpoint.format(rid=rid))
 
-    # Depending on URL decoding + routing, this can be 400/404/422 — but must never be 200.
+    # Depending on URL decoding + routing, this can be 400/404/422 -- but must never be 200.
     assert r.status_code != 200

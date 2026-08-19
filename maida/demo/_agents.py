@@ -1,6 +1,6 @@
 """Bundled demo agent: a simulated customer-support flow.
 
-Everything is canned data recorded through the normal tracing API — no
+Everything is canned data recorded through the normal tracing API -- no
 network, no API keys, no LLM SDK. The run it produces is deterministic in
 structure (event sequence, tool path, token counts), which makes it usable
 as a baseline source for the regression demo.
@@ -105,7 +105,7 @@ def run_refactored_agent() -> None:
     Compared to the known-good run it swaps in a cheaper model, retries the
     knowledge-base search until loop detection fires, calls a tool the
     baseline has never seen, and burns far more tokens. The run still ends
-    "ok" — exactly the kind of silent behavioral regression a gate must catch.
+    "ok" -- exactly the kind of silent behavioral regression a gate must catch.
     """
     with traced_run(name=DEMO_RUN_NAME):
         record_state(

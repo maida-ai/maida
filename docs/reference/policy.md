@@ -64,8 +64,8 @@ hard limit. The default aggregate is `median`. Every report includes
 min/median/max. `aggregate: max` and `aggregate: p90` are explicit upper-tail
 opt-ins.
 
-A one-in-25 tail event is not a measured question. Express “the rate of
-`step_count > X` increased” as a Bernoulli statistical metric.
+A one-in-25 tail event is not a measured question. Express "the rate of
+`step_count > X` increased" as a Bernoulli statistical metric.
 
 Relative and absolute tolerances are additive around the baseline aggregate.
 When a hard limit is also present, the stricter boundary applies.

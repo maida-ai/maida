@@ -17,8 +17,8 @@ maida init [--github] [--force]
 
 **Files written:**
 
-- `.maida/policy.yaml` — strict v2 starter with invariant contracts, directional measured tolerances, and a three-trial report-only pass-rate metric
-- `.github/workflows/maida.yml` (with `--github`) — PR check running your traced agent and posting the regression report as a sticky comment; also handles authorized `/maida accept [optional reason]` comments and rechecks an accepted PR-head commit; pins `actions/checkout@v7` and currently tracks `maida-ai/maida-assert@v5`, with the command handler at `maida-ai/maida-assert/accept-command@v5`
+- `.maida/policy.yaml` -- strict v2 starter with invariant contracts, directional measured tolerances, and a three-trial report-only pass-rate metric
+- `.github/workflows/maida.yml` (with `--github`) -- PR check running your traced agent and posting the regression report as a sticky comment; also handles authorized `/maida accept [optional reason]` comments and rechecks an accepted PR-head commit; pins `actions/checkout@v7` and currently tracks `maida-ai/maida-assert@v5`, with the command handler at `maida-ai/maida-assert/accept-command@v5`
 
 Edit the generated `MAIDA_AGENT_SCRIPT` value for your entrypoint. After
 committing a baseline, set `MAIDA_BASELINE` to its tracked path; leaving it blank

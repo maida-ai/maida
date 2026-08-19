@@ -30,9 +30,9 @@ The adapter captures:
 
 Framework-specific context (agent role, task description, executor ID) is stored in `meta.crewai.*`.
 
-The offline example — <a href="/docs/assets/examples/crewai-minimal.py" download>download it</a>, or run
+The offline example -- <a href="/docs/assets/examples/crewai-minimal.py" download>download it</a>, or run
 [`examples/crewai/minimal.py`](https://github.com/maida-ai/maida/blob/main/examples/crewai/minimal.py)
-from a checkout — sends fake data through CrewAI's public hook contexts, so it
+from a checkout -- sends fake data through CrewAI's public hook contexts, so it
 exercises the adapter without starting a crew, LLM, or API call. The
 environment flag disables CrewAI's separate anonymous package telemetry for
 this deterministic run:
@@ -67,7 +67,7 @@ maida assert --baseline crewai-baseline.json --tool-call-tolerance 0
 Regression mode records three consecutive `search_docs` calls, producing
 `RUN_START -> LLM_CALL -> TOOL_CALL -> TOOL_CALL -> TOOL_CALL -> LOOP_WARNING -> RUN_END`.
 The run itself still ends `ok`, but the assertion reports the tool-call
-increase and exits with code `1` — so the gate catches the structural
+increase and exits with code `1` -- so the gate catches the structural
 regression even though the agent completed successfully.
 
 When a guardrail fires in a hook, the adapter stores the public
@@ -80,7 +80,7 @@ For a full multi-agent workflow, an incomplete-hook failure, and a guarded-loop 
 
 **Notes:**
 
-- The adapter requires an active Maida run — wrap your entrypoint with `@trace` or `traced_run(...)`.
+- The adapter requires an active Maida run -- wrap your entrypoint with `@trace` or `traced_run(...)`.
 - Hook ordering caveat: if another before-hook returns `False` and blocks execution, that specific call may not be captured.
 - CrewAI's current hooks do not expose token usage, so CrewAI `LLM_CALL` events record `usage` as unknown.
 - If a run ends before an after-hook arrives, the pending call is recorded with `status="error"` and `completion="missing_after_hook"` in its CrewAI metadata.

@@ -1,4 +1,4 @@
-"""Bundled demo agents for ``maida demo`` — simulated, local-only."""
+"""Bundled demo agents for ``maida demo`` -- simulated, local-only."""
 
 from maida.demo._agents import (
     DEMO_RUN_NAME,
