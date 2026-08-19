@@ -1,14 +1,23 @@
+/* Brand tokens, mirroring maida.ai and the documentation theme. Keep these in
+   sync with tailwind.config.js in maida-ai.github.io -- the viewer is a product
+   surface and should not look like a different product. */
 :root {
-  --bg: #1a1b1e;
-  --surface: #25262b;
-  --border: #373a40;
-  --text: #e9ecef;
-  --muted: #868e96;
-  --accent: #4dabf7;
-  --warning-bg: #3d2a1a;
-  --warning-border: #e67700;
-  --error-bg: #3d1f1f;
-  --error-border: #ff4444;
+  --bg: #0f1110;
+  --surface: #161916;
+  --border: #292d2a;
+  --border-light: #3b403c;
+  --text: #f3f2ed;
+  --muted: #aeb3ad;
+  --accent: #78d6a2;
+  --ok-bg: rgba(120, 214, 162, 0.14);
+  --ok-border: #5fc48c;
+  --ok-text: #b9e8cd;
+  --warning-bg: #32271d;
+  --warning-border: #e8a35f;
+  --warning-text: #f0c48f;
+  --error-bg: #35231e;
+  --error-border: #ed7958;
+  --error-text: #f6cfc2;
 }
 * { box-sizing: border-box; }
 html {
@@ -53,7 +62,7 @@ body {
 .btn-header:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-header-danger {
   border-color: var(--error-border);
-  color: #ff8888;
+  color: var(--error-text);
 }
 .btn-header-danger:hover:not(:disabled) {
   background: var(--error-bg);
@@ -164,9 +173,9 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   border-radius: 4px;
   text-transform: uppercase;
 }
-.summary-status-strip .status-badge.ok { background: rgba(34, 139, 34, 0.3); border: 1px solid #2e8b2e; color: #7cfc7c; }
-.summary-status-strip .status-badge.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); color: #e8c547; }
-.summary-status-strip .status-badge.error { background: var(--error-bg); border: 1px solid var(--error-border); color: #ff8888; }
+.summary-status-strip .status-badge.ok { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok-text); }
+.summary-status-strip .status-badge.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); }
+.summary-status-strip .status-badge.error { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
 .summary-status-strip .status-badge.running { background: rgba(77, 171, 247, 0.2); border: 1px solid var(--accent); color: var(--accent); }
 .summary-status-strip .run-name { font-weight: 600; font-size: 1rem; }
 .summary-status-strip .run-meta { font-size: 0.8rem; color: var(--muted); }
@@ -288,7 +297,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   padding: 0.05rem 0.3rem;
   border: 1px solid var(--error-border);
   border-radius: 3px;
-  color: #ff8888;
+  color: var(--error-text);
   font-size: 0.68rem;
   font-weight: 700;
 }
@@ -305,7 +314,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
 .event-details .label { color: var(--muted); }
 .event-details pre { margin: 0.25rem 0 0 0; background: var(--bg); padding: 0.5rem; border-radius: 4px; overflow: auto; }
 .empty { color: var(--muted); padding: 1rem; }
-.list-error { color: #ff6b6b; padding: 0.5rem; }
+.list-error { color: var(--error-border); padding: 0.5rem; }
 .run-list-loading {
   display: flex;
   align-items: center;
