@@ -2,14 +2,14 @@
 
 **Langfuse tells you what happened; Maida tells you whether it changed.** The
 Langfuse importer turns traces that already exist in Langfuse into local Maida
-runs, so they can be inspected, baselined, and gated without adding another
+runs, so they can be inspected, baselined, and gated without adding a second
 instrumentation path.
 
-The production interface is API-only and read-only. Maida sends authenticated
-`GET /api/public/v2/observations` requests, normalizes the returned
-observations, validates the result against Maida's current trace contract, and
-writes it only to local Maida storage. It does not modify Langfuse data or
-upload the imported run to a hosted Maida service.
+The integration is API-only and read-only. Maida sends authenticated
+`GET /api/public/v2/observations` requests, normalizes the observations,
+validates the result against Maida's current trace contract, and writes only to
+local Maida storage. It does not modify Langfuse data or upload the imported
+run to a hosted Maida service.
 
 Until the importer is included in the next PyPI release, install the current
 `main` revision:
@@ -18,12 +18,9 @@ Until the importer is included in the next PyPI release, install the current
 uv tool install "maida-ai>=0.5"
 ```
 
-Source checkouts using `uv sync` already have the importer.
-
 ## Configure access
 
-No optional package is required. Set the same credentials used by Langfuse's
-SDKs:
+No optional package is required. Set the credentials used by the Langfuse SDK:
 
 ```bash
 export LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -31,7 +28,7 @@ export LANGFUSE_SECRET_KEY=sk-lf-...
 ```
 
 Langfuse Cloud is the default. For a regional or self-hosted deployment, set
-`LANGFUSE_BASE_URL` or pass `--base-url`:
+the base URL and, optionally, the request timeout:
 
 ```bash
 export LANGFUSE_BASE_URL=https://us.cloud.langfuse.com
@@ -39,14 +36,13 @@ export LANGFUSE_BASE_URL=https://us.cloud.langfuse.com
 export LANGFUSE_TIMEOUT=15
 ```
 
-Credentials are read from the environment; the CLI has no credential flags and
-never stores credentials in a run.
+Credentials are read from the environment. The CLI has no credential flags
+and never stores credentials in a run. The v2 observations endpoint requires
+Langfuse Cloud or self-hosted Langfuse v4+. For older self-hosted
+installations, use the ClickHouse mapping reference below or upgrade
+Langfuse; Maida does not silently fall back to a deprecated API.
 
-The v2 observations endpoint requires Langfuse Cloud or self-hosted Langfuse
-v4+. For older self-hosted installations, use the ClickHouse mapping reference
-below or upgrade Langfuse; Maida does not silently fall back to a deprecated API.
-
-## Import traces
+## Import a trace
 
 Import one complete source trace by its Langfuse trace ID:
 
@@ -68,8 +64,8 @@ maida import langfuse \
 
 `--trace-name`, `--session-id`, and repeatable `--environment` options narrow
 range discovery. They cannot be combined with `--trace-id`. Range discovery
-uses server-side filters, then fetches every observation for each matching
-trace. All API pages are followed by cursor.
+uses server-side filters and then fetches every observation for each selected
+trace. All cursor pages are followed.
 
 Use `--json` for a machine-readable summary. Exit code `0` means every selected
 complete trace was imported or already existed; `2` means invalid selection,
@@ -83,9 +79,9 @@ to overwrite a conflicting run.
 ## Mapping contract
 
 One Langfuse trace becomes one Maida run. Its `traceName` becomes the recurring
-Maida `run_name`; Langfuse session IDs remain source metadata rather than
-splitting or naming runs. Maida creates a synthetic root span so source traces
-with multiple roots, subagents, or absent ancestors still form one valid tree.
+Maida `run_name`. Session IDs remain source metadata. Maida creates a synthetic
+root span so source traces with multiple roots, subagents, or absent ancestors
+still form one valid tree.
 
 | Langfuse observation | Maida representation |
 |---|---|
@@ -97,54 +93,39 @@ with multiple roots, subagents, or absent ancestors still form one valid tree.
 | Unknown type | Preserved structural span and reported in the import summary |
 | Session | `maida.meta.langfuse.session_ids` on the run root |
 
-Parent-child links are retained when the parent observation is present.
-Runtime-worker and other subagent hierarchies therefore remain visible as
-parented structural spans (the Maida trace equivalent of subthreads). Missing
-parents attach to the synthetic root and are recorded without inventing
-framework-specific event types.
+Parent-child links are retained when the parent observation is present, so
+runtime-worker and other subagent hierarchies stay visible as parented
+structural spans. Missing parents
+attach to the synthetic root. Inputs, outputs, metadata, costs, and usage
+details pass through Maida's active redaction and truncation before
+persistence. Completed source errors remain errors; incomplete non-event
+observations are skipped rather than given a fabricated completion.
 
-Unmapped types: none for the observation types in Langfuse's current published
-API. A future or extension type is retained as a structural span and named in
-the import summary instead of being dropped or promoted to a new Maida event
-type.
+## Legacy local single-trace compatibility
 
-Input/output, source metadata, cost details, and usage detail fields are
-redacted and truncated with the active Maida configuration before persistence.
-The `input`/`output`/`total` token keys and legacy Langfuse token aliases map to
-Maida's normalized token counters. Cache, reasoning, cost, release, tag, and
-environment details remain under `maida.meta.langfuse`.
+The current CI path is the Action `trace-command` workflow below. For local
+migration workflows that already import one completed trace at a time, the
+legacy single-run interface remains available:
 
-Completed source errors remain error spans and make the imported run's status
-`error`. A non-event observation without `endTime` is treated as incomplete and
-skipped; the importer never fabricates its completion. Repeated LLM/tool action
-patterns are evaluated by Maida's normal loop detector and can add
-`LOOP_WARNING` spans.
+```bash
+maida view
+maida baseline --out baselines/support-agent.json
 
-## Self-hosted ClickHouse mapping reference
+# Import the next completed run, then gate the latest local run.
+maida import langfuse --trace-id NEXT_TRACE_ID
+maida assert \
+  --baseline baselines/support-agent.json \
+  --policy .maida/policy.yaml
+```
 
-Self-hosted operators may query Langfuse's ClickHouse storage directly for
-audit or migration work. The CLI does not execute SQL and does not accept
-export files; the supported production path remains the read-only API. A
-direct query must reconstruct the same observation-shaped records before this
-mapping boundary, including at least:
+The compatibility path uses the same structural evaluator for changed tool paths, new tools, repeated work,
+loops, status changes, and configured latency or token envelopes.
 
-- observation `id`, `traceId`, `projectId`, `type`, `name`, and
-  `parentObservationId`;
-- timezone-aware `startTime` and `endTime`;
-- `input`, `output`, `metadata`, `level`, and `statusMessage`;
-- model fields, `usageDetails`, `costDetails`, trace name, session ID,
-  environment, release, and tags.
+## Run the importer in GitHub Actions
 
-Query every observation belonging to each selected trace; selecting only rows
-whose timestamps fall inside a discovery window can cut off parents or late
-children. Column names and storage layout are Langfuse deployment details, so
-prefer the API whenever possible.
-
-## Gate one imported trace in GitHub Actions
-
-Use the Action's trusted `trace-command` input when the run comes from an
-importer rather than a traced Python entrypoint. Keep credentials in GitHub
-secrets and select exactly one completed trace:
+The Action accepts a trusted `trace-command` when the run comes from an
+importer rather than a Python agent entrypoint. Keep credentials in GitHub
+secrets and select exactly one completed source trace:
 
 ```yaml
 - uses: maida-ai/maida-assert@v5
@@ -158,20 +139,27 @@ secrets and select exactly one completed trace:
     policy: .maida/policy.yaml
 ```
 
-Imported traces use a fixed one-trial gate. Do not pass `--trials` in
-`extra-args`, select a range that creates multiple runs, or build the command
-from pull-request-controlled text. Use `agent-script` when the policy needs
-repeated independent executions.
+Imported traces use a fixed one-trial gate because a source trace is already a
+completed observation, not a script Maida can rerun statistically. Do not pass
+`--trials` in `extra-args`, select a range that creates several runs, or build
+`trace-command` from pull-request-controlled text. Policies that need repeated
+independent executions should use `agent-script` instead.
 
-## Synthetic conformance data
+## Try it without an account
 
-The repository fixture in `tests/fixtures/langfuse/api-v2/` is fully synthetic.
-It models production-shaped pagination, missing-parent handling, generations,
-tools, token extras, and a deterministic regression without containing customer
-or partner data. Tests import its good trace, capture a baseline, then confirm
-that the regression trace fails for structural and token-usage changes.
+The [offline Langfuse import demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/langfuse_import)
+runs the real importer against a loopback fake API. Its fully synthetic fixture
+proves idempotent import, a baseline pass, and a deterministic structural
+regression failure without a Langfuse account, API key, LLM, or external
+network request.
 
-For a copy-pasteable walkthrough, run the
-[offline Langfuse import demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/langfuse_import).
-It starts a loopback fake API and needs no Langfuse account, key, LLM, or
-external network request.
+## Privacy and failure behavior
+
+- Requests are read-only and go only to the configured Langfuse origin.
+- Imported data stays under the local `MAIDA_DATA_DIR` (by default
+  `~/.maida/`); there is no default upload or telemetry path.
+- Credentials remain environment-only and are not copied into trace metadata.
+- Invalid selections and incomplete-only results exit `2` with an actionable
+  message. Authentication, API, normalization, or storage failures exit `10`.
+- A future Langfuse observation type is retained as structural signal and
+  named in the summary instead of being silently dropped.

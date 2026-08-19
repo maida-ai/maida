@@ -97,8 +97,9 @@ event types.
 The normalized trace ID and span IDs are deterministic. Re-importing identical
 source data is a no-op. If the source bytes change after import, Maida refuses
 to overwrite the installed run. The trace schema remains at its current
-version; normal `maida baseline`, `maida assert`, `maida diff`, and `maida view`
-commands work without a Claude-specific downstream policy path.
+version; normal `maida baseline`, `maida diff`, and `maida view` commands work
+without a Claude-specific downstream path. The legacy `maida assert` interface
+can still inspect one imported completed trace during migration.
 
 ## Gate a capture locally
 

@@ -21,9 +21,8 @@ maida validate-trace emitted-run/meta.json
 ```
 
 Validation is read-only. It does not copy or install the trace. To make an
-already validated trace available to `maida baseline`, the legacy single-run
-`maida assert` compatibility interface, or
-`maida diff`, emit it into the configured native location
+already validated trace available to `maida baseline`, `maida diff`, or the
+legacy single-run `maida assert` compatibility interface, emit it into the configured native location
 `<data_dir>/runs/<trace_id>/`.
 
 ## Minimal completed trace
@@ -40,7 +39,7 @@ Minimal `meta.json`:
 {
   "spec_version": "0.2.0",
   "trace_id": "0123456789abcdef0123456789abcdef",
-  "run_name": "partner-agent",
+  "run_name": "external-agent",
   "started_at": "2026-08-08T10:00:00.000Z",
   "ended_at": "2026-08-08T10:00:01.000Z",
   "duration_ms": 1000,
@@ -58,7 +57,7 @@ Minimal `spans.jsonl` contains one JSON object per line. A completed trace has
 exactly one root span:
 
 ```json
-{"trace_id":"0123456789abcdef0123456789abcdef","span_id":"0123456789abcdef","parent_span_id":null,"name":"partner-agent","kind":"INTERNAL","start_time":"2026-08-08T10:00:00.000Z","end_time":"2026-08-08T10:00:01.000Z","duration_ms":1000,"attributes":{"maida.run_name":"partner-agent"},"events":[],"status_code":"OK","status_description":""}
+{"trace_id":"0123456789abcdef0123456789abcdef","span_id":"0123456789abcdef","parent_span_id":null,"name":"external-agent","kind":"INTERNAL","start_time":"2026-08-08T10:00:00.000Z","end_time":"2026-08-08T10:00:01.000Z","duration_ms":1000,"attributes":{"maida.run_name":"external-agent"},"events":[],"status_code":"OK","status_description":""}
 ```
 
 Trace IDs are 32 lowercase hexadecimal characters. Span IDs are 16 lowercase
@@ -67,10 +66,11 @@ trace ID from `meta.json`.
 
 ## Required fields
 
-The normative serializable shapes are the versioned JSON Schemas:
+The normative serializable shapes live in the versioned JSON Schemas in the
+Maida core repository:
 
-- [`meta.schema.json`](../../schemas/trace/0.2.0/meta.schema.json)
-- [`span.schema.json`](../../schemas/trace/0.2.0/span.schema.json)
+- [`meta.schema.json`](https://github.com/maida-ai/maida/blob/main/schemas/trace/0.2.0/meta.schema.json)
+- [`span.schema.json`](https://github.com/maida-ai/maida/blob/main/schemas/trace/0.2.0/span.schema.json)
 
 Every `meta.json` field in the minimal example is required. Nullable terminal
 fields remain present with `null` while `status` is `running`. The four count
@@ -120,10 +120,10 @@ optional `maida.error_stack` attribute for failed operations.
 ## Optional enrichments
 
 Readers ignore additive unknown top-level fields and attribute keys. Put
-emitter-specific data under a stable namespace such as `partner.*`, or encode a
-namespaced object in the `maida.meta` attribute. Do not invent new event types
-for one emitter; unknown structural spans remain ordinary parent nodes and the
-downstream gate stays framework-agnostic.
+emitter-specific data under a stable namespace such as `emitter.*`, or encode
+a namespaced object in the `maida.meta` attribute. Do not invent new event
+types for one emitter; unknown structural spans remain ordinary parent nodes
+and the downstream gate stays framework-agnostic.
 
 External emitters own redaction and truncation before writing. Do not place
 credentials, private keys, customer data, or unrestricted prompt/tool content
@@ -187,5 +187,5 @@ schema snapshots are immutable.
 
 Readers accept the legacy `0.2` spelling and compatible `0.2.x` patch versions.
 New emitters must declare `0.2.0` until a later public version is published.
-See the [trace schema changelog](../../schemas/trace/CHANGELOG.md) for the
-published lines.
+See the [trace schema changelog](https://github.com/maida-ai/maida/blob/main/schemas/trace/CHANGELOG.md)
+for the published lines.

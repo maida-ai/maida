@@ -4,7 +4,7 @@ Guardrails are Maida's opt-in way to stop a run before it burns more time, token
 
 They are runtime safety limits and evidence capture tools, not the post-run policy gate:
 
-- Use existing v0.1 event types only
+- Use the normal projected event view only
 - Record normal trace evidence before aborting
 - Raise a dedicated exception so your code knows the run was stopped on purpose
 - Keep default behavior unchanged unless you enable a guardrail
@@ -113,7 +113,7 @@ from maida import LoopAbort, record_llm_call, record_tool_call, trace
 @trace(stop_on_loop=True)
 def run_agent():
     for _ in range(10):
-        record_tool_call("search_db", args={"q": "pricing"}, result={"hits": 3})
+        record_tool_call("search_db", args={"q": "refund policy"}, result={"hits": 3})
         record_llm_call(model="gpt-4.1", prompt="Summarize", response="Retrying...")
 
 
@@ -231,11 +231,11 @@ This gives you full evidence of the step that actually tripped the limit.
 
 ## Choosing sensible defaults
 
-Some practical starting points for local development and CI fixtures:
+Some practical starting points for local development:
 
 - `stop_on_loop=True` for ReAct-style or planner/executor loops
 - `max_llm_calls=10` to `30` for prompt iteration
-- `max_tool_calls=10` to `25` for tool-heavy workflows
+- `max_tool_calls=10` to `25` for tool-heavy development
 - `max_events=50` to `200` when you want a hard ceiling on trace size
 - `max_duration_s=15` to `60` for runs that should finish quickly
 

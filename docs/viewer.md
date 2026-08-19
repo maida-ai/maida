@@ -1,6 +1,6 @@
 # Viewer (timeline UI)
 
-The Maida viewer is a local web UI for inspecting runs and their event timelines. It is served by `maida view` and uses only static HTML, CSS, and JavaScript—no build step.
+The Maida viewer is a local web UI for inspecting runs and their timelines. It is served by `maida view` and uses only static HTML, CSS, and JavaScript—no build step.
 
 ---
 
@@ -75,7 +75,7 @@ The server (see [Architecture](architecture.md)) serves these at `/`, `/styles.c
 
 - **Initial load:** `loadRuns()` fetches `GET /api/runs`, renders the sidebar, selects a run from URL or latest, then `loadRunMeta` + `loadEvents` for that run. `loadEvents` fetches `GET /api/runs/{trace_id}/spans`, which returns the stored OTel `spans` alongside an `events` projection.
 - **Run list polling:** `pollRunList()` runs on an interval (when tab visible). It fetches `/api/runs`, merges new/updated runs into the sidebar (`mergeRunListIntoSidebar`), removes runs that are no longer in the API response, and syncs `currentRunMeta` from the list. Intervals are set from URL params `poll_runs` and `poll_events` (seconds, clamped 1–60).
-- **Event polling:** When `currentRunMeta.status === 'running'` and the tab is visible, `pollEventsForCurrentRun()` runs on an interval: it fetches run meta and the `/spans` response, updates the timeline and summary from the `events` projection, and stops the interval when the run is no longer running.
+- **Event polling:** When `currentRunMeta.status === 'running'` and the tab is visible, `pollEventsForCurrentRun()` runs on an interval: it fetches run meta and the `/spans` response, updates the timeline and summary from the compatibility `events` projection, and stops the interval when the run is no longer running.
 - **Visibility:** A `visibilitychange` listener clears both intervals when the tab is hidden and restarts them (and triggers an immediate run-list poll) when the tab becomes visible.
 
 ### Making changes

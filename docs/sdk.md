@@ -2,13 +2,13 @@
 
 The Maida Python SDK exposes a decorator, a context manager, and three recording functions. All recording attaches to the current active run (via contextvars). If there is no active run, recorders no-op unless implicit runs are enabled.
 
-For the exact shape of stored events and run metadata, see the [Trace format](reference/trace-format.md) reference.
+For the exact shape of stored OTel spans, projected events, and run metadata, see the [Trace format](reference/trace-format.md) reference.
 
 For automation that needs to evaluate an already-installed trace without a
 CLI subprocess, `maida.evaluation.evaluate_stored_run_against_baseline()`
 returns both the assertion report and structural diff. Its result renders
 text, JSON, or the same Markdown report used by Maida's PR comment. See the
-[`maida diff` reference](cli.md#maida-diff) for the API example.
+[`maida diff` reference](cli/diff.md) for the API example.
 
 ---
 

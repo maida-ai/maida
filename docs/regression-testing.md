@@ -111,9 +111,9 @@ such as an invariant violation. Reports record the shortened sample and abort
 reason. Use `--no-fail-fast` for baseline capture and calibration so the full
 outcome vector is available.
 
-The issue #187 [calibration table](calibration-187.md) is a seeded offline
-measurement, not an acceptance guarantee. Unreachable policy cells are shown
-as load rejected.
+Calibration must use deterministic, full-budget runs with `--no-fail-fast`.
+Treat the resulting sample as evidence for selecting policy thresholds, not as
+an acceptance guarantee; unreachable policy configurations fail while loading.
 
 ## Reviewing changes
 
