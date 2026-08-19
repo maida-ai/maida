@@ -9,6 +9,26 @@ from maida.scaffold import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def read_docs(*relatives: str) -> str:
+    """Concatenate docs pages, expanding a directory into all its pages.
+
+    These contracts care that something is documented somewhere the reader will
+    find it, not which file it landed in. Passing a directory keeps them honest
+    when a reference page is split into per-command pages.
+    """
+    parts: list[str] = []
+    for relative in relatives:
+        path = ROOT / relative
+        if path.is_dir():
+            parts.extend(
+                child.read_text(encoding="utf-8")
+                for child in sorted(path.rglob("*.md"))
+            )
+        else:
+            parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
 def test_public_docs_do_not_describe_legacy_trace_storage_contract():
     # TODO: This test must be removed to avoid leaking the legacy trace storage contract.
     docs = [
@@ -54,15 +74,15 @@ def test_trace_format_documents_current_storage_contract():
         "`meta.json` and `spans.jsonl` are the required files",
         '`spec_version` in `meta.json` (`"0.2.0"`) declares the storage contract version in-band',
         "`spans_to_events()` projection",
-        "Stable for external tooling",
-        "Internal and subject to change",
-        "[`maida list`](../cli.md#maida-list)",
-        "[`maida view`](../cli.md#maida-view)",
-        "[`maida export`](../cli.md#maida-export)",
-        "[`maida baseline`](../cli.md#maida-baseline)",
-        "[`maida accept`](../cli.md#maida-accept)",
-        "[`maida assert`](../cli.md#maida-assert)",
-        "[`maida diff`](../cli.md#maida-diff)",
+        "External tooling may rely on:",
+        "External tooling should not rely on:",
+        "[`maida list`](../cli/list.md)",
+        "[`maida view`](../cli/view.md)",
+        "[`maida export`](../cli/export.md)",
+        "[`maida baseline`](../cli/baseline.md)",
+        "[`maida accept`](../cli/accept.md)",
+        "[`maida assert`](../cli/assert.md)",
+        "[`maida diff`](../cli/diff.md)",
     ]
 
     missing = [snippet for snippet in required_snippets if snippet not in text]
@@ -71,14 +91,12 @@ def test_trace_format_documents_current_storage_contract():
 
 
 def test_action_version_references_match_scaffold():
-    docs = [
+    combined = read_docs(
         "CHANGELOG.md",
         "README.md",
         "docs/cli.md",
+        "docs/cli",
         "docs/regression-testing.md",
-    ]
-    combined = "\n".join(
-        (ROOT / rel_path).read_text(encoding="utf-8") for rel_path in docs
     )
 
     assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@v5"
@@ -98,9 +116,8 @@ def test_action_version_references_match_scaffold():
 
 
 def test_baseline_provenance_contract_is_documented():
-    combined = "\n".join(
-        (ROOT / rel_path).read_text(encoding="utf-8")
-        for rel_path in ["README.md", "docs/cli.md", "docs/regression-testing.md"]
+    combined = read_docs(
+        "README.md", "docs/cli.md", "docs/cli", "docs/regression-testing.md"
     )
 
     required_snippets = [
@@ -164,7 +181,7 @@ def test_adapter_conformance_contract_covers_required_behavior():
 
 
 def test_openai_agents_docs_include_offline_success_and_regression_workflow():
-    docs = (ROOT / "docs/integrations.md").read_text(encoding="utf-8")
+    docs = read_docs("docs/integrations.md", "docs/integrations")
     example = (ROOT / "examples/openai_agents/minimal.py").read_text(encoding="utf-8")
 
     required_docs = [
@@ -184,7 +201,7 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
 
 def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    integration_docs = (ROOT / "docs/integrations.md").read_text(encoding="utf-8")
+    integration_docs = read_docs("docs/integrations.md", "docs/integrations")
     example = (ROOT / "examples/crewai/minimal.py").read_text(encoding="utf-8")
 
     for snippet in (

@@ -29,37 +29,50 @@ The adapter captures:
 - **Tool calls** (`FunctionSpanData`): records tool name, args, result, and error status via `record_tool_call`.
 - **Handoffs** (`HandoffSpanData`): records a `TOOL_CALL` named `handoff`, with framework-specific details stored in `meta`.
 
-The <a href="/docs/assets/examples/openai-agents-minimal.py" download>offline OpenAI Agents example</a> constructs SDK tracing spans with fake data and replaces the SDK processor list with Maida's processor. It requires no API key or model call:
+The offline example — <a href="/docs/assets/examples/openai-agents-minimal.py" download>download it</a>, or run
+[`examples/openai_agents/minimal.py`](https://github.com/maida-ai/maida/blob/main/examples/openai_agents/minimal.py)
+from a checkout — constructs SDK tracing spans with fixed payloads and replaces
+the SDK processor list with Maida's processor. It requires no API key, provider
+call, or network access:
 
 ```bash
 uv add "maida-ai[openai]>=0.5"
-python openai-agents-minimal.py
+uv run --extra openai python examples/openai_agents/minimal.py
 maida view
 ```
 
-The normal run has this structural signature:
+The known-good structural signature is:
 
 - event sequence: `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END`
 - tool sequence: `lookup_docs -> handoff` (two calls)
-- LLM calls: one `fake-model` call
+- LLM calls: one `gpt-4o-mini` call
 - terminal status: `ok`
 
 Capture that known-good behavior and confirm it passes the gate:
 
 ```bash
-python openai-agents-minimal.py
+uv run --extra openai python examples/openai_agents/minimal.py
 maida baseline --out openai-agents-baseline.json
 maida assert --baseline openai-agents-baseline.json
 ```
 
-Then use the deterministic regression mode to repeat the local documentation lookup and run a strict tool-call check:
+Then run the deterministic regression mode, which repeats the documentation
+lookup:
 
 ```bash
-python openai-agents-minimal.py --regression
+uv run --extra openai python examples/openai_agents/minimal.py --regression
 maida assert --baseline openai-agents-baseline.json --tool-call-tolerance 0
 ```
 
-The regression signature is `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END`, with the tool sequence `lookup_docs -> lookup_docs -> handoff`, one `fake-model` call, and terminal status `ok`. The final command reports the tool-call increase from 2 to 3 and exits with code `1`, so the gate catches the structural regression even though the agent itself completed successfully.
+The regression records three consecutive `lookup_docs` calls, giving
+`RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(lookup_docs) -> TOOL_CALL(lookup_docs) -> LOOP_WARNING -> TOOL_CALL(handoff) -> RUN_END`.
+The run still ends `ok`, but the gate reports the increased step and tool-call
+counts and exits with code `1`.
+
+Maida's surrounding `@trace` boundary owns `RUN_START` and `RUN_END`. The
+adapter maps completed generation, function, and handoff spans exposed by the
+SDK; it does not synthesize successful calls or framework-specific event types
+for SDK signals it cannot observe.
 
 For an end-to-end agent workflow and guardrail walkthrough, continue with the [full OpenAI Agents tutorial](https://github.com/maida-ai/maida-tutorials/blob/main/OpenAI/Mock%20OpenAI%20Agent.ipynb).
 

@@ -30,36 +30,51 @@ The adapter captures:
 
 Framework-specific context (agent role, task description, executor ID) is stored in `meta.crewai.*`.
 
-The <a href="/docs/assets/examples/crewai-minimal.py" download>offline CrewAI example</a> sends fake data through CrewAI's public hook contexts, so it exercises the adapter without starting a crew, LLM, or API call. The environment flag disables CrewAI's separate anonymous package telemetry for this deterministic run:
+The offline example — <a href="/docs/assets/examples/crewai-minimal.py" download>download it</a>, or run
+[`examples/crewai/minimal.py`](https://github.com/maida-ai/maida/blob/main/examples/crewai/minimal.py)
+from a checkout — sends fake data through CrewAI's public hook contexts, so it
+exercises the adapter without starting a crew, LLM, or API call. The
+environment flag disables CrewAI's separate anonymous package telemetry for
+this deterministic run:
 
 ```bash
-CREWAI_DISABLE_TELEMETRY=true python crewai-minimal.py
+CREWAI_DISABLE_TELEMETRY=true python examples/crewai/minimal.py
 maida view
 ```
 
 The normal run has this structural signature:
 
-- event sequence: `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> RUN_END`
-- tool sequence: `lookup_docs` (one call)
+- event sequence: `RUN_START -> LLM_CALL -> TOOL_CALL(search_docs) -> RUN_END`
+- tool sequence: `search_docs` (one call)
 - LLM calls: one `offline` call
 - terminal status: `ok`
 
 Capture that known-good behavior and confirm it passes the gate:
 
 ```bash
-CREWAI_DISABLE_TELEMETRY=true python crewai-minimal.py
+CREWAI_DISABLE_TELEMETRY=true python examples/crewai/minimal.py
 maida baseline --out crewai-baseline.json
 maida assert --baseline crewai-baseline.json
 ```
 
-Then use the deterministic regression mode to repeat the local documentation lookup and run a strict tool-call check:
+Then use the deterministic regression mode and run a strict tool-call check:
 
 ```bash
-CREWAI_DISABLE_TELEMETRY=true python crewai-minimal.py --regression
+CREWAI_DISABLE_TELEMETRY=true python examples/crewai/minimal.py --regression
 maida assert --baseline crewai-baseline.json --tool-call-tolerance 0
 ```
 
-The regression signature is `RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(lookup_docs) -> RUN_END`, with the tool sequence `lookup_docs -> lookup_docs`, one `offline` call, and terminal status `ok`. The final command reports the tool-call increase from 1 to 2 and exits with code `1`, so the gate catches the structural regression even though the agent itself completed successfully.
+Regression mode records three consecutive `search_docs` calls, producing
+`RUN_START -> LLM_CALL -> TOOL_CALL -> TOOL_CALL -> TOOL_CALL -> LOOP_WARNING -> RUN_END`.
+The run itself still ends `ok`, but the assertion reports the tool-call
+increase and exits with code `1` — so the gate catches the structural
+regression even though the agent completed successfully.
+
+When a guardrail fires in a hook, the adapter stores the public
+`GuardrailExceeded`, raises an internal `BaseException` signal past CrewAI's
+`except Exception` handling, and lets the Maida boundary record `ERROR` plus
+`RUN_END(status="error")`. As a defensive fallback inside an active run, call
+`maida_crewai.raise_if_aborted()` after framework execution.
 
 For a full multi-agent workflow, an incomplete-hook failure, and a guarded-loop walkthrough, continue with the [full CrewAI tutorial](https://github.com/maida-ai/maida-tutorials/blob/main/CrewAI/Mock%20CrewAI%20Agent.ipynb).
 

@@ -102,5 +102,3 @@ repository:
 
 - [Calibration table (issue #187)](calibration-187.md) — a seeded offline
   measurement used to pick policy thresholds.
-- [Policy v3 two-tier acceptance](design/policy-v3-two-tier-acceptance.md) —
-  design note, not shipped behavior.
