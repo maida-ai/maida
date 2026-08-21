@@ -15,3 +15,4 @@ repos:
       args: [ --config=ruff.toml, --fix ]
     - id: ruff-format
       args: [ --config=ruff.toml ]
+      types_or: [ python, pyi, jupyter, markdown ]
