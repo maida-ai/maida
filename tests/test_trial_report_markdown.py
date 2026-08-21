@@ -85,7 +85,7 @@ def test_trial_report_pass_markdown_snapshot() -> None:
         """\
         ## ✅ Maida verdict: pass
 
-        **2 blocking checks passed** · **1/1 trials passed**
+        **2 blocking checks passed** | **1/1 trials passed**
 
         ### Behavior vs baseline
 
@@ -100,8 +100,8 @@ def test_trial_report_pass_markdown_snapshot() -> None:
 
         #### Passing checks
 
-        - ✅ **Agent execution stayed healthy.** `agent_process` — All 1 trial completed successfully.
-        - ✅ **Steps stayed within the allowed range.** `step_count` — Observed 8 (baseline 8; allowed at most 10).
+        - ✅ **Agent execution stayed healthy.** `agent_process` -- All 1 trial completed successfully.
+        - ✅ **Steps stayed within the allowed range.** `step_count` -- Observed 8 (baseline 8; allowed at most 10).
 
         #### Trial evidence
 
@@ -112,7 +112,7 @@ def test_trial_report_pass_markdown_snapshot() -> None:
         </details>
 
         ---
-        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*"""
+        *Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*"""
     )
 
 
@@ -200,11 +200,11 @@ def test_trial_report_fail_markdown_snapshot() -> None:
         """\
         ## ❌ Maida verdict: fail
 
-        **2 blocking checks failed** · **0/1 trials passed**
+        **2 blocking checks failed** | **0/1 trials passed**
 
         ### Behavior vs baseline
 
-        - Tool order changed from `lookup → retry` to `retry → delete\\|records`.
+        - Tool order changed from `lookup -> retry` to `retry -> delete\\|records`.
         - New tool used: `delete\\|records`.
         - Tool removed: `lookup`.
         - Tool `retry` repeated 3 times (baseline: 1).
@@ -218,7 +218,7 @@ def test_trial_report_fail_markdown_snapshot() -> None:
         ### Blocking checks
 
         - ❌ **Loops appeared in 1 of 1 trial.** `no_loops`
-        - ❌ **Latency increased beyond the allowed range.** `latency_ms` — Observed 900 ms (baseline 300 ms; allowed at most 600 ms).
+        - ❌ **Latency increased beyond the allowed range.** `latency_ms` -- Observed 900 ms (baseline 300 ms; allowed at most 600 ms).
 
         ### Baseline provenance
 
@@ -226,7 +226,7 @@ def test_trial_report_fail_markdown_snapshot() -> None:
         |---|---|---|
         | `reviewer-login` | `2026-07-22T20:15:00.000Z` | [PR #42](https://github.com/maida-ai/example-agent/pull/42) at `abcdef12` |
 
-        **Acceptance verdict:** accepted — Accepted run status ok: 8 events, 2 tool calls.
+        **Acceptance verdict:** accepted -- Accepted run status ok: 8 events, 2 tool calls.
 
         **Reason:** Expected retrieval \\| tool split
 
@@ -243,11 +243,11 @@ def test_trial_report_fail_markdown_snapshot() -> None:
 
         #### Passing checks
 
-        - ✅ **Agent execution stayed healthy.** `agent_process` — All 1 trial completed successfully.
+        - ✅ **Agent execution stayed healthy.** `agent_process` -- All 1 trial completed successfully.
 
         #### Report-only metrics
 
-        - ℹ️ **Tokens were observed without blocking the gate.** `cost_tokens` — Observed pass rate 1.000; 95% confidence range 0.270–1.000.
+        - ℹ️ **Tokens were observed without blocking the gate.** `cost_tokens` -- Observed pass rate 1.000; 95% confidence range 0.270-1.000.
 
         #### Trial evidence
 
@@ -258,7 +258,7 @@ def test_trial_report_fail_markdown_snapshot() -> None:
         </details>
 
         ---
-        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*"""
+        *Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*"""
     )
     assert markdown.count("<details>") == 1
     assert markdown.count("</details>") == 1
@@ -295,7 +295,7 @@ def test_trial_report_inconclusive_markdown_snapshot() -> None:
         """\
         ## ⚪ Maida verdict: inconclusive
 
-        **1 blocking check inconclusive** · **1/3 trials completed**
+        **1 blocking check inconclusive** | **1/3 trials completed**
 
         ### Behavior vs baseline
 
@@ -303,7 +303,7 @@ def test_trial_report_inconclusive_markdown_snapshot() -> None:
 
         ### Blocking checks
 
-        - ⚪ **Successful behavior is still inconclusive.** `task_pass_rate` — 1/1 trials passed; 95% confidence range 0.270–1.000 (target at least 0.900).
+        - ⚪ **Successful behavior is still inconclusive.** `task_pass_rate` -- 1/1 trials passed; 95% confidence range 0.270-1.000 (target at least 0.900).
 
         > Maida did not establish a blocking regression, but this sample is too small to approve confidently. Collect more trials and rerun before promotion.
 
@@ -317,7 +317,7 @@ def test_trial_report_inconclusive_markdown_snapshot() -> None:
 
         #### Passing checks
 
-        - ✅ **Agent execution stayed healthy.** `agent_process` — All 1 trial completed successfully.
+        - ✅ **Agent execution stayed healthy.** `agent_process` -- All 1 trial completed successfully.
 
         #### Trial evidence
 
@@ -328,7 +328,7 @@ def test_trial_report_inconclusive_markdown_snapshot() -> None:
         </details>
 
         ---
-        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*"""
+        *Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*"""
     )
 
 
@@ -346,7 +346,7 @@ def test_trial_report_renders_legacy_acceptance_safely() -> None:
     assert "### Baseline provenance" in markdown
     assert "`unknown`" in markdown
     assert "local acceptance" in markdown
-    assert "**Acceptance verdict:** accepted — not recorded" in markdown
+    assert "**Acceptance verdict:** accepted -- not recorded" in markdown
     assert "**Reason:** Legacy local \\| acceptance" in markdown
 
 

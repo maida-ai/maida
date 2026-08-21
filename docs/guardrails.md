@@ -4,7 +4,7 @@ Guardrails are Maida's opt-in way to stop a run before it burns more time, token
 
 They are runtime safety limits and evidence capture tools, not the post-run policy gate:
 
-- Use existing v0.1 event types only
+- Use the normal projected event view only
 - Record normal trace evidence before aborting
 - Raise a dedicated exception so your code knows the run was stopped on purpose
 - Keep default behavior unchanged unless you enable a guardrail
@@ -56,7 +56,7 @@ Notes:
 
 ## LangChain / LangGraph
 
-Guardrails work with LangChain/LangGraph via `LangChainCallbackHandler`. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor — stopping the run immediately and preventing further token-wasting LLM calls.
+Guardrails work with LangChain/LangGraph via `LangChainCallbackHandler`. When a guardrail fires, the handler raises `_MaidaAbortSignal` (a `BaseException`) which bypasses both LangChain's callback error handling and LangGraph's graph executor -- stopping the run immediately and preventing further token-wasting LLM calls.
 
 ```python
 from maida import LoopAbort, trace
@@ -79,7 +79,7 @@ The handler also stores the exception on `handler.abort_exception` as a defensiv
 
 ## OpenAI Agents SDK
 
-Guardrails work with the OpenAI Agents SDK via the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling — stopping the run immediately.
+Guardrails work with the OpenAI Agents SDK via the tracing processor. When a guardrail fires, the processor raises `_MaidaAbortSignal` (a `BaseException`) which bypasses the SDK's `except Exception` error handling -- stopping the run immediately.
 
 ```python
 from maida import trace, LoopAbort
@@ -113,7 +113,7 @@ from maida import LoopAbort, record_llm_call, record_tool_call, trace
 @trace(stop_on_loop=True)
 def run_agent():
     for _ in range(10):
-        record_tool_call("search_db", args={"q": "pricing"}, result={"hits": 3})
+        record_tool_call("search_db", args={"q": "refund policy"}, result={"hits": 3})
         record_llm_call(model="gpt-4.1", prompt="Summarize", response="Retrying...")
 
 
@@ -231,11 +231,11 @@ This gives you full evidence of the step that actually tripped the limit.
 
 ## Choosing sensible defaults
 
-Some practical starting points for local development and CI fixtures:
+Some practical starting points for local development:
 
 - `stop_on_loop=True` for ReAct-style or planner/executor loops
 - `max_llm_calls=10` to `30` for prompt iteration
-- `max_tool_calls=10` to `25` for tool-heavy workflows
+- `max_tool_calls=10` to `25` for tool-heavy development
 - `max_events=50` to `200` when you want a hard ceiling on trace size
 - `max_duration_s=15` to `60` for runs that should finish quickly
 

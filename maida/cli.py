@@ -1417,17 +1417,17 @@ def _demo_generated_plan(policy_path: Path | None) -> None:
     typer.echo("Maida generated-plan demo: everything below is simulated and local.")
     typer.echo("No API keys, database, network calls, or repo clone.")
     typer.echo("")
-    typer.echo("── Step 1/2 · A simulated planner generates a runtime plan")
+    typer.echo("── Step 1/2 | A simulated planner generates a runtime plan")
     typer.echo(f"   topology: {result['topology']}")
     typer.echo(
-        f"   resolved: {result['node_count']} nodes · max fan-out {result['max_fanout']}"
+        f"   resolved: {result['node_count']} nodes | max fan-out {result['max_fanout']}"
     )
     typer.echo(
-        f"   schemas: policy {schemas['policy']} · plan {schemas['plan']} · "
+        f"   schemas: policy {schemas['policy']} | plan {schemas['plan']} | "
         f"report {schemas['report']}"
     )
     typer.echo("")
-    typer.echo("── Step 2/2 · Gate the trusted plan before execution")
+    typer.echo("── Step 2/2 | Gate the trusted plan before execution")
     policy_source = (
         str(selected_policy)
         if selected_policy is not None
@@ -1458,7 +1458,7 @@ def _demo_regression(config) -> None:
     )
     typer.echo("")
 
-    typer.echo("── Step 1/3 · Run the known-good agent and capture a baseline")
+    typer.echo("── Step 1/3 | Run the known-good agent and capture a baseline")
     typer.echo("   baseline behavior: lookup_customer -> search_kb -> send_reply")
     run_good_agent()
     good_id = storage.resolve_latest_trace_id(config)
@@ -1466,20 +1466,20 @@ def _demo_regression(config) -> None:
     bl = create_baseline(good_id, config)
     bl_path = LOCAL_DIR_NAME / "baselines" / "demo-support-agent.json"
     save_baseline(bl, bl_path)
-    typer.echo(f"   ✓ good run {good_id[:8]} · baseline saved to {bl_path}")
+    typer.echo(f"   ✓ good run {good_id[:8]} | baseline saved to {bl_path}")
     typer.echo("")
 
-    typer.echo('── Step 2/3 · A "refactor" ships: new prompt, cheaper model')
+    typer.echo('── Step 2/3 | A "refactor" ships: new prompt, cheaper model')
     typer.echo("   regression: demo-gpt-4-mini loops on search_kb, then escalates")
     run_refactored_agent()
     bad_id = storage.resolve_latest_trace_id(config)
     _normalize_demo_trace_duration(bad_id, config)
     typer.echo(
-        f"   ✓ new run {bad_id[:8]} · finished with status ok; behavior still changed"
+        f"   ✓ new run {bad_id[:8]} | finished with status ok; behavior still changed"
     )
     typer.echo("")
 
-    typer.echo("── Step 3/3 · Gate the new run against the baseline")
+    typer.echo("── Step 3/3 | Gate the new run against the baseline")
     typer.echo("   policy: no new tools, no loops, status ok, and cost near baseline")
     policy = AssertionPolicy(
         no_new_tools=True,

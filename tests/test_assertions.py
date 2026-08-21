@@ -849,7 +849,7 @@ def test_format_report_markdown_renders_legacy_acceptance_safely():
     assert "### Baseline provenance" in md
     assert "`unknown`" in md
     assert "local acceptance" in md
-    assert "**Acceptance verdict:** accepted — not recorded" in md
+    assert "**Acceptance verdict:** accepted -- not recorded" in md
     assert "**Reason:** Legacy local acceptance" in md
 
 
@@ -873,7 +873,7 @@ def test_format_report_markdown_pass_snapshot():
             """\
         ## ✅ Maida verdict: pass
 
-        **All 1 checks passed** · run `aaaaaaaa`
+        **All 1 checks passed** | run `aaaaaaaa`
 
         <details>
         <summary>✅ 1 passing checks</summary>
@@ -899,7 +899,7 @@ def test_format_report_markdown_pass_snapshot():
         </details>
 
         ---
-        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*
+        *Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*
         """
         ).strip()
     )
@@ -971,7 +971,7 @@ def test_format_report_markdown_failure_behavior_diff_snapshot():
             """\
         ## ❌ Maida verdict: fail
 
-        **2 of 3 checks failed** · run `aaaaaaaa` vs baseline `bbbbbbbb`
+        **2 of 3 checks failed** | run `aaaaaaaa` vs baseline `bbbbbbbb`
 
         ### Top behavior changes
 
@@ -991,8 +991,8 @@ def test_format_report_markdown_failure_behavior_diff_snapshot():
         - Current: `search -> web_search -> web_search -> summarize`
 
         **Tool changes:**
-        - ➕ `web_search` — new tool, not in baseline
-        - 🔁 `web_search` — repeated 0 -> 2 calls
+        - ➕ `web_search` -- new tool, not in baseline
+        - 🔁 `web_search` -- repeated 0 -> 2 calls
         - 🔀 Tool order changed for shared calls
 
         **Model changes:**
@@ -1011,7 +1011,7 @@ def test_format_report_markdown_failure_behavior_diff_snapshot():
 
         | Check | Expected | Actual | Details |
         |---|---|---|---|
-        | ❌ `no_loops` | — | 2 | 2 loop warning(s) detected: cycle x2 search -> summarize |
+        | ❌ `no_loops` | -- | 2 | 2 loop warning(s) detected: cycle x2 search -> summarize |
 
         <details>
         <summary>✅ 1 passing checks</summary>
@@ -1041,7 +1041,7 @@ def test_format_report_markdown_failure_behavior_diff_snapshot():
         </details>
 
         ---
-        *Gated by [Maida](https://maida.ai) — the local-first behavioral regression gate for AI agents.*
+        *Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*
         """
         ).strip()
     )

@@ -1,42 +1,82 @@
-# Maida
+# Maida documentation
 
-**Maida** is the pre-merge behavioral regression gate for AI agents. It captures structured traces (LLM calls, tool calls, state, errors), turns known-good behavior into checked-in baselines, and blocks changes when policy says structural behavior regressed.
+> **This directory is the single source of truth for Maida's documentation.**
+> The published version lives at **[maida.ai/docs](https://maida.ai/docs/)**,
+> which builds these files at the pinned engine release. Edit them here, in the
+> same pull request as the behavior they describe -- never in the website repo.
+>
+> This page is the only exception: `maida-ai.github.io` keeps its own docs
+> landing page, because that one is presentation rather than content.
 
-**What it is:** A local-first SDK and CLI for collecting behavioral evidence, comparing runs, and failing CI checks when agent behavior drifts beyond accepted thresholds. The current workflow is optimized for pre-merge CI, but the trace and policy primitives are the same foundation for broader reliability workflows.
+**Maida** is the pre-merge behavioral regression gate for AI agents. It captures
+structured traces (LLM calls, tool calls, state, errors), turns known-good
+behavior into checked-in baselines, and blocks changes when policy says
+structural behavior regressed.
 
-**What it is not:** It is not a hosted telemetry product, a generic output eval platform, or a framework lock-in layer. The local viewer helps inspect evidence, but the core product is behavioral regression gating.
+**What it is:** a local-first SDK and CLI for collecting behavioral evidence,
+comparing runs, and failing CI checks when agent behavior drifts beyond accepted
+thresholds.
+
+**What it is not:** a hosted telemetry product, a generic output eval platform,
+or a framework lock-in layer. The local viewer helps inspect evidence, but the
+core product is behavioral regression gating.
 
 ---
 
 ## In 60 seconds
 
-**1. Install Maida:**
-
 ```bash
-uv tool install "maida-ai>=0.5"
+pip install maida-ai     # or: uv tool install "maida-ai>=0.5"
+maida demo               # traced run of a bundled simulated agent
+maida view               # open the timeline at 127.0.0.1:8712
+maida demo --regression  # watch the gate catch a bad refactor
 ```
 
-**2. Run the bundled demo agent** (simulated; no repo clone, no API keys):
+Runs are stored locally under `~/.maida/runs/<trace_id>/`. Nothing leaves your
+machine.
 
-```bash
-maida demo
-```
+---
 
-**3. Open the timeline viewer:**
+## Start here
 
-```bash
-maida view
-```
+| Page | What it covers |
+|---|---|
+| [Getting started](getting-started.md) | Install, first trace, first baseline, redaction |
+| [Regression testing](regression-testing.md) | The end-to-end baseline -> policy -> gate workflow |
+| [Guides index](guides/index.md) | All task-oriented walkthroughs |
 
-A browser tab opens showing every event in the run - tool calls, LLM calls, timing. Data is stored locally under `~/.maida/runs/<trace_id>/`.
+## Guides
 
-From there, capture a baseline sample and gate candidate trials with `maida
-run`, or scaffold your own project with `maida init`. To watch the gate catch a
-regression end-to-end on canned data, run:
+| Page | What it covers |
+|---|---|
+| [Regression testing](regression-testing.md) | Policy-v2 baseline sampling and the candidate gate |
+| [Guardrails](guardrails.md) | Stop runaway runs with loop, count, and duration limits |
+| [Viewer](viewer.md) | Timeline UI usage, URL params, live refresh |
+| [Capture Claude Code](claude-code.md) | OTLP capture, import, and pinned scenarios |
+| [Scheduled checks](scheduled-checks.md) | Batch verdicts over completed trace windows |
+| [Gate draft extraction](extraction.md) | Derive policy and baseline drafts for human review |
 
-```bash
-maida demo --regression
-```
+## Integrations
+
+| Page | What it covers |
+|---|---|
+| [Overview](integrations.md) | How adapters work and what they guarantee |
+| [LangChain / LangGraph](integrations/langchain-langgraph.md) | Callback handler |
+| [OpenAI Agents SDK](integrations/openai-agents.md) | Tracing adapter |
+| [CrewAI](integrations/crewai.md) | Execution-hook adapter |
+| [Langfuse import](langfuse.md) | Import completed Langfuse traces and gate them |
+
+## Reference
+
+| Page | What it covers |
+|---|---|
+| [CLI](cli.md) | Every command, option, output shape, and exit code |
+| [SDK](sdk.md) | `@trace`, `traced_run`, and the event recorders |
+| [Policy](reference/policy.md) | `.maida/policy.yaml` format and policy v2 semantics |
+| [Trace format](reference/trace-format.md) | The versioned public data contract |
+| [External emitter guide](reference/trace-emitter.md) | Emit native traces without an SDK |
+| [Configuration](reference/config.md) | Env vars, YAML precedence, redaction, truncation |
+| [Architecture](architecture.md) | Span schema, storage, viewer API, loop detection |
 
 ---
 
@@ -48,29 +88,17 @@ maida demo --regression
 | **LangChain minimal** | `examples/langchain/minimal.py` | `uv run --extra langchain python examples/langchain/minimal.py` |
 | **OpenAI Agents minimal** | `examples/openai_agents/minimal.py` | `uv run --extra openai python examples/openai_agents/minimal.py` |
 | **LangChain customer support** (advanced) | `examples/langchain/` | Set API keys, then follow `_customer_support/README.md` |
-| **Demos** (short scripts) | `examples/demo/` | `python examples/demo/pure_python.py` or `python examples/demo/langchain.py` |
+| **Demos** (short scripts) | `examples/demo/` | `python examples/demo/pure_python.py` |
 
-After any run, inspect evidence with `maida view`. For a real project, use the
-policy-v2 workflow in [Regression testing](regression-testing.md).
+Step-by-step notebooks live in
+[maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials).
 
 ---
 
-## Documentation
+## Engine-only pages
 
-| Page | Description |
-|------|-------------|
-| [Getting started](getting-started.md) | Installation (uv/pip), quickstart, data dir, redaction |
-| [Guardrails](guardrails.md) | Stop runaway runs with loop, count, and duration limits |
-| [Regression testing](regression-testing.md) | Policy-v2 baseline sampling and candidate gate workflow |
-| [Scheduled checks](scheduled-checks.md) | Batch verdicts over completed production trace windows |
-| [Gate draft extraction](extraction.md) | Derive inactive policy and baseline drafts from real trace windows for human review |
-| [CLI](cli.md) | `demo`, `init`, `validate-trace`, `import`, `run`, `extract`, `drift`, `list`, `view`, `export`, `baseline`, `accept`, `assert`, `diff` with options and exit codes |
-| [Viewer](viewer.md) | Timeline UI usage, URL params, live refresh, and development |
-| [SDK](sdk.md) | `@trace`, `traced_run`, `has_active_run`, `record_llm_call`, `record_tool_call`, `record_state` |
-| [Integrations](integrations.md) | LangChain handler, OpenAI Agents adapter, and planned adapters |
-| [Architecture](architecture.md) | Event schema, storage layout, viewer API, loop detection |
-| **Reference** | |
-| [Trace format](reference/trace-format.md) | OTel span envelope, event projection, `meta.json`, and `spans.jsonl` public contract |
-| [External emitter guide](reference/trace-emitter.md) | Produce and validate native Maida traces without an SDK |
-| [Configuration](reference/config.md) | Env vars, YAML precedence, redaction, truncation, loop detection, guardrails |
-| [Policy YAML](reference/policy.md) | Assertion policy file format, fields, threshold semantics, CLI mapping |
+These are not published to maida.ai -- they are working documents for this
+repository:
+
+- [Calibration table (issue #187)](calibration-187.md) -- a seeded offline
+  measurement used to pick policy thresholds.

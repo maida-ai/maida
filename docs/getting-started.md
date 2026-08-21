@@ -2,7 +2,7 @@
 
 ## Installation
 
-Requires Python 3.10+.
+Requires Python 3.10 to 3.13 (`requires-python = ">=3.10,<3.14"`).
 
 **With uv:**
 
@@ -39,7 +39,7 @@ maida demo        # trace a bundled simulated agent
 maida view        # inspect the timeline in your browser
 ```
 
-Then watch the gate catch a regression end-to-end — baseline a good run, run a "refactored" agent that loops and calls a new tool, and see the failing report with a PR-comment preview:
+Then watch the gate catch a regression end-to-end -- baseline a good run, run a "refactored" agent that loops and calls a new tool, and see the failing report with a PR-comment preview:
 
 ```bash
 maida demo --regression
@@ -52,17 +52,20 @@ maida init            # starter .maida/policy.yaml
 maida init --github   # + GitHub Actions workflow
 ```
 
-In the generated workflow, replace `MAIDA_AGENT_SCRIPT` with your traced
-entrypoint. Once you have checked in a baseline, set `MAIDA_BASELINE` to its
-path. That enables authorized maintainers to accept an intentional PR change
-with `/maida accept [optional reason]`; the command stays inactive while the
+The generated workflow tracks `maida-ai/maida-assert@v5`, uses policy v2,
+and grants the `checks: write` permission needed for the gate check.
+
+Replace `MAIDA_AGENT_SCRIPT` with your traced entrypoint. Once you have
+checked in a baseline, set `MAIDA_BASELINE` to its path. That enables
+authorized maintainers to accept an intentional PR change with
+`/maida accept [optional reason]`; the command stays inactive while the
 baseline value is blank.
 
 ---
 
 ## Quickstart
 
-**1. Decorate your entrypoint with `@trace`** so each invocation becomes a run (RUN_START / RUN_END, ERROR on exception).
+**1. Decorate your entrypoint with `@trace`** so each invocation becomes a run. Maida stores the run as OTel-compatible spans and projects those spans into familiar `RUN_START`, `RUN_END`, `LLM_CALL`, `TOOL_CALL`, and `ERROR` event views for the viewer, baselines, assertions, and diffs.
 
 **2. Call the recorders** inside that function so events attach to the current run:
 
@@ -86,7 +89,7 @@ if __name__ == "__main__":
     run_agent()
 ```
 
-**3. Run the script, then inspect the captured evidence:**
+**3. Run the script, then open the UI:**
 
 ```bash
 python your_script.py
@@ -97,7 +100,7 @@ The viewer starts a local server (default `127.0.0.1:8712`) and opens the latest
 
 ---
 
-## Add guardrails while you iterate
+## Add guardrails during iteration
 
 If you are iterating on an agent loop, add guardrails early so a bad prompt or tool policy does not spiral into dozens of repeated calls.
 
@@ -132,8 +135,10 @@ See [Guardrails](guardrails.md) for examples and [Configuration reference](refer
 ## Where data is stored
 
 - **Default:** `~/.maida/runs/<trace_id>/`
-  - `meta.json` - run metadata (status, counts, started_at, ended_at)
-  - `spans.jsonl` - one OpenTelemetry span JSON object per line (append-only)
+  - `meta.json` - run metadata (`spec_version`, trace ID, status, counts, started_at, ended_at)
+  - `spans.jsonl` - one OTel span record per line (append-only)
+
+The CLI still uses the user-facing name `RUN_ID` in command arguments and JSON fields in a few places. Current runs are backed by OTel trace IDs, and short prefixes are resolved to the full trace ID.
 
 ---
 
@@ -151,7 +156,7 @@ Config can also be set in `~/.maida/config.yaml` or `.maida/config.yaml` in the 
 
 ## Redaction (defaults and config)
 
-- **Redaction is on by default.** Payloads are scanned for sensitive keys (e.g. `api_key`, `token`, `authorization`, `password`); matching values are replaced with `__REDACTED__`.
+- **Redaction is on by default.** Span attributes and projected event payloads are scanned for sensitive keys (e.g. `api_key`, `token`, `authorization`, `password`); matching values are replaced with `__REDACTED__`.
 - **Large values** are truncated to a maximum size (default 20_000 bytes) and suffixed with `__TRUNCATED__`.
 
 **Environment variables (override config files):**
@@ -162,7 +167,7 @@ Config can also be set in `~/.maida/config.yaml` or `.maida/config.yaml` in the 
 | `MAIDA_REDACT_KEYS` | `api_key,token,authorization,cookie,secret,password` | Comma-separated keys (case-insensitive substring match) |
 | `MAIDA_MAX_FIELD_BYTES` | `20000` | Max size for string/field before truncation |
 
-Example: disable redaction for trusted local inspection:
+Example: disable redaction (e.g. for trusted local inspection):
 
 ```bash
 export MAIDA_REDACT=0

@@ -573,7 +573,7 @@ def _markdown_baseline_provenance(acceptance: dict | None) -> list[str]:
         "|---|---|---|",
         f"| `{accepted_by}` | `{accepted_at}` | {source_text} |",
         "",
-        f"**Acceptance verdict:** {outcome} — {summary}",
+        f"**Acceptance verdict:** {outcome} -- {summary}",
         "",
         f"**Reason:** {reason}",
     ]
@@ -703,18 +703,18 @@ def format_report_markdown(
 
     scope = _markdown_scope(report)
     if not report.results:
-        lines.append(f"**No checks enabled** \u00b7 {scope}")
+        lines.append(f"**No checks enabled** | {scope}")
     elif failed:
         lines.append(
-            f"**{len(failed)} of {len(report.results)} checks failed** \u00b7 {scope}"
+            f"**{len(failed)} of {len(report.results)} checks failed** | {scope}"
         )
     elif active := len(report.results) - len(ignored):
-        parts = [f"**All {active} checks passed** \u00b7 {scope}"]
+        parts = [f"**All {active} checks passed** | {scope}"]
         if ignored:
             parts.append(f"({len(ignored)} ignored)")
         lines.append(" ".join(parts))
     else:
-        parts = [f"**All checks ignored** \u00b7 {scope}"]
+        parts = [f"**All checks ignored** | {scope}"]
         if ignored:
             parts.append(f"({len(ignored)} ignored)")
         lines.append(" ".join(parts))
@@ -746,8 +746,8 @@ def format_report_markdown(
                 "|---|---|---|---|",
             ]
             for r in reason_failures:
-                expected = r.expected or "\u2014"
-                actual = r.actual or "\u2014"
+                expected = r.expected or "--"
+                actual = r.actual or "--"
                 lines.append(
                     "| \u274c "
                     f"`{_markdown_table_cell(r.check_name)}` | "
@@ -811,7 +811,7 @@ def format_report_markdown(
         "</details>",
         "",
         "---",
-        "*Gated by [Maida](https://maida.ai) \u2014 the local-first behavioral"
+        "*Gated by [Maida](https://maida.ai) -- the local-first behavioral"
         " regression gate for AI agents.*",
     ]
     return "\n".join(lines)

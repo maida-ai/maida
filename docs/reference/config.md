@@ -22,6 +22,8 @@ Configuration is merged in this order (highest wins):
 | Env | YAML key | Default | Description |
 |-----|----------|---------|-------------|
 | `MAIDA_DATA_DIR` | `data_dir` | `~/.maida` | Base directory for runs. Runs are stored under `<data_dir>/runs/<trace_id>/`. |
+| `MAIDA_ACCEPTED_BY` | - | *(unset)* | Identity recorded as the accepting party when `maida accept` updates a baseline. Falls back to the detected CI or Git identity. |
+| `MAIDA_TRIAL_INDEX` | - | *(set by `maida run`)* | Zero-based index of the current trial, exported into each trial subprocess. Read it from an agent to vary seeds deterministically per trial; do not set it yourself. |
 
 **Example (env):**
 
@@ -48,7 +50,7 @@ data_dir: /path/to/my/maida/data
 
 **Redaction behavior:**
 
-- Applied **recursively** to nested dicts and lists (e.g. payloads and meta).
+- Applied **recursively** to nested dicts and lists (e.g. span attributes, projected event payloads, and meta).
 - **Key match:** If a dict key contains any of the redact keys as a **case-insensitive substring**, the value is replaced with `__REDACTED__` (the key is not redacted; the value is). Example: `auth_token` matches `token`; `API_KEY` matches `api_key`.
 - **Recursion depth:** Traversal is limited to depth 10 to avoid pathological structures; deeper values are replaced with the truncation marker.
 
@@ -117,7 +119,7 @@ Guardrails are opt-in limits that stop a run after Maida has enough evidence to 
 
 **Important behavior:**
 
-- **Existing event types only:** guardrails use normal `LOOP_WARNING`, `ERROR`, and `RUN_END` events.
+- **Existing event view only:** guardrails use normal projected `LOOP_WARNING`, `ERROR`, and `RUN_END` records; they do not add special trace types.
 - **Loop aborts:** if `stop_on_loop=true`, Maida writes `LOOP_WARNING` first, then aborts.
 - **Count-based limits:** `max_llm_calls=10` allows 10 calls and aborts after the 11th is recorded.
 - **Exception propagation:** guardrail aborts raise `LoopAbort` or `GuardrailExceeded`; they are not swallowed.
@@ -209,6 +211,7 @@ guardrails:
 
 ## Safe-by-default local traces
 
-- **Redaction is on by default** so that common secret keys are not written to disk.
-- **Data directory** defaults to `~/.maida` so traces stay on the machine.
-- No cloud or network is used for trace storage. Override only what you need (e.g. `MAIDA_DATA_DIR` for project-local storage, or `MAIDA_REDACT=0` for trusted local inspection with full payloads).
+- **Redaction is on by default** so that common secret-key values are not written to disk.
+- **Data directory** defaults to `~/.maida` so traces are local by default.
+- Maida.AI does not receive traces, prompts, outputs, source code, logs, or secrets by default. Local traces can still contain sensitive content depending on what your instrumentation records, so keep redaction on unless you are working in a trusted local setting.
+- No cloud storage is used by the default trace-storage path. Override only what you need (e.g. `MAIDA_DATA_DIR` for project-local storage, or `MAIDA_REDACT=0` for trusted local inspection with full payloads).

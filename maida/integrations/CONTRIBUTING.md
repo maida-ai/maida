@@ -125,30 +125,30 @@ Because `GuardrailExceeded` inherits from `Exception`, it gets caught and swallo
 
 ## The `_MaidaAbortSignal` pattern
 
-The solution is `_MaidaAbortSignal`, an internal `BaseException` subclass defined in `maida.exceptions`. `BaseException` subclasses bypass `except Exception` blocks — the same mechanism Python uses for `KeyboardInterrupt`, `SystemExit`, and `asyncio.CancelledError`.
+The solution is `_MaidaAbortSignal`, an internal `BaseException` subclass defined in `maida.exceptions`. `BaseException` subclasses bypass `except Exception` blocks -- the same mechanism Python uses for `KeyboardInterrupt`, `SystemExit`, and `asyncio.CancelledError`.
 
 ### How it works
 
 ```
 Framework calls adapter hook
-  → adapter calls record_llm_call / record_tool_call
-    → guardrail fires → raises GuardrailExceeded (Exception)
-  → adapter catches it, stores on _abort_exception
-  → adapter raises _MaidaAbortSignal(cause) (BaseException)
-→ framework's `except Exception` does NOT catch it
-→ signal propagates through the framework's execution loop
-→ signal reaches traced_run / @trace context manager
-→ _run_context catches _MaidaAbortSignal
-→ records ERROR + RUN_END
-→ re-raises the wrapped GuardrailExceeded (the public exception type)
-→ user sees LoopAbort or GuardrailExceeded
+  -> adapter calls record_llm_call / record_tool_call
+    -> guardrail fires -> raises GuardrailExceeded (Exception)
+  -> adapter catches it, stores on _abort_exception
+  -> adapter raises _MaidaAbortSignal(cause) (BaseException)
+-> framework's `except Exception` does NOT catch it
+-> signal propagates through the framework's execution loop
+-> signal reaches traced_run / @trace context manager
+-> _run_context catches _MaidaAbortSignal
+-> records ERROR + RUN_END
+-> re-raises the wrapped GuardrailExceeded (the public exception type)
+-> user sees LoopAbort or GuardrailExceeded
 ```
 
 ### Rules for using `_MaidaAbortSignal`
 
 1. **Always wrap the original exception.** `_MaidaAbortSignal(cause)` stores the original `GuardrailExceeded` on `.cause`. The lifecycle layer unwraps it so the user sees the public exception type.
 
-2. **Always store the original on `_abort_exception` before raising the signal.** This is a defensive fallback — if the signal is caught by the framework despite being a `BaseException`, the user can still call `raise_if_aborted()`.
+2. **Always store the original on `_abort_exception` before raising the signal.** This is a defensive fallback -- if the signal is caught by the framework despite being a `BaseException`, the user can still call `raise_if_aborted()`.
 
 3. **Use `raise _MaidaAbortSignal(e) from e`** to preserve the exception chain.
 
@@ -214,7 +214,7 @@ def on_llm_error(self, error, **kwargs):
 
 The core loop detector emits one `LOOP_WARNING` per distinct pattern and deduplicates subsequent detections. When `stop_on_loop=True`, the core re-raises `LoopAbort` on every detection opportunity (even for already-emitted patterns) so that frameworks that swallow the first exception still get interrupted.
 
-Your adapter does not need to handle dedup — the core handles it in `_maybe_emit_loop_warning`. Your adapter only needs to:
+Your adapter does not need to handle dedup -- the core handles it in `_maybe_emit_loop_warning`. Your adapter only needs to:
 1. Catch `GuardrailExceeded` from `record_*` calls
 2. Escalate to `_MaidaAbortSignal`
 3. Guard subsequent hooks with `_check_aborted()`
@@ -225,13 +225,13 @@ Your adapter does not need to handle dedup — the core handles it in `_maybe_em
 
 The `@trace` decorator detects async functions via `asyncio.iscoroutinefunction()` and uses an `async def` wrapper that `await`s inside the `_run_context`. Without this, the context manager tears down before the coroutine body executes, and no events are recorded.
 
-If your integration involves async callbacks, ensure the adapter works in both sync and async contexts. The `_MaidaAbortSignal` pattern works identically in both — `BaseException` subclasses propagate through `await` chains.
+If your integration involves async callbacks, ensure the adapter works in both sync and async contexts. The `_MaidaAbortSignal` pattern works identically in both -- `BaseException` subclasses propagate through `await` chains.
 
 ---
 
 ## Nested `traced_run` inside `@trace`
 
-When `traced_run(stop_on_loop=True)` is used inside an existing `@trace` run, the `_run_context` applies the inner guardrail params for the duration of the block. This is handled by the lifecycle layer — your adapter does not need to worry about it.
+When `traced_run(stop_on_loop=True)` is used inside an existing `@trace` run, the `_run_context` applies the inner guardrail params for the duration of the block. This is handled by the lifecycle layer -- your adapter does not need to worry about it.
 
 However, be aware that for sync code, the inner `traced_run` reuses the outer run (no new `run_id`). For async code where `@trace` wraps an async function, the outer context is properly maintained.
 
@@ -241,12 +241,12 @@ However, be aware that for sync code, the inner `traced_run` reuses the outer ru
 
 Every integration should have tests for:
 
-1. **Normal event recording** — LLM calls and tool calls are recorded with correct payloads
-2. **Error status recording** — failed operations record `status="error"` with error details
-3. **Guardrail propagation** — when `stop_on_loop=True` fires, the abort signal propagates through the simulated framework and the run ends with `status="error"`
-4. **Abort guard blocks subsequent operations** — after an abort, `on_*_start` methods raise immediately
-5. **Handler reset** — `reset()` clears abort state for reuse
-6. **Dedup** — only one `LOOP_WARNING` per distinct pattern, even when the abort is caught
+1. **Normal event recording** -- LLM calls and tool calls are recorded with correct payloads
+2. **Error status recording** -- failed operations record `status="error"` with error details
+3. **Guardrail propagation** -- when `stop_on_loop=True` fires, the abort signal propagates through the simulated framework and the run ends with `status="error"`
+4. **Abort guard blocks subsequent operations** -- after an abort, `on_*_start` methods raise immediately
+5. **Handler reset** -- `reset()` clears abort state for reuse
+6. **Dedup** -- only one `LOOP_WARNING` per distinct pattern, even when the abort is caught
 
 Use `_simulate_framework_handle_event` helpers that mimic the framework's error handling:
 
@@ -268,8 +268,8 @@ This ensures your tests verify that `_MaidaAbortSignal` (BaseException) propagat
 
 | Concern | Pattern |
 |---|---|
-| Guardrail exception from core | `GuardrailExceeded(Exception)` — caught by frameworks |
-| Abort signal from adapter | `_MaidaAbortSignal(BaseException)` — bypasses frameworks |
+| Guardrail exception from core | `GuardrailExceeded(Exception)` -- caught by frameworks |
+| Abort signal from adapter | `_MaidaAbortSignal(BaseException)` -- bypasses frameworks |
 | Store abort for fallback | `self._abort_exception = e` before raising signal |
 | Guard subsequent hooks | `_check_aborted()` at start of every `on_*_start` / `on_span_start` |
 | Reset for reuse | Explicit `reset()` method, never auto-reset in hooks |

@@ -1329,7 +1329,7 @@ def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert "everything below is simulated and local" in result.output
-    assert "policy 2.1 · plan 0.1.0 · report 2.0.1" in result.output
+    assert "policy 2.1 | plan 0.1.0 | report 2.0.1" in result.output
     assert "policy source: bundled demo refusal policy" in result.output
     assert "policy: plan_fanout <=" not in result.output
     assert "normalize -> [draft, review] -> publish" in result.output

@@ -487,10 +487,10 @@ def format_diff_markdown(diff: RunDiff) -> str:
             f"- Current: `{_format_tool_sequence(diff.current_tool_sequence)}`"
         )
 
-    tool_lines = [f"- ➕ `{t}` — new tool, not in baseline" for t in diff.new_tools]
-    tool_lines += [f"- ➖ `{t}` — no longer called" for t in diff.removed_tools]
+    tool_lines = [f"- ➕ `{t}` -- new tool, not in baseline" for t in diff.new_tools]
+    tool_lines += [f"- ➖ `{t}` -- no longer called" for t in diff.removed_tools]
     tool_lines += [
-        f"- 🔁 `{tool}` — repeated {baseline_count} -> {current_count} calls"
+        f"- 🔁 `{tool}` -- repeated {baseline_count} -> {current_count} calls"
         for tool, (baseline_count, current_count) in diff.repeated_tools.items()
     ]
     if diff.reordered_tools:

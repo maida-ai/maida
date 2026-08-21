@@ -292,8 +292,8 @@ def spans_to_events(spans: list[dict]) -> list[dict[str, Any]]:
 
     For each span, yields its main event via ``span_to_event_dict``.
     For the root span (no parent), also extracts:
-      - ``exception`` events → ``ERROR`` event dicts
-      - ``maida.loop.warning`` events → ``LOOP_WARNING`` event dicts
+      - ``exception`` events -> ``ERROR`` event dicts
+      - ``maida.loop.warning`` events -> ``LOOP_WARNING`` event dicts
       - A synthetic ``RUN_END`` event (from the root span's end_time)
     """
     root_span: dict | None = None

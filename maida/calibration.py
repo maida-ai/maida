@@ -115,7 +115,7 @@ def render_calibration_markdown(cells: list[CalibrationCell]) -> str:
     """Render the full reproducible grid as a documentation table."""
 
     def rate(value: float | None) -> str:
-        return "—" if value is None else f"{value:.2%}"
+        return "--" if value is None else f"{value:.2%}"
 
     lines = [
         "| N | θ | True pass rate | Status | False-fail | Inconclusive | Missed regression |",

@@ -8,96 +8,96 @@ False-fail is reported when the true pass rate is at or above θ. Missed regress
 
 | N | θ | True pass rate | Status | False-fail | Inconclusive | Missed regression |
 | ---: | ---: | ---: | --- | ---: | ---: | ---: |
-| 1 | 0.70 | 0.99 | load rejected (n_min=7) | — | — | — |
-| 1 | 0.70 | 0.95 | load rejected (n_min=7) | — | — | — |
-| 1 | 0.70 | 0.90 | load rejected (n_min=7) | — | — | — |
-| 1 | 0.70 | 0.85 | load rejected (n_min=7) | — | — | — |
-| 1 | 0.70 | 0.70 | load rejected (n_min=7) | — | — | — |
-| 1 | 0.80 | 0.99 | load rejected (n_min=11) | — | — | — |
-| 1 | 0.80 | 0.95 | load rejected (n_min=11) | — | — | — |
-| 1 | 0.80 | 0.90 | load rejected (n_min=11) | — | — | — |
-| 1 | 0.80 | 0.85 | load rejected (n_min=11) | — | — | — |
-| 1 | 0.80 | 0.70 | load rejected (n_min=11) | — | — | — |
-| 1 | 0.90 | 0.99 | load rejected (n_min=25) | — | — | — |
-| 1 | 0.90 | 0.95 | load rejected (n_min=25) | — | — | — |
-| 1 | 0.90 | 0.90 | load rejected (n_min=25) | — | — | — |
-| 1 | 0.90 | 0.85 | load rejected (n_min=25) | — | — | — |
-| 1 | 0.90 | 0.70 | load rejected (n_min=25) | — | — | — |
-| 3 | 0.70 | 0.99 | load rejected (n_min=7) | — | — | — |
-| 3 | 0.70 | 0.95 | load rejected (n_min=7) | — | — | — |
-| 3 | 0.70 | 0.90 | load rejected (n_min=7) | — | — | — |
-| 3 | 0.70 | 0.85 | load rejected (n_min=7) | — | — | — |
-| 3 | 0.70 | 0.70 | load rejected (n_min=7) | — | — | — |
-| 3 | 0.80 | 0.99 | load rejected (n_min=11) | — | — | — |
-| 3 | 0.80 | 0.95 | load rejected (n_min=11) | — | — | — |
-| 3 | 0.80 | 0.90 | load rejected (n_min=11) | — | — | — |
-| 3 | 0.80 | 0.85 | load rejected (n_min=11) | — | — | — |
-| 3 | 0.80 | 0.70 | load rejected (n_min=11) | — | — | — |
-| 3 | 0.90 | 0.99 | load rejected (n_min=25) | — | — | — |
-| 3 | 0.90 | 0.95 | load rejected (n_min=25) | — | — | — |
-| 3 | 0.90 | 0.90 | load rejected (n_min=25) | — | — | — |
-| 3 | 0.90 | 0.85 | load rejected (n_min=25) | — | — | — |
-| 3 | 0.90 | 0.70 | load rejected (n_min=25) | — | — | — |
-| 5 | 0.70 | 0.99 | load rejected (n_min=7) | — | — | — |
-| 5 | 0.70 | 0.95 | load rejected (n_min=7) | — | — | — |
-| 5 | 0.70 | 0.90 | load rejected (n_min=7) | — | — | — |
-| 5 | 0.70 | 0.85 | load rejected (n_min=7) | — | — | — |
-| 5 | 0.70 | 0.70 | load rejected (n_min=7) | — | — | — |
-| 5 | 0.80 | 0.99 | load rejected (n_min=11) | — | — | — |
-| 5 | 0.80 | 0.95 | load rejected (n_min=11) | — | — | — |
-| 5 | 0.80 | 0.90 | load rejected (n_min=11) | — | — | — |
-| 5 | 0.80 | 0.85 | load rejected (n_min=11) | — | — | — |
-| 5 | 0.80 | 0.70 | load rejected (n_min=11) | — | — | — |
-| 5 | 0.90 | 0.99 | load rejected (n_min=25) | — | — | — |
-| 5 | 0.90 | 0.95 | load rejected (n_min=25) | — | — | — |
-| 5 | 0.90 | 0.90 | load rejected (n_min=25) | — | — | — |
-| 5 | 0.90 | 0.85 | load rejected (n_min=25) | — | — | — |
-| 5 | 0.90 | 0.70 | load rejected (n_min=25) | — | — | — |
-| 7 | 0.70 | 0.99 | measured | 0.00% | 6.74% | — |
-| 7 | 0.70 | 0.95 | measured | 0.00% | 30.69% | — |
-| 7 | 0.70 | 0.90 | measured | 0.02% | 52.64% | — |
-| 7 | 0.70 | 0.85 | measured | 0.17% | 67.25% | — |
-| 7 | 0.70 | 0.70 | measured | 2.90% | 88.91% | — |
-| 7 | 0.80 | 0.99 | load rejected (n_min=11) | — | — | — |
-| 7 | 0.80 | 0.95 | load rejected (n_min=11) | — | — | — |
-| 7 | 0.80 | 0.90 | load rejected (n_min=11) | — | — | — |
-| 7 | 0.80 | 0.85 | load rejected (n_min=11) | — | — | — |
-| 7 | 0.80 | 0.70 | load rejected (n_min=11) | — | — | — |
-| 7 | 0.90 | 0.99 | load rejected (n_min=25) | — | — | — |
-| 7 | 0.90 | 0.95 | load rejected (n_min=25) | — | — | — |
-| 7 | 0.90 | 0.90 | load rejected (n_min=25) | — | — | — |
-| 7 | 0.90 | 0.85 | load rejected (n_min=25) | — | — | — |
-| 7 | 0.90 | 0.70 | load rejected (n_min=25) | — | — | — |
-| 11 | 0.70 | 0.99 | measured | 0.00% | 10.39% | — |
-| 11 | 0.70 | 0.95 | measured | 0.00% | 43.12% | — |
-| 11 | 0.70 | 0.90 | measured | 0.04% | 68.74% | — |
-| 11 | 0.70 | 0.85 | measured | 0.32% | 82.93% | — |
-| 11 | 0.70 | 0.70 | measured | 7.85% | 90.05% | — |
-| 11 | 0.80 | 0.99 | measured | 0.00% | 10.57% | — |
-| 11 | 0.80 | 0.95 | measured | 0.02% | 43.07% | — |
-| 11 | 0.80 | 0.90 | measured | 0.24% | 68.28% | — |
-| 11 | 0.80 | 0.85 | measured | 1.45% | 81.45% | — |
-| 11 | 0.80 | 0.70 | measured | — | 76.61% | 78.55% |
-| 11 | 0.90 | 0.99 | load rejected (n_min=25) | — | — | — |
-| 11 | 0.90 | 0.95 | load rejected (n_min=25) | — | — | — |
-| 11 | 0.90 | 0.90 | load rejected (n_min=25) | — | — | — |
-| 11 | 0.90 | 0.85 | load rejected (n_min=25) | — | — | — |
-| 11 | 0.90 | 0.70 | load rejected (n_min=25) | — | — | — |
-| 25 | 0.70 | 0.99 | measured | 0.00% | 0.04% | — |
-| 25 | 0.70 | 0.95 | measured | 0.00% | 3.56% | — |
-| 25 | 0.70 | 0.90 | measured | 0.00% | 23.54% | — |
-| 25 | 0.70 | 0.85 | measured | 0.02% | 52.57% | — |
-| 25 | 0.70 | 0.70 | measured | 4.49% | 92.31% | — |
-| 25 | 0.80 | 0.99 | measured | 0.00% | 2.65% | — |
-| 25 | 0.80 | 0.95 | measured | 0.00% | 35.09% | — |
-| 25 | 0.80 | 0.90 | measured | 0.04% | 71.86% | — |
-| 25 | 0.80 | 0.85 | measured | 0.80% | 89.94% | — |
-| 25 | 0.80 | 0.70 | measured | — | 68.25% | 68.40% |
-| 25 | 0.90 | 0.99 | measured | 0.00% | 22.44% | — |
-| 25 | 0.90 | 0.95 | measured | 0.64% | 71.85% | — |
-| 25 | 0.90 | 0.90 | measured | 10.19% | 82.63% | — |
-| 25 | 0.90 | 0.85 | measured | — | 66.06% | 67.68% |
-| 25 | 0.90 | 0.70 | measured | — | 9.10% | 9.10% |
+| 1 | 0.70 | 0.99 | load rejected (n_min=7) | -- | -- | -- |
+| 1 | 0.70 | 0.95 | load rejected (n_min=7) | -- | -- | -- |
+| 1 | 0.70 | 0.90 | load rejected (n_min=7) | -- | -- | -- |
+| 1 | 0.70 | 0.85 | load rejected (n_min=7) | -- | -- | -- |
+| 1 | 0.70 | 0.70 | load rejected (n_min=7) | -- | -- | -- |
+| 1 | 0.80 | 0.99 | load rejected (n_min=11) | -- | -- | -- |
+| 1 | 0.80 | 0.95 | load rejected (n_min=11) | -- | -- | -- |
+| 1 | 0.80 | 0.90 | load rejected (n_min=11) | -- | -- | -- |
+| 1 | 0.80 | 0.85 | load rejected (n_min=11) | -- | -- | -- |
+| 1 | 0.80 | 0.70 | load rejected (n_min=11) | -- | -- | -- |
+| 1 | 0.90 | 0.99 | load rejected (n_min=25) | -- | -- | -- |
+| 1 | 0.90 | 0.95 | load rejected (n_min=25) | -- | -- | -- |
+| 1 | 0.90 | 0.90 | load rejected (n_min=25) | -- | -- | -- |
+| 1 | 0.90 | 0.85 | load rejected (n_min=25) | -- | -- | -- |
+| 1 | 0.90 | 0.70 | load rejected (n_min=25) | -- | -- | -- |
+| 3 | 0.70 | 0.99 | load rejected (n_min=7) | -- | -- | -- |
+| 3 | 0.70 | 0.95 | load rejected (n_min=7) | -- | -- | -- |
+| 3 | 0.70 | 0.90 | load rejected (n_min=7) | -- | -- | -- |
+| 3 | 0.70 | 0.85 | load rejected (n_min=7) | -- | -- | -- |
+| 3 | 0.70 | 0.70 | load rejected (n_min=7) | -- | -- | -- |
+| 3 | 0.80 | 0.99 | load rejected (n_min=11) | -- | -- | -- |
+| 3 | 0.80 | 0.95 | load rejected (n_min=11) | -- | -- | -- |
+| 3 | 0.80 | 0.90 | load rejected (n_min=11) | -- | -- | -- |
+| 3 | 0.80 | 0.85 | load rejected (n_min=11) | -- | -- | -- |
+| 3 | 0.80 | 0.70 | load rejected (n_min=11) | -- | -- | -- |
+| 3 | 0.90 | 0.99 | load rejected (n_min=25) | -- | -- | -- |
+| 3 | 0.90 | 0.95 | load rejected (n_min=25) | -- | -- | -- |
+| 3 | 0.90 | 0.90 | load rejected (n_min=25) | -- | -- | -- |
+| 3 | 0.90 | 0.85 | load rejected (n_min=25) | -- | -- | -- |
+| 3 | 0.90 | 0.70 | load rejected (n_min=25) | -- | -- | -- |
+| 5 | 0.70 | 0.99 | load rejected (n_min=7) | -- | -- | -- |
+| 5 | 0.70 | 0.95 | load rejected (n_min=7) | -- | -- | -- |
+| 5 | 0.70 | 0.90 | load rejected (n_min=7) | -- | -- | -- |
+| 5 | 0.70 | 0.85 | load rejected (n_min=7) | -- | -- | -- |
+| 5 | 0.70 | 0.70 | load rejected (n_min=7) | -- | -- | -- |
+| 5 | 0.80 | 0.99 | load rejected (n_min=11) | -- | -- | -- |
+| 5 | 0.80 | 0.95 | load rejected (n_min=11) | -- | -- | -- |
+| 5 | 0.80 | 0.90 | load rejected (n_min=11) | -- | -- | -- |
+| 5 | 0.80 | 0.85 | load rejected (n_min=11) | -- | -- | -- |
+| 5 | 0.80 | 0.70 | load rejected (n_min=11) | -- | -- | -- |
+| 5 | 0.90 | 0.99 | load rejected (n_min=25) | -- | -- | -- |
+| 5 | 0.90 | 0.95 | load rejected (n_min=25) | -- | -- | -- |
+| 5 | 0.90 | 0.90 | load rejected (n_min=25) | -- | -- | -- |
+| 5 | 0.90 | 0.85 | load rejected (n_min=25) | -- | -- | -- |
+| 5 | 0.90 | 0.70 | load rejected (n_min=25) | -- | -- | -- |
+| 7 | 0.70 | 0.99 | measured | 0.00% | 6.74% | -- |
+| 7 | 0.70 | 0.95 | measured | 0.00% | 30.69% | -- |
+| 7 | 0.70 | 0.90 | measured | 0.02% | 52.64% | -- |
+| 7 | 0.70 | 0.85 | measured | 0.17% | 67.25% | -- |
+| 7 | 0.70 | 0.70 | measured | 2.90% | 88.91% | -- |
+| 7 | 0.80 | 0.99 | load rejected (n_min=11) | -- | -- | -- |
+| 7 | 0.80 | 0.95 | load rejected (n_min=11) | -- | -- | -- |
+| 7 | 0.80 | 0.90 | load rejected (n_min=11) | -- | -- | -- |
+| 7 | 0.80 | 0.85 | load rejected (n_min=11) | -- | -- | -- |
+| 7 | 0.80 | 0.70 | load rejected (n_min=11) | -- | -- | -- |
+| 7 | 0.90 | 0.99 | load rejected (n_min=25) | -- | -- | -- |
+| 7 | 0.90 | 0.95 | load rejected (n_min=25) | -- | -- | -- |
+| 7 | 0.90 | 0.90 | load rejected (n_min=25) | -- | -- | -- |
+| 7 | 0.90 | 0.85 | load rejected (n_min=25) | -- | -- | -- |
+| 7 | 0.90 | 0.70 | load rejected (n_min=25) | -- | -- | -- |
+| 11 | 0.70 | 0.99 | measured | 0.00% | 10.39% | -- |
+| 11 | 0.70 | 0.95 | measured | 0.00% | 43.12% | -- |
+| 11 | 0.70 | 0.90 | measured | 0.04% | 68.74% | -- |
+| 11 | 0.70 | 0.85 | measured | 0.32% | 82.93% | -- |
+| 11 | 0.70 | 0.70 | measured | 7.85% | 90.05% | -- |
+| 11 | 0.80 | 0.99 | measured | 0.00% | 10.57% | -- |
+| 11 | 0.80 | 0.95 | measured | 0.02% | 43.07% | -- |
+| 11 | 0.80 | 0.90 | measured | 0.24% | 68.28% | -- |
+| 11 | 0.80 | 0.85 | measured | 1.45% | 81.45% | -- |
+| 11 | 0.80 | 0.70 | measured | -- | 76.61% | 78.55% |
+| 11 | 0.90 | 0.99 | load rejected (n_min=25) | -- | -- | -- |
+| 11 | 0.90 | 0.95 | load rejected (n_min=25) | -- | -- | -- |
+| 11 | 0.90 | 0.90 | load rejected (n_min=25) | -- | -- | -- |
+| 11 | 0.90 | 0.85 | load rejected (n_min=25) | -- | -- | -- |
+| 11 | 0.90 | 0.70 | load rejected (n_min=25) | -- | -- | -- |
+| 25 | 0.70 | 0.99 | measured | 0.00% | 0.04% | -- |
+| 25 | 0.70 | 0.95 | measured | 0.00% | 3.56% | -- |
+| 25 | 0.70 | 0.90 | measured | 0.00% | 23.54% | -- |
+| 25 | 0.70 | 0.85 | measured | 0.02% | 52.57% | -- |
+| 25 | 0.70 | 0.70 | measured | 4.49% | 92.31% | -- |
+| 25 | 0.80 | 0.99 | measured | 0.00% | 2.65% | -- |
+| 25 | 0.80 | 0.95 | measured | 0.00% | 35.09% | -- |
+| 25 | 0.80 | 0.90 | measured | 0.04% | 71.86% | -- |
+| 25 | 0.80 | 0.85 | measured | 0.80% | 89.94% | -- |
+| 25 | 0.80 | 0.70 | measured | -- | 68.25% | 68.40% |
+| 25 | 0.90 | 0.99 | measured | 0.00% | 22.44% | -- |
+| 25 | 0.90 | 0.95 | measured | 0.64% | 71.85% | -- |
+| 25 | 0.90 | 0.90 | measured | 10.19% | 82.63% | -- |
+| 25 | 0.90 | 0.85 | measured | -- | 66.06% | 67.68% |
+| 25 | 0.90 | 0.70 | measured | -- | 9.10% | 9.10% |
 
 ## Recorded offline harness cost
 

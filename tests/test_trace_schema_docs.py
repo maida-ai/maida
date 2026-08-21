@@ -46,10 +46,17 @@ def test_schema_changelog_and_trace_reference_define_version_policy() -> None:
 
 def test_public_docs_link_emitter_guide_and_validator() -> None:
     index = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
-    cli = (ROOT / "docs" / "cli.md").read_text(encoding="utf-8")
+    # The CLI reference is an index page plus one page per command.
+    cli = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [
+            ROOT / "docs" / "cli.md",
+            *sorted((ROOT / "docs" / "cli").rglob("*.md")),
+        ]
+    )
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "reference/trace-emitter.md" in index
-    assert "## `maida validate-trace`" in cli
+    assert "# `maida validate-trace`" in cli
     assert "maida validate-trace PATH [--json]" in cli
     assert "validate-trace" in readme
