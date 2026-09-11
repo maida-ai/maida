@@ -1,11 +1,18 @@
 import re
 from pathlib import Path
 
-from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+try:
+    from hatchling.metadata.plugin.interface import MetadataHookInterface
+except ModuleNotFoundError:  # pragma: no cover - hatchling is build-time only
+    MetadataHookInterface = object  # type: ignore[misc, assignment]
 
 
-_IMAGE_LINK_RE = re.compile(r"!\[([^\]]+)\]\(([^)]+)\)")
-_NORMAL_LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
+_MARKDOWN_PREVIEW_LINK_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+# Allow one level of nested brackets so badge links like
+# [![alt](https://img...)](LICENSE) rewrite the outer target.
+_MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[((?:[^\[\]]|\[[^\]]*\])*)\]\(([^)]+)\)")
+_HTML_PREVIEW_LINK_RE = re.compile(r'src="([^"]+)"')
+_HTML_LINK_RE = re.compile(r'href="([^"]+)"')
 
 
 def _normalize_base(base: str) -> str:
@@ -32,7 +39,7 @@ def _append_raw_true(url: str) -> str:
 
 
 def relative_preview_links(content: str, base: str) -> str:
-    """Replace relative preview links with absolute links with `raw=True`."""
+    """Replace relative markdown image links with absolute links with `raw=True`."""
     base = _normalize_base(base)
 
     def repl(m: re.Match[str]) -> str:
@@ -41,11 +48,11 @@ def relative_preview_links(content: str, base: str) -> str:
             return m.group(0)
         return f"![{alt}]({_append_raw_true(base + url)})"
 
-    return _IMAGE_LINK_RE.sub(repl, content)
+    return _MARKDOWN_PREVIEW_LINK_RE.sub(repl, content)
 
 
 def relative_non_preview_links(content: str, base: str) -> str:
-    """Replace relative non-image links with absolute links."""
+    """Replace relative markdown links with absolute links."""
     base = _normalize_base(base)
 
     def repl(m: re.Match[str]) -> str:
@@ -54,45 +61,75 @@ def relative_non_preview_links(content: str, base: str) -> str:
             return m.group(0)
         return f"[{text}]({base}{url})"
 
-    return _NORMAL_LINK_RE.sub(repl, content)
+    return _MARKDOWN_LINK_RE.sub(repl, content)
 
 
-class ReadmeLinksRewriteBuildHook(BuildHookInterface):
-    """Rewrite README links during build, then restore the original file."""
+def relative_html_preview_links(content: str, base: str) -> str:
+    """Replace relative HTML image `src` URLs with absolute links with `raw=True`."""
+    base = _normalize_base(base)
+
+    def repl(m: re.Match[str]) -> str:
+        url = m.group(1)
+        if _is_external_or_ignored(url):
+            return m.group(0)
+        return f'src="{_append_raw_true(base + url)}"'
+
+    return _HTML_PREVIEW_LINK_RE.sub(repl, content)
+
+
+def relative_html_links(content: str, base: str) -> str:
+    """Replace relative HTML `href` URLs with absolute links."""
+    base = _normalize_base(base)
+
+    def repl(m: re.Match[str]) -> str:
+        url = m.group(1)
+        if _is_external_or_ignored(url):
+            return m.group(0)
+        return f'href="{base}{url}"'
+
+    return _HTML_LINK_RE.sub(repl, content)
+
+
+def rewrite_readme_links(content: str, base: str) -> str:
+    """Rewrite relative markdown and HTML README links for PyPI."""
+    rewritten = relative_non_preview_links(content, base)
+    rewritten = relative_preview_links(rewritten, base)
+    rewritten = relative_html_links(rewritten, base)
+    rewritten = relative_html_preview_links(rewritten, base)
+    return rewritten
+
+
+def readme_base_url(
+    version: str, base_url: str = "https://github.com/maida-ai/maida/blob/"
+) -> str:
+    """Return the GitHub blob base URL for a package version."""
+    ref = "main" if ".dev" in version else f"v{version}"
+    return f"{_normalize_base(base_url)}{ref}/"
+
+
+class ReadmeLinksRewriteMetadataHook(MetadataHookInterface):
+    """Rewrite relative README links into absolute URLs for package metadata."""
 
     PLUGIN_NAME = "custom"
     BASE_URL = "https://github.com/maida-ai/maida/blob/"
-    README_FILE = Path("README.md")
-    README_BACKUP_FILE = Path("_README.md")
+    README_FILE = "README.md"
 
-    def initialize(self, version, build_data):
-        if not self.README_FILE.exists():
-            raise RuntimeError("README.md was not found.")
-
-        if self.README_BACKUP_FILE.exists():
+    def update(self, metadata: dict) -> None:
+        version = metadata.get("version")
+        if not version:
             raise RuntimeError(
-                "_README.md already exists. Refusing to continue to avoid clobbering a backup."
+                "Package version must be resolved before rewriting README links."
             )
 
-        version = self.metadata.version
-        ref = "main" if ".dev" in version else f"v{version}"
-        base = f"{self.BASE_URL}{ref}/"
+        readme_path = Path(self.root) / self.README_FILE
+        if not readme_path.is_file():
+            raise RuntimeError(f"{self.README_FILE} was not found.")
 
-        original = self.README_FILE.read_text(encoding="utf-8")
-        rewritten = relative_non_preview_links(original, base)
-        rewritten = relative_preview_links(rewritten, base)
-
-        try:
-            self.README_FILE.rename(self.README_BACKUP_FILE)
-            self.README_FILE.write_text(rewritten, encoding="utf-8")
-        except Exception:
-            if self.README_FILE.exists():
-                self.README_FILE.unlink()
-            self.README_BACKUP_FILE.rename(self.README_FILE)
-            raise
-
-    def finalize(self, version, build_data, artifact_path):
-        if self.README_BACKUP_FILE.exists():
-            if self.README_FILE.exists():
-                self.README_FILE.unlink()
-            self.README_BACKUP_FILE.rename(self.README_FILE)
+        original = readme_path.read_text(encoding="utf-8")
+        rewritten = rewrite_readme_links(
+            original, readme_base_url(version, self.BASE_URL)
+        )
+        metadata["readme"] = {
+            "content-type": "text/markdown",
+            "text": rewritten,
+        }

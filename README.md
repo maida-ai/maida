@@ -223,7 +223,7 @@ backend resolves planner output against application-owned module contracts and
 refuses a policy-breaking plan before any generated module executes:
 
 ```bash
-uv tool install --force --python 3.12 --with "maida-workflows>=0.1.0" "maida-ai>=0.5.2.post1"
+uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.5.3"
 maida demo --plan
 ```
 

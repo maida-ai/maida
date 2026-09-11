@@ -23,6 +23,10 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
             name for name in names if name.endswith(".dist-info/entry_points.txt")
         )
         entry_points = wheel.read(entry_points_path).decode()
+        metadata_path = next(
+            name for name in names if name.endswith(".dist-info/METADATA")
+        )
+        metadata = wheel.read(metadata_path).decode()
 
     assert "maida/__init__.py" in names
     assert "maida/cli.py" in names
@@ -31,3 +35,10 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
     assert "maida/server.py" in names
     assert "maida/ui_static/index.html" in names
     assert "maida = maida.cli:main" in entry_points
+
+    # PyPI cannot resolve relative README links; the metadata hook must absolutize them.
+    assert "](docs/assets/guardrails.gif)" not in metadata
+    assert "docs/assets/guardrails.gif?raw=True" in metadata
+    assert "https://github.com/maida-ai/maida/blob/" in metadata
+    assert "](docs/guardrails.md)" not in metadata
+    assert "docs/guardrails.md" in metadata
