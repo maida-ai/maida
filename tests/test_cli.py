@@ -19,7 +19,6 @@ import yaml
 
 import pytest
 from packaging.requirements import Requirement
-from packaging.version import Version
 from typer.testing import CliRunner
 
 from maida import record_llm_call, record_tool_call, traced_run
@@ -1445,26 +1444,28 @@ def test_demo_plan_missing_optional_backend_uses_canonical_install_instruction(
     assert result.exit_code == 2
     assert "maida-workflows is required for generated-plan gating" in result.stderr
     assert result.stderr.rstrip().endswith(install_command)
-    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
-    assert readme.count(install_command) == 1
 
 
-def test_demo_plan_install_instruction_resolves_released_backend_pair():
-    requirements = [
-        Requirement(argument)
+def test_demo_plan_install_instruction_has_lower_bounds_aligned_with_contract():
+    requirements = {
+        Requirement(argument).name: Requirement(argument)
         for argument in shlex.split(_PLAN_BACKEND_INSTALL_COMMAND)
         if argument.startswith(("maida-ai", "maida-workflows"))
-    ]
-    core = next(
-        requirement for requirement in requirements if requirement.name == "maida-ai"
-    )
-    compatible_releases = [
-        version
-        for version in (Version("0.5.2"), Version("0.5.2.post1"))
-        if version in core.specifier
-    ]
+    }
+    assert set(requirements) == {"maida-ai", "maida-workflows"}
 
-    assert compatible_releases == [Version("0.5.2.post1")]
+    def has_lower_bound(requirement: Requirement) -> bool:
+        return any(spec.operator in {">=", ">"} for spec in requirement.specifier)
+
+    assert has_lower_bound(requirements["maida-ai"])
+    assert has_lower_bound(requirements["maida-workflows"])
+
+    contract = json.loads(
+        (Path(__file__).parents[1] / "contracts" / "current-main.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert str(requirements["maida-ai"]) == contract["install_requirement"]
 
 
 def test_demo_plan_rejects_incompatible_demo_options():

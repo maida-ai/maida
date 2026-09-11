@@ -216,18 +216,8 @@ Markdown.
 📖 [Regression testing guide](https://maida.ai/docs/regression-testing/) |
 [CLI reference](https://maida.ai/docs/cli/)
 
-### 🧭 Refuse a generated plan before it runs
-
-If your agent builds its plan at runtime, the optional `maida-workflows`
-backend resolves planner output against application-owned module contracts and
-refuses a policy-breaking plan before any generated module executes:
-
-```bash
-uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.5.3"
-maida demo --plan
-```
-
-Core Maida and its ordinary demos keep working without the backend installed.
+For generated-plan gating, see the optional
+[maida-workflows](https://github.com/maida-ai/maida-workflows) package.
 
 ## 🔌 Integrations
 
