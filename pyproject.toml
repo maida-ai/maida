@@ -1,13 +1,11 @@
 [project]
 name = "maida-ai"
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 description = "Don't let broken agent changes merge."
-readme = { file = "README.md", content-type = "text/markdown" }
 license = "Apache-2.0"
 license-files = [ "LICENSE" ]
 authors = [
-    { name = "z-a-f", email = "zafar@maida.ai" },
-    { name = "crowell", email = "jeff@maida.ai" }
+    { name = "z-a-f", email = "zafar@maida.ai" }
 ]
 requires-python = ">=3.10,<3.14"
 dependencies = [
@@ -86,5 +84,5 @@ template = '''
 # This file is managed by dynamic versioning. Do not edit manually.
 version = "{version}"'''
 
-[tool.hatch.build.hooks.custom]
+[tool.hatch.metadata.hooks.custom]
 path = "scripts/hatch_hooks/readme_links_rewrite.py"
