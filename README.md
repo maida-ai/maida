@@ -26,8 +26,9 @@ seen. Output evals pass. Review sees a green diff. It ships.
 agent execution traces against checked-in baselines and blocks PRs when
 structural behavior regresses.
 
-🔒 **No cloud. No accounts. No telemetry.** Everything stays on your machine, or
-on your CI runner.
+🔒 **No cloud or account required. No usage collection by default.** Traces stay
+on your machine or CI runner. [Optional usage counts](docs/usage-ping.md) require
+explicit consent and a configured collector; no collector is configured by default.
 
 ## ⚡ Try it in 60 seconds
 
