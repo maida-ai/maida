@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Maida optional usage ping v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9.+_-]{1,100}$"
+    },
+    "repo_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "pr": {
+      "type": "boolean"
+    },
+    "verdict_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pass": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "fail": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "inconclusive": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        }
+      },
+      "required": [
+        "pass",
+        "fail",
+        "inconclusive"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "pass": {
+              "const": 1
+            },
+            "fail": {
+              "const": 0
+            },
+            "inconclusive": {
+              "const": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass": {
+              "const": 0
+            },
+            "fail": {
+              "const": 1
+            },
+            "inconclusive": {
+              "const": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass": {
+              "const": 0
+            },
+            "fail": {
+              "const": 0
+            },
+            "inconclusive": {
+              "const": 1
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "version",
+    "repo_id",
+    "date",
+    "pr",
+    "verdict_counts"
+  ]
+}

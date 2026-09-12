@@ -1062,7 +1062,8 @@ def test_assert_json_format(empty_data_dir):
         app, ["assert", run_id, "--max-steps", "10", "--format", "json"]
     )
     assert result.exit_code == 0
-    data = json.loads(result.output)
+    data = json.loads(result.stdout)
+    assert "Usage ping: disabled" in result.stderr
     assert data["passed"] is True
 
 

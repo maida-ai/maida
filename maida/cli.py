@@ -86,6 +86,7 @@ from maida.scaffold import (
     write_scaffold,
 )
 from maida.server import create_app
+from maida.usage import report_usage
 from maida.trace_validation import (
     TraceDiagnostic,
     TraceInputError,
@@ -702,6 +703,7 @@ def run_cmd(
         else:
             rendered = report.to_text()
         typer.echo(rendered)
+        typer.echo(report_usage(report.verdict.value), err=True)
         if report.verdict is GateVerdict.FAIL:
             raise Exit(1)
     except Exit:
@@ -1303,6 +1305,7 @@ def assert_cmd(
             else:
                 typer.echo(format_report_text(report))
 
+        typer.echo(report_usage("pass" if report.passed else "fail"), err=True)
         if not report.passed:
             raise Exit(1)
     except Exit:
