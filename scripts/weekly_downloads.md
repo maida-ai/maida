@@ -6,41 +6,47 @@ From the repository root:
 uv run python scripts/weekly_downloads.py --output _ai_report/weekly-downloads.csv
 ```
 
-This maintainer command reads public aggregate counts from PyPI Stats. It has no
-credentials, sends no local run data, and adds no telemetry to the Maida CLI.
-It writes two Monday–Sunday UTC periods ending on the last completed Sunday to
-CSV, plus the source response and collection time in a sibling `.source.json`.
-Choose a dated output filename to retain each collection. Existing output at the
-same path is replaced. To select a historical period within source retention:
+This maintainer command reads public aggregate download counts for PyPI
+`maida-ai` and npm `@maida-ai/core`. It has no credentials, sends no local run
+data, and adds no telemetry to the Maida CLI. It writes two Monday–Sunday UTC
+periods ending on the last completed Sunday to CSV, plus source responses and
+collection time in a sibling `.source.json`. Use dated output filenames to retain
+weekly collections; existing output at the same path is replaced.
 
 ```bash
 uv run python scripts/weekly_downloads.py --week-ending 2026-09-06 --weeks 2 --output _ai_report/weekly-downloads-20260906.csv
 ```
 
-`pypi_downloads` excludes known mirrors. Downloads include repeated downloads and
-CI activity; they do not measure installs, unique users, or successful setup.
+The registries have separate download, observed-day, status, and source columns.
+Do not add their counts together to estimate users: downloads can include repeated
+fetches and CI activity. They do not measure installs, unique users, successful
+setup, or active weekly use.
+
+`pypi_downloads` excludes known mirrors.
 [PyPI Stats documents](https://pypistats.org/api/) daily updates and 180-day
-retention. This command requires seven explicit daily observations per week.
-Missing days are unknown, even if they might represent zero downloads: the weekly
-count remains blank and `pypi_status` is `incomplete`. A complete zero count is
-valid. CSV dates and counts provide a weekly series suitable for plotting.
+retention. The npm collector uses the official
+[npm download range API](https://github.com/npm/registry/blob/main/docs/download-counts.md)
+for daily counts over the same inclusive dates. Each weekly total requires seven
+explicit daily observations. Missing days are unknown, even if they might
+represent zero downloads: the affected count stays blank with `incomplete`
+status. Seven explicit zeros produce a complete zero count. Dates and counts
+form weekly series suitable for plotting.
 
-`marketplace_installs` is blank and `marketplace_status` is `unavailable`.
-[GitHub Marketplace listing metrics](https://docs.github.com/en/apps/github-marketplace/creating-apps-for-github-marketplace/viewing-metrics-for-your-listing)
-apply to GitHub Apps, not Actions. No documented Actions install-count endpoint
-has been identified for this collector. Stars, code-search matches, and public
-workflow references are not install counts and are not substituted. An
-owner-approved data source or a separately defined usage metric is required to
-complete that part of collection.
+A fetch or validation failure marks only that registry `unavailable`; the other
+registry's valid observations and both source outcomes are retained. If both
+sources fail, existing output is preserved. Source errors record only the error
+class, not response bodies or environment details. Exit 0 means all requested
+weeks from both registries have seven observations; exit 1 indicates incomplete
+or unavailable data or an output failure. Argument errors return 2. Inspect the
+source JSON and retry after the source updates or choose an earlier period.
+CSV and source writes are separate; check both after a filesystem error.
 
-Exit 0 means all requested PyPI weeks have seven daily observations; it does not
-mean Marketplace data exists. Exit 1 means a collection/output failure or an
-incomplete PyPI period. Argument errors return 2. On incomplete weeks, inspect the
-retained response and retry after the source updates or select another period.
-On a fetch or validation error, existing output is preserved. CSV and source
-writes are separate; check both artifacts after a filesystem error.
+Private voluntary check-ins and the owner's private weekly sheet are maintained
+separately. This command neither reads nor writes that sheet and collects no
+check-in identities. It does not infer GitHub Actions installs from Marketplace
+stars or code-search matches.
 
-Run the command weekly with dated paths. A two-week baseline requires two complete
+Run weekly with dated output paths. A two-week baseline requires two complete
 periods and independent confirmation that their dates precede the intended
-comparison event. Historical data alone cannot establish that timing. No schedule,
-publication, or event date is configured by this script.
+comparison event. Historical data alone cannot establish that timing. No
+schedule, publication, or event date is configured by this script.

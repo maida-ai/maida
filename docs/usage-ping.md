@@ -1,5 +1,9 @@
 # Optional usage counts
 
+The active adoption workflow uses a private sheet with voluntary check-ins and
+separate public registry download counts. This prepared ping is not activated
+by that workflow; see [retention measurement](../scripts/retention.md).
+
 Collection is **off by default**. Maida configures no collector URL, enables no
 receiver, and makes no usage request unless `MAIDA_USAGE_OPT_IN=1` is explicitly
 set. Local tracing and the demo remain offline. The prepared receiver is separate
