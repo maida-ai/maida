@@ -4,6 +4,11 @@ A repository is **retained** when a Maida check ran on at least one pull request
 in **each** of weeks 3 and 4 after installation. This measures repeated use,
 not successful verdicts, branch protection, or behavioral correctness.
 
+The active workflow is a **private sheet populated by voluntary check-ins**.
+Automated usage collection remains disabled. Public PyPI and npm download
+snapshots are separate context: they cannot establish repository setup or
+retention. See [weekly public downloads](weekly_downloads.md).
+
 ## Time and counting rules
 
 - `installed_at_utc` is the first installation of the Maida PR check in the
@@ -39,7 +44,7 @@ Record one row per repository:
 | `week3_status`, `week4_status` | `yes`, `no`, or `unknown` |
 | `week3_run_at_utc`, `week4_run_at_utc` | Timestamp of one qualifying execution, when known |
 | `week3_evidence_ref`, `week4_evidence_ref` | Reference to private evidence supporting that week's status |
-| `source` | `opt_in_ping`, `check_in`, or `both` |
+| `source` | `check_in` for the active voluntary workflow |
 | `reviewed_at_utc` | Timestamp of the review that validated this row |
 | `reviewer_ref` | Private reference to the reviewer |
 | `notes` | Minimal explanation of missing or conflicting evidence |
@@ -51,11 +56,22 @@ confirmation in the private evidence record. Set `no` only when a complete week
 is explicitly confirmed to have had no qualifying executions. Silence, absent
 pings, withdrawn consent, and conflicting evidence mean `unknown`, not `no`.
 
-Opt-in pings are a potential source only when their documented fields prove
-repository identity, PR execution, and timing. Aggregate anonymous command
-pings and package download totals cannot establish retention. Do not collect
-additional identifying data automatically to fill this gap; use voluntary
-check-ins. No collection is enabled by this document or template.
+Ask permission to record the confirmation privately, explain its purpose, and
+allow the operator to decline. Request no traces, prompts, tool payloads, access
+tokens, or private repository access. Do not automatically send reminders or
+collect additional identifying data to fill missing answers.
+
+A suggested check-in, sent manually by the review owner:
+
+> May we record your optional confirmation privately to understand continued use?
+> When was the Maida PR check first installed? During each of these two intervals
+> [insert install-relative week 3 and week 4 dates], did it run on a PR? Yes, no,
+> or unsure is enough. No traces or payloads needed, and you can decline.
+
+Aggregate command pings and package download totals cannot establish retention.
+Any future automated source requires a separate explicit opt-in and adequate
+evidence of identity, PR execution, and timing. No collection is enabled by this
+document or template.
 
 ## Weekly calculation
 
@@ -92,6 +108,13 @@ The review owner should add this item to the existing private weekly agenda:
 > Refresh the retention sheet at the agreed UTC cutoff. Review confirmed retained
 > repositories (`R`) with eligibility and unknown counts; reconcile duplicate or
 > missing evidence; record the applicable threshold result and next action.
+
+The private sheet itself may serve as the agenda. Keep separate tabs for the
+review procedure, voluntary check-ins, public downloads, and dated review history.
+Record the owner privately; the public template contains no partner identities or
+private sheet URL. Import registry snapshots as dated values, keeping each
+registry's count, completeness status, and source. Never add PyPI and npm together
+as unique users or convert missing observations into zeros.
 
 Record the owner, recurring day/time, private sheet location, agenda location,
 and next review date in that agenda. At each review, save the snapshot and record
