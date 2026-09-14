@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import platform
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -763,8 +765,14 @@ def run_trials(
     baseline: dict | None = None,
     confidence_level: float = 0.95,
     pass_rate_threshold: float = 0.90,
+    max_wall_time_seconds: float | None = None,
 ) -> TrialRunReport:
-    """Execute the agent in isolated workspaces and aggregate policy tiers."""
+    """Execute isolated trials, optionally sharing a wall-time budget across them."""
+    deadline = None
+    if max_wall_time_seconds is not None:
+        if not math.isfinite(max_wall_time_seconds) or max_wall_time_seconds <= 0:
+            raise ValueError("max_wall_time_seconds must be finite and positive")
+        deadline = time.monotonic() + max_wall_time_seconds
     del confidence_level, pass_rate_threshold
     if not policy.metrics:
         policy = merge_policy(policy, {})
@@ -793,14 +801,21 @@ def run_trials(
             env = os.environ.copy()
             env["MAIDA_DATA_DIR"] = str(trial_data_dir)
             env["MAIDA_TRIAL_INDEX"] = str(trial_number)
-            completed = subprocess.run(
-                [sys.executable, str(relative_script)],
-                cwd=trial_root,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                raise TimeoutError("trial execution exceeded wall-time cap")
+            try:
+                completed = subprocess.run(
+                    [sys.executable, str(relative_script)],
+                    cwd=trial_root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=remaining,
+                )
+            except subprocess.TimeoutExpired as error:
+                raise TimeoutError("trial execution exceeded wall-time cap") from error
 
             runs_dir = trial_data_dir / "runs"
             trace_dirs = (
@@ -863,7 +878,7 @@ def run_trials(
         trials_budgeted=trials,
         stopping_rule=stopping_rule,
     )
-    return TrialRunReport(
+    report = TrialRunReport(
         trials_requested=trials,
         trials=records,
         aggregate_results=aggregate_results,
@@ -878,3 +893,6 @@ def run_trials(
             else None
         ),
     )
+    if deadline is not None and time.monotonic() >= deadline:
+        raise TimeoutError("trial execution exceeded wall-time cap")
+    return report

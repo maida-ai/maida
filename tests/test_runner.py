@@ -62,6 +62,7 @@ with traced_run(name="isolated-agent"):
         policy=AssertionPolicy(max_tool_calls=1),
         config=config,
         project_root=agent_repo,
+        max_wall_time_seconds=30,
     )
 
     assert report.trials_requested == 3
@@ -78,6 +79,53 @@ with traced_run(name="isolated-agent"):
     assert not (agent_repo / "trial-state.txt").exists()
     for trial in report.trials:
         assert (temp_data_dir / "runs" / trial.trace_id / "meta.json").is_file()
+
+
+@pytest.mark.parametrize("budget", [0, -1, float("nan"), float("inf")])
+def test_run_trials_rejects_invalid_wall_time_budget(agent_repo, temp_data_dir, budget):
+    with pytest.raises(ValueError, match="finite and positive"):
+        run_trials(
+            agent_repo / "missing.py",
+            trials=1,
+            policy=AssertionPolicy(),
+            config=load_config(project_root=agent_repo),
+            max_wall_time_seconds=budget,
+        )
+
+
+@pytest.mark.parametrize("trials", [1, 2])
+def test_run_trials_shares_budget_and_checks_final_processing(
+    agent_repo, temp_data_dir, monkeypatch, trials
+):
+    import sys
+
+    _write_agent(
+        agent_repo,
+        'from maida import traced_run\nwith traced_run(name="budget"): pass\n',
+    )
+    clock = [0.0]
+    executions = []
+    run = subprocess.run
+
+    def run_and_consume_budget(args, **kwargs):
+        result = run(args, **kwargs)
+        if args[0] == sys.executable:
+            executions.append(args)
+            clock[0] = 2.0
+        return result
+
+    monkeypatch.setattr("maida.runner_v2.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("maida.runner_v2.subprocess.run", run_and_consume_budget)
+    with pytest.raises(TimeoutError, match="wall-time cap"):
+        run_trials(
+            agent_repo / "agent.py",
+            trials=trials,
+            policy=AssertionPolicy(),
+            config=load_config(project_root=agent_repo),
+            project_root=agent_repo,
+            max_wall_time_seconds=1,
+        )
+    assert len(executions) == 1
 
 
 def test_run_trials_copies_nonignored_untracked_files(
