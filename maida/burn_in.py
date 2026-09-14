@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import tempfile
@@ -143,8 +144,12 @@ def run_burn_in(
     """Run the full gate repeatedly against one unchanged synthetic agent repo."""
     if gates < 1:
         raise ValueError("gates must be at least 1")
-    if max_wall_time_seconds <= 0:
-        raise ValueError("max_wall_time_seconds must be positive")
+    if trials_per_gate < 1:
+        raise ValueError("trials_per_gate must be at least 1")
+    if not 0.0 <= pass_probability <= 1.0:
+        raise ValueError("pass_probability must be between 0 and 1")
+    if not math.isfinite(max_wall_time_seconds) or max_wall_time_seconds <= 0:
+        raise ValueError("max_wall_time_seconds must be finite and positive")
 
     started = time.monotonic()
     with tempfile.TemporaryDirectory(
@@ -191,6 +196,7 @@ def run_burn_in(
                     project_root=project,
                     confidence_level=policy.confidence_level,
                     pass_rate_threshold=policy.pass_rate_threshold,
+                    max_wall_time_seconds=max_wall_time_seconds - elapsed,
                 )
                 verdicts.append(report.verdict)
         finally:
@@ -198,10 +204,13 @@ def run_burn_in(
             _restore_env("MAIDA_BURN_IN_GATE_SEED", previous_seed)
             _restore_env("MAIDA_BURN_IN_PASS_PROBABILITY", previous_probability)
 
+    elapsed = time.monotonic() - started
+    if elapsed >= max_wall_time_seconds:
+        raise TimeoutError(f"burn-in exceeded {max_wall_time_seconds:g}s wall-time cap")
     return summarize_verdicts(
         verdicts,
         trials_per_gate=trials_per_gate,
         seed=seed,
         pass_probability=pass_probability,
-        elapsed_seconds=time.monotonic() - started,
+        elapsed_seconds=elapsed,
     )

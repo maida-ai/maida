@@ -12,7 +12,7 @@ on:
       - contracts/**
       - docs/**
       - maida/**
-      - scripts/check_cross_repo_sync.py
+      - scripts/**
       - tests/**
       - .github/workflows/**
 

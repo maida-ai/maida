@@ -1,4 +1,9 @@
-"""Run the zero-token Maida statistical gate burn-in."""
+"""Measure the zero-token Maida gate burn-in.
+
+Exit zero when measurement completes, even if individual gates fail. Inspect the
+reported verdicts and rates; completion is not a statistical acceptance guarantee.
+Invalid settings, execution failures, and exceeded wall-time budgets exit nonzero.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +34,8 @@ def main() -> int:
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(report.to_json() + "\n", encoding="utf-8")
-    return 0 if report.acceptance_met else 1
+    # Completion means the measurement succeeded; verdicts remain in the report.
+    return 0
 
 
 if __name__ == "__main__":

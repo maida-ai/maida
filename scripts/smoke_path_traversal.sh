@@ -22,9 +22,9 @@ collected_statuses=()
 for p in "${payloads[@]}"; do
   for e in "${endpoints[@]}"; do
     url="$BASE$(printf "$e" "$p")"
-    code="$(curl -s -o /dev/null -w "%{http_code}" "$url")"
-    if [[ "$code" == "200" ]]; then
-      echo "FAIL $url -> $code (not expected 200)"
+    code="$(curl --path-as-is --max-time 10 -sS -o /dev/null -w "%{http_code}" "$url")"
+    if [[ "$code" != "400" && "$code" != "403" && "$code" != "404" && "$code" != "422" ]]; then
+      echo "FAIL $url -> $code (expected 400, 403, 404, or 422)"
       collected_statuses+=("$url -> $code")
     else
       echo "OK   $url -> $code"

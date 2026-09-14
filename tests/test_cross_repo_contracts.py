@@ -79,7 +79,7 @@ def test_core_ci_covers_contract_sources_and_public_docs() -> None:
     unit_workflow = (ROOT / ".github" / "workflows" / "unittest-fast.yml").read_text(
         encoding="utf-8"
     )
-    for path_filter in ("README.md", "contracts/**", "docs/**"):
+    for path_filter in ("README.md", "contracts/**", "docs/**", "scripts/**"):
         assert f"- {path_filter}" in unit_workflow
 
     sync_workflow = (ROOT / ".github" / "workflows" / "cross-repo-sync.yml").read_text(
