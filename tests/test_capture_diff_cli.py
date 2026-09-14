@@ -44,12 +44,11 @@ def _capture_gate_inputs(data_dir: Path) -> tuple[Path, Path]:
     save_baseline(create_baseline(normal.trace_id, config), baseline_path)
     policy_path = data_dir / "policy.yaml"
     policy_path.write_text(
-        "assert:\n"
-        "  no_new_tools: true\n"
-        "  no_loops: true\n"
-        "  max_steps: 4\n"
-        "  max_tool_calls: 2\n"
-        "  max_cost_tokens: 30\n",
+        "version: 2\nmetrics:\n"
+        "  no_loops: {kind: invariant, require: true}\n"
+        "  step_count: {kind: measured, direction: upper, limit: 4}\n"
+        "  tool_call_count: {kind: measured, direction: upper, limit: 2}\n"
+        "  cost_tokens: {kind: measured, direction: upper, limit: 30}\n",
         encoding="utf-8",
     )
     return baseline_path, policy_path

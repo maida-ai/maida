@@ -11,82 +11,70 @@ from maida.policy import load_policy, merge_policy
 # ---------------------------------------------------------------------------
 
 
-def test_load_policy_valid_yaml(tmp_path):
+@pytest.mark.parametrize("version", ["2", "2.0", "2.1", '"2"', '"2.1"'])
+def test_load_policy_valid_yaml(tmp_path, version):
     p = tmp_path / "policy.yaml"
     p.write_text(
-        "assert:\n"
-        "  no_loops: true\n"
-        "  no_guardrails: true\n"
-        "  step_tolerance: 0.3\n"
-        "  expect_status: ok\n"
+        f"version: {version}\nmetrics:\n  no_loops: {{kind: invariant, require: true}}\n"
     )
     policy = load_policy(p)
-    assert policy.no_loops is True
-    assert policy.no_guardrails is True
-    assert policy.step_tolerance == 0.3
-    assert policy.expect_status == "ok"
-    assert policy.max_steps is None
+    assert policy.source_format == "v2"
+    assert policy.policy_version[0] == 2
+    assert policy.metrics["no_loops"].require is True
+
+
+@pytest.mark.parametrize("text", ["", "assert: {}\n", "metrics: {}\n", "other: {}\n"])
+def test_policy_requires_explicit_version_without_warning(tmp_path, text):
+    import warnings
+
+    p = tmp_path / "policy.yaml"
+    p.write_text(text)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="version is required.*version: 2"):
+            load_policy(p)
+    assert not caught
+
+
+@pytest.mark.parametrize("version", ["1", "1.0", '"1"', "1.1", "0"])
+def test_unsupported_old_policy_is_rejected_without_warning(tmp_path, version):
+    import warnings
+
+    p = tmp_path / "policy.yaml"
+    p.write_text(f"version: {version}\nassert: {{no_loops: true}}\n")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="unsupported.*version: 2"):
+            load_policy(p)
+    assert not caught
+
+
+@pytest.mark.parametrize(
+    "version, message",
+    [
+        ("3", "unsupported"),
+        ("2.99", "newer Maida"),
+        ("2.0.0", "patch versions are invalid"),
+        ("true", "policy version"),
+    ],
+)
+def test_invalid_or_future_version_fails_closed(tmp_path, version, message):
+    p = tmp_path / "policy.yaml"
+    p.write_text(f"version: {version}\nmetrics: {{}}\n")
+    with pytest.raises(ValueError, match=message):
+        load_policy(p)
+
+
+def test_v2_rejects_old_fields(tmp_path):
+    p = tmp_path / "policy.yaml"
+    p.write_text("version: 2\nmetrics: {}\nassert: {no_loops: true}\n")
+    with pytest.raises(ValueError, match="unknown field.*assert"):
+        load_policy(p)
 
 
 def test_load_policy_missing_file(tmp_path):
     with pytest.raises(FileNotFoundError):
         load_policy(tmp_path / "nonexistent.yaml")
-
-
-def test_load_policy_empty_assert_section(tmp_path):
-    p = tmp_path / "policy.yaml"
-    p.write_text("assert:\n  extra_unknown_key: 42\n")
-    policy = load_policy(p)
-    assert policy.source_format == "v1"
-    assert policy.policy_version == (1, 0)
-    assert "task_pass_rate" in policy.metrics
-
-
-def test_load_policy_no_assert_section(tmp_path):
-    p = tmp_path / "policy.yaml"
-    p.write_text("other:\n  key: value\n")
-    policy = load_policy(p)
-    assert policy.source_format == "v1"
-    assert policy.policy_version == (1, 0)
-    assert "task_pass_rate" in policy.metrics
-
-
-def test_load_policy_all_fields(tmp_path):
-    p = tmp_path / "policy.yaml"
-    p.write_text(
-        "assert:\n"
-        "  trials: 7\n"
-        "  confidence_level: 0.9\n"
-        "  pass_rate_threshold: 0.8\n"
-        "  max_steps: 50\n"
-        "  step_tolerance: 0.2\n"
-        "  max_tool_calls: 20\n"
-        "  tool_call_tolerance: 0.3\n"
-        "  no_new_tools: true\n"
-        "  no_loops: true\n"
-        "  no_guardrails: true\n"
-        "  max_cost_tokens: 5000\n"
-        "  cost_tolerance: 0.4\n"
-        "  max_duration_ms: 10000\n"
-        "  duration_tolerance: 0.6\n"
-        "  expect_status: ok\n"
-    )
-    policy = load_policy(p)
-    assert policy.trials == 7
-    assert policy.confidence_level == 0.9
-    assert policy.pass_rate_threshold == 0.8
-    assert policy.max_steps == 50
-    assert policy.step_tolerance == 0.2
-    assert policy.max_tool_calls == 20
-    assert policy.tool_call_tolerance == 0.3
-    assert policy.no_new_tools is True
-    assert policy.no_loops is True
-    assert policy.no_guardrails is True
-    assert policy.max_cost_tokens == 5000
-    assert policy.cost_tolerance == 0.4
-    assert policy.max_duration_ms == 10000
-    assert policy.duration_tolerance == 0.6
-    assert policy.expect_status == "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -178,27 +166,6 @@ def test_merge_ignores_unknown_keys():
 # ---------------------------------------------------------------------------
 
 
-def test_load_policy_with_ignored_checks(tmp_path):
-    p = tmp_path / "policy.yaml"
-    p.write_text("assert:\n  ignored_checks:\n    - step_count\n    - cost_tokens\n")
-    policy = load_policy(p)
-    assert policy.ignored_checks == ["step_count", "cost_tokens"]
-
-
-def test_load_policy_ignored_checks_null(tmp_path):
-    p = tmp_path / "policy.yaml"
-    p.write_text("assert:\n  ignored_checks:\n")
-    policy = load_policy(p)
-    assert policy.ignored_checks == []
-
-
-def test_load_policy_ignored_checks_empty_list(tmp_path):
-    p = tmp_path / "policy.yaml"
-    p.write_text("assert:\n  ignored_checks: []\n")
-    policy = load_policy(p)
-    assert policy.ignored_checks == []
-
-
 def test_merge_ignored_checks_union_with_cli():
     file_policy = AssertionPolicy(ignored_checks=["step_count", "no_loops"])
     cli = {"ignored_checks": ["cost_tokens"]}
@@ -227,3 +194,11 @@ def test_merge_ignored_checks_dedup():
     cli = {"ignored_checks": ["step_count", "no_loops"]}
     merged = merge_policy(file_policy, cli)
     assert merged.ignored_checks == ["no_loops", "step_count"]
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"policy_version": (1, 0)}, {"source_format": "v1"}]
+)
+def test_programmatic_policy_cannot_select_removed_format(kwargs):
+    with pytest.raises(ValueError):
+        AssertionPolicy(**kwargs)

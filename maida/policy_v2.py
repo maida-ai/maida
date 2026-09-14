@@ -1,12 +1,10 @@
-"""Strict policy-v2 loading plus visible migration from the legacy policy."""
+"""Strict versioned policy loading and command-line overrides."""
 
 from __future__ import annotations
 
 import copy
 import math
 import re
-import warnings
-from dataclasses import fields
 from pathlib import Path
 from statistics import NormalDist
 from typing import Any
@@ -28,10 +26,6 @@ try:
     import yaml
 except ImportError:
     yaml = None  # type: ignore[assignment]
-
-
-class PolicyDeprecationWarning(UserWarning):
-    """A legacy policy was loaded through the compatibility migration."""
 
 
 _POLICY_VERSION = tuple(int(part) for part in POLICY_SCHEMA_VERSION.split("."))
@@ -68,10 +62,10 @@ def _policy_version_lexeme(text: str, data: dict[str, Any]) -> str | None:
     return match.group(1).strip("\"'")
 
 
-def _parse_policy_version(text: str, data: dict[str, Any]) -> tuple[int, int] | None:
+def _parse_policy_version(text: str, data: dict[str, Any]) -> tuple[int, int]:
     lexeme = _policy_version_lexeme(text, data)
     if lexeme is None:
-        return None
+        raise ValueError("policy version is required; declare version: 2 and metrics")
     if not _VERSION_RE.fullmatch(lexeme):
         raise ValueError(
             "policy version must use major or major.minor form "
@@ -79,7 +73,11 @@ def _parse_policy_version(text: str, data: dict[str, Any]) -> tuple[int, int] | 
         )
     parts = tuple(int(part) for part in lexeme.split("."))
     version = (parts[0], parts[1] if len(parts) == 2 else 0)
-    if version[0] not in {1, 2}:
+    if version[0] < 2:
+        raise ValueError(
+            f"policy major {version[0]} is unsupported; use version: 2 and metrics"
+        )
+    if version[0] != _POLICY_VERSION[0]:
         raise ValueError(
             f"policy major {version[0]} is unsupported; upgrade Maida to a version "
             f"that supports policy {lexeme}"
@@ -445,11 +443,8 @@ def _parse_v2(data: dict[str, Any], version: tuple[int, int]) -> AssertionPolicy
     )
 
 
-_LEGACY_FIELDS = {field.name for field in fields(AssertionPolicy)}
-_LEGACY_FIELDS -= {"policy_version", "source_format", "metrics", "fail_fast"}
-
-
-def _legacy_metrics(policy: AssertionPolicy) -> dict[str, MetricPolicy]:
+def _cli_metrics(policy: AssertionPolicy) -> dict[str, MetricPolicy]:
+    """Build metrics for the standalone CLI flags, without loading a file."""
     metrics: dict[str, MetricPolicy] = {
         "step_count": MetricPolicy(
             name="step_count",
@@ -503,13 +498,6 @@ def _legacy_metrics(policy: AssertionPolicy) -> dict[str, MetricPolicy]:
             require=True,
             aggregate="",
         )
-    if policy.no_new_tools:
-        metrics["forbidden_tools"] = MetricPolicy(
-            name="forbidden_tools",
-            kind=MetricKind.INVARIANT,
-            none_of=(),
-            aggregate="",
-        )
     if policy.expect_status is not None:
         metrics["stop_condition_reached"] = MetricPolicy(
             name="stop_condition_reached",
@@ -530,29 +518,8 @@ def _legacy_metrics(policy: AssertionPolicy) -> dict[str, MetricPolicy]:
     return metrics
 
 
-def _parse_v1(data: dict[str, Any]) -> AssertionPolicy:
-    section = data.get("assert")
-    if not isinstance(section, dict):
-        section = {}
-    unknown = sorted(set(section) - _LEGACY_FIELDS)
-    warning = (
-        "Policy v1 is deprecated and was migrated in memory to v2; "
-        "run `maida init` or update the file to declare version: 2 and metric kinds."
-    )
-    if unknown:
-        warning += f" Ignored unknown v1 field(s): {', '.join(unknown)}."
-    warnings.warn(warning, PolicyDeprecationWarning, stacklevel=3)
-    kwargs = {key: value for key, value in section.items() if key in _LEGACY_FIELDS}
-    policy = AssertionPolicy(**kwargs)
-    policy.policy_version = (1, 0)
-    policy.source_format = "v1"
-    policy.metrics = _legacy_metrics(policy)
-    policy.validate()
-    return policy
-
-
 def load_policy(path: Path) -> AssertionPolicy:
-    """Load a strict policy v2 or visibly migrate the legacy v1 shape."""
+    """Load a policy with an explicit supported version (2 or 2.1)."""
     if yaml is None:
         raise RuntimeError("PyYAML is required to load policy files")
     if not path.is_file():
@@ -564,8 +531,6 @@ def load_policy(path: Path) -> AssertionPolicy:
     if not isinstance(data, dict):
         raise ValueError("policy root must be an object")
     version = _parse_policy_version(text, data)
-    if version is None or version[0] == 1:
-        return _parse_v1(data)
     return _parse_v2(data, version)
 
 
@@ -573,7 +538,7 @@ def merge_policy(
     file_policy: AssertionPolicy,
     cli_overrides: dict[str, Any],
 ) -> AssertionPolicy:
-    """Overlay legacy CLI flags without weakening strict file validation."""
+    """Overlay CLI flags without weakening strict file validation."""
     merged = copy.deepcopy(file_policy)
     bool_fields = {"no_new_tools", "no_loops", "no_guardrails"}
     for key, value in cli_overrides.items():
@@ -605,7 +570,7 @@ def merge_policy(
                         f"n_min={n_min}, configured trials={merged.trials}. "
                         f"Raise trials to at least {n_min}, or set mode: report_only."
                     )
-        legacy_map = {
+        flag_metrics = {
             "max_steps": ("step_count", "limit"),
             "step_tolerance": ("step_count", "tolerance_relative"),
             "max_tool_calls": ("tool_call_count", "limit"),
@@ -615,12 +580,19 @@ def merge_policy(
             "max_duration_ms": ("latency_ms", "limit"),
             "duration_tolerance": ("latency_ms", "tolerance_relative"),
         }
-        for override, (metric_name, attribute) in legacy_map.items():
+        for override, (metric_name, attribute) in flag_metrics.items():
             value = cli_overrides.get(override)
             metric = merged.metrics.get(metric_name)
-            if value is not None and metric is not None:
+            if value is not None:
+                if metric is None:
+                    metric = MetricPolicy(
+                        name=metric_name,
+                        kind=MetricKind.MEASURED,
+                        direction=MetricDirection.UPPER,
+                    )
+                    merged.metrics[metric_name] = metric
                 setattr(metric, attribute, float(value))
     else:
-        merged.metrics = _legacy_metrics(merged)
+        merged.metrics = _cli_metrics(merged)
     merged.validate()
     return merged

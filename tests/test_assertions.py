@@ -1100,3 +1100,75 @@ def test_format_report_text_omits_diff_on_pass(temp_data_dir):
 
     text = format_report_text(report, diff=diff)
     assert "Run comparison:" not in text
+
+
+@pytest.mark.parametrize(
+    "tool, count, expected",
+    [("lookup", 1, True), ("delete", 1, False), ("lookup", 2, False)],
+)
+def test_versioned_policy_rules_are_enforced_for_stored_runs(
+    temp_data_dir, tmp_path, tool, count, expected
+):
+    from maida.policy import load_policy
+
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        "version: 2\nmetrics:\n  forbidden_tools: {kind: invariant, none_of: [delete]}\n  tool_call_count: {kind: measured, direction: upper, limit: 1}\n"
+    )
+    config = load_config()
+    trace = _make_run(config, events=[(EventType.TOOL_CALL, tool, {})] * count)
+    report = run_assertions(trace, load_policy(path), config=config)
+    assert report.passed is expected
+    assert {result.check_name for result in report.results} == {
+        "forbidden_tools",
+        "tool_call_count",
+    }
+
+
+def test_single_run_rejects_statistical_policy_instead_of_ignoring_it(
+    temp_data_dir, tmp_path
+):
+    from maida.policy import load_policy
+
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        "version: 2\nmetrics:\n  task_pass_rate: {kind: statistical, direction: lower, threshold: 0.9, mode: report_only}\n"
+    )
+    config = load_config()
+    trace = _make_run(config)
+    with pytest.raises(ValueError, match="maida run.*maida drift"):
+        run_assertions(trace, load_policy(path), config=config)
+
+
+@pytest.mark.parametrize("override", [{"max_tool_calls": 0}, {"no_new_tools": True}])
+def test_cli_flags_still_apply_with_a_versioned_policy(
+    temp_data_dir, tmp_path, override
+):
+    from maida.policy import load_policy, merge_policy
+
+    path = tmp_path / "policy.yaml"
+    path.write_text("version: 2\nmetrics: {}\n")
+    config = load_config()
+    baseline = create_baseline(_make_run(config), config)
+    trace = _make_run(config, events=[(EventType.TOOL_CALL, "new", {})])
+    report = run_assertions(
+        trace, merge_policy(load_policy(path), override), baseline, config
+    )
+    assert not report.passed
+
+
+def test_explicit_ignored_check_is_visible_for_versioned_policy(
+    temp_data_dir, tmp_path
+):
+    from maida.policy import load_policy, merge_policy
+
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        "version: 2\nmetrics:\n  tool_call_count: {kind: measured, direction: upper, limit: 0}\n"
+    )
+    config = load_config()
+    trace = _make_run(config, events=[(EventType.TOOL_CALL, "lookup", {})])
+    policy = merge_policy(load_policy(path), {"ignored_checks": ["tool_calls"]})
+    report = run_assertions(trace, policy, config=config)
+    assert report.passed
+    assert report.results[0].ignored

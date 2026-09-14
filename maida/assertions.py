@@ -17,7 +17,8 @@ if TYPE_CHECKING:
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig, load_config
 from maida.diff import format_diff_markdown, format_diff_text
-from maida.policy_types import MetricPolicy
+from maida.policy_types import MetricKind, MetricPolicy, PLAN_METRIC_NAMES
+from maida.statistics import GateVerdict
 from maida.storage import load_run_for_analysis
 
 
@@ -64,8 +65,8 @@ class AssertionPolicy:
     confidence_level: float = 0.95
     pass_rate_threshold: float = 0.90
     fail_fast: bool = True
-    policy_version: tuple[int, int] = (1, 0)
-    source_format: str = "legacy"
+    policy_version: tuple[int, int] = (2, 0)
+    source_format: str = "cli"
     metrics: dict[str, MetricPolicy] = field(default_factory=dict)
 
     # Maximum allowed step count
@@ -150,6 +151,10 @@ class AssertionPolicy:
             )
         ):
             raise ValueError("policy_version must be a (major, minor) tuple")
+        if self.policy_version[0] != 2:
+            raise ValueError("unsupported policy_version; use policy major 2")
+        if self.source_format not in {"cli", "v2"}:
+            raise ValueError("source_format must be cli or v2")
         if not isinstance(self.metrics, dict) or not all(
             isinstance(name, str) and isinstance(metric, MetricPolicy)
             for name, metric in self.metrics.items()
@@ -319,6 +324,91 @@ def _check_threshold(
     return None
 
 
+def _run_metric_assertions(
+    metrics: dict[str, Any],
+    policy: AssertionPolicy,
+    baseline: dict | None,
+    report: AssertionReport,
+) -> AssertionReport:
+    """Evaluate the single-observation policy tiers with the shared gate engine."""
+    # Gate and baseline binding import AssertionPolicy; defer to avoid a cycle.
+    from maida.baseline_bind import validate_policy_against_baseline
+    from maida.gate import aggregate_metrics, invariant_outcomes, numeric_metrics
+
+    unsupported = [
+        name
+        for name, metric in policy.metrics.items()
+        if metric.kind not in {MetricKind.INVARIANT, MetricKind.MEASURED}
+        or name in PLAN_METRIC_NAMES
+    ]
+    if unsupported:
+        raise ValueError(
+            f"Single-run assertions cannot evaluate {', '.join(unsupported)}; "
+            "use `maida run` or `maida drift` for tier-aware policy evaluation"
+        )
+    validate_policy_against_baseline(policy, baseline)
+    results = aggregate_metrics(
+        policy=policy,
+        trial_values=[numeric_metrics(metrics)],
+        trial_invariants=[invariant_outcomes(metrics, policy, baseline)],
+        process_outcomes=[True],
+        baseline=baseline,
+        trials_budgeted=1,
+        stopping_rule="fixed_n",
+    )
+    codes = {
+        "step_count": RegressionReasonCode.STEP_COUNT_EXCEEDED,
+        "tool_call_count": RegressionReasonCode.TOOL_CALL_COUNT_EXCEEDED,
+        "cost_tokens": RegressionReasonCode.COST_ENVELOPE_EXCEEDED,
+        "latency_ms": RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
+        "forbidden_tools": RegressionReasonCode.NEW_TOOL_PATH,
+        "required_tools": RegressionReasonCode.NEW_TOOL_PATH,
+        "no_loops": RegressionReasonCode.LOOP_DETECTED,
+        "no_guardrails": RegressionReasonCode.GUARDRAIL_EVENT_CHANGED,
+        "stop_condition_reached": RegressionReasonCode.TERMINAL_STATE_MISSING,
+    }
+    for result in results:
+        if result.check_name == "agent_process":
+            continue  # A stored trace has no separately observed process exit code.
+        flag_name = {
+            "tool_call_count": "tool_calls",
+            "latency_ms": "duration",
+            "stop_condition_reached": "expect_status",
+        }.get(result.check_name, result.check_name)
+        if flag_name in policy.ignored_checks:
+            report.add(
+                AssertionResult(
+                    check_name=result.check_name,
+                    passed=True,
+                    message="check ignored",
+                    ignored=True,
+                )
+            )
+            continue
+        passed = result.verdict is GateVerdict.PASS
+        evidence = result.evidence
+        expected = evidence.get("allowed", "invariant holds")
+        actual = evidence.get("observed", evidence.get("description"))
+        metric = policy.metrics[result.check_name]
+        if result.check_name == "forbidden_tools":
+            expected = f"none of {list(metric.none_of)}"
+            actual = metrics.get("tool_path") or []
+        elif result.check_name == "required_tools":
+            expected = f"all of {list(metric.all_of)}"
+            actual = metrics.get("tool_path") or []
+        report.add(
+            AssertionResult(
+                check_name=result.check_name,
+                passed=passed,
+                message=f"{result.check_name}: expected {expected}; observed {actual}",
+                reason_code=_reason_code_for(passed, codes[result.check_name]),
+                expected=str(expected),
+                actual=str(actual),
+            )
+        )
+    return report
+
+
 def run_assertions(
     trace_id: str,
     policy: AssertionPolicy,
@@ -353,6 +443,9 @@ def run_assertions(
             else None
         ),
     )
+
+    if policy.source_format == "v2":
+        report = _run_metric_assertions(metrics, policy, baseline, report)
 
     _ignored = set(policy.ignored_checks)
     if unknown := _ignored - KNOWN_CHECK_NAMES:
@@ -496,6 +589,13 @@ def run_assertions(
     }
 
     for name, runner in runners.items():
+        if policy.source_format == "v2" and name in {
+            "step_count",
+            "tool_calls",
+            "cost_tokens",
+            "duration",
+        }:
+            continue  # Numeric CLI overrides are already in the metric policy.
         r = runner()
         if r and name in _ignored:
             report.add(

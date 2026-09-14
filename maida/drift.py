@@ -190,7 +190,7 @@ def run_drift(
                 baseline=baseline,
                 config=window_config,
             )
-            if policy.source_format != "v2"
+            if policy.source_format == "cli"
             else _v2_assertion_report(item.trace_id, invariants)
         )
         records.append(

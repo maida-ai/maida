@@ -29,6 +29,10 @@ metrics:
 ```
 
 Policy is hand-authored input and fails closed. Unknown fields are errors.
+Policy files require an explicit version from the v2+ policy family. Policy v1
+is fully deprecated and unsupported; missing versions are rejected. Currently
+supported versions are `2` (`2.0`) and `2.1`; newer versions require a loader
+that supports them.
 The version uses `major[.minor]`: `version: 2` normalizes to `(2, 0)`;
 `version: 2.1` enables the plan metrics below; `version: 2.0.0` is not valid.
 
@@ -240,18 +244,3 @@ Report fields are never removed or repurposed within a major. Report consumers
 must ignore unknown fields. Policy loaders do the opposite because silently
 ignoring a requested policy key would make the gate claim enforcement it did
 not perform.
-
-## v1 migration
-
-An unversioned or `version: 1` policy loads through a visible deprecation
-warning. Known legacy metric names infer their established directions:
-step/tool/cost/latency are upper; pass rate is lower. Unknown v1 keys are named
-in the warning.
-
-N=1 users retain binary pass/fail through invariant and measured tiers. Default
-N=3 users retain their verdict unless the old gate passed solely because a
-statistical metric used the removed 3/3 unanimous compatibility rule. That is
-the only branch-protection-visible migration change.
-
-The former `single_trial_binary` and `small_n_unanimous` decision rules no
-longer exist.

@@ -373,3 +373,12 @@ def test_two_tier_acceptance_design_covers_v3_safety_contract():
 
     index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
     assert design_path.name not in index
+
+
+def test_policy_reference_requires_explicit_supported_version():
+    policy = (ROOT / "docs/reference/policy.md").read_text()
+    assert "v2+ policy family" in policy
+    assert "fully deprecated and unsupported" in policy
+    assert "missing versions are rejected" in policy
+    assert "## v1 migration" not in policy
+    assert "\nassert:\n" not in policy
