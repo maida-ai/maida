@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,7 @@ import pytest
 from maida.assertions import AssertionPolicy
 from maida.baseline_bind import validate_policy_against_baseline
 from maida.gate import aggregate_metrics
-from maida.policy import PolicyDeprecationWarning, load_policy, minimum_trials_for_pass
+from maida.policy import load_policy, minimum_trials_for_pass
 from maida.runner import TrialRunReport
 from maida.policy_types import (
     MetricDirection,
@@ -82,20 +81,6 @@ metrics:
             tmp_path,
             "version: 2.0.0\nmetrics: {}\n",
         )
-
-
-def test_v1_migration_is_visible_and_infers_known_direction(
-    tmp_path: Path,
-) -> None:
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        policy = _write_policy(
-            tmp_path,
-            "assert:\n  max_steps: 12\n  no_loops: true\n",
-        )
-    assert any(issubclass(item.category, PolicyDeprecationWarning) for item in caught)
-    assert policy.metrics["step_count"].direction is MetricDirection.UPPER
-    assert policy.metrics["no_loops"].kind is MetricKind.INVARIANT
 
 
 def test_step_count_improvement_from_12_to_5_is_not_a_failure_and_is_reported() -> None:

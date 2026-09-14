@@ -943,7 +943,8 @@ def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypa
         encoding="utf-8",
     )
     (project / "policy.yaml").write_text(
-        "assert:\n  trials: 3\n  confidence_level: 0.95\n  pass_rate_threshold: 0.9\n",
+        "version: 2\ntrials: 3\nmetrics:\n"
+        "  task_pass_rate: {kind: statistical, direction: lower, confidence: 0.95, threshold: 0.9, mode: report_only}\n",
         encoding="utf-8",
     )
     subprocess.run(["git", "add", "agent.py", "policy.yaml"], cwd=project, check=True)
@@ -978,7 +979,7 @@ def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypa
     )
     assert task["evidence"]["confidence"] == 0.9
     assert task["evidence"]["threshold"] == 0.7
-    assert task["decision_rule"] == "wilson_one_sided"
+    assert task["decision_rule"] == "report_only"
 
 
 def test_run_invalid_statistical_policy_exits_two(
@@ -987,7 +988,8 @@ def test_run_invalid_statistical_policy_exits_two(
     subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
     (tmp_path / "agent.py").write_text("print('unused')\n", encoding="utf-8")
     (tmp_path / "policy.yaml").write_text(
-        "assert:\n  confidence_level: 1.5\n", encoding="utf-8"
+        "version: 2\nmetrics:\n  task_pass_rate: {kind: statistical, direction: lower, confidence: 1.5, threshold: 0.9, mode: report_only}\n",
+        encoding="utf-8",
     )
     subprocess.run(["git", "add", "agent.py", "policy.yaml"], cwd=tmp_path, check=True)
     monkeypatch.chdir(tmp_path)
@@ -995,7 +997,7 @@ def test_run_invalid_statistical_policy_exits_two(
     result = runner.invoke(app, ["run", "agent.py", "--policy", "policy.yaml"])
 
     assert result.exit_code == 2
-    assert "confidence_level" in result.stderr
+    assert "confidence" in result.stderr
 
 
 def test_scaffold_grants_checks_write_permission():
@@ -1763,3 +1765,17 @@ def test_init_skips_existing_without_force(empty_data_dir, tmp_path, monkeypatch
     assert result.exit_code == 0
     assert "wrote" in result.output
     assert "version: 2" in policy_path.read_text()  # overwritten
+
+
+@pytest.mark.parametrize("policy_text", ["assert: {}\n", "version: 1\nassert: {}\n"])
+def test_run_rejects_unsupported_policy_before_executing_agent(
+    tmp_path, monkeypatch, policy_text
+):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "agent.py").write_text("raise RuntimeError('agent must not execute')\n")
+    (tmp_path / "policy.yaml").write_text(policy_text)
+    result = runner.invoke(app, ["run", "agent.py", "--policy", "policy.yaml"])
+    assert result.exit_code == 2
+    assert "version: 2" in result.stderr
+    assert "deprecated" not in result.stderr.lower()
+    assert "agent must not execute" not in result.output

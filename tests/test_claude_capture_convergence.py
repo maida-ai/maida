@@ -125,11 +125,10 @@ def test_otel_and_hook_capture_converge_on_semantics_and_local_gate_output(
     save_baseline(create_baseline(otel.trace_id, config), baseline_path)
     policy_path = temp_data_dir / "equivalent-policy.yaml"
     policy_path.write_text(
-        "assert:\n"
-        "  no_new_tools: true\n"
-        "  no_loops: true\n"
-        "  max_steps: 2\n"
-        "  max_tool_calls: 1\n",
+        "version: 2\nmetrics:\n"
+        "  no_loops: {kind: invariant, require: true}\n"
+        "  step_count: {kind: measured, direction: upper, limit: 2}\n"
+        "  tool_call_count: {kind: measured, direction: upper, limit: 1}\n",
         encoding="utf-8",
     )
 

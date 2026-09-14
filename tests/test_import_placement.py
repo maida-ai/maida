@@ -8,6 +8,20 @@ from pathlib import Path
 
 _ALLOWED_FUNCTION_IMPORTS = {
     (
+        "maida/assertions.py",
+        "_run_metric_assertions",
+        "from",
+        "maida.baseline_bind",
+        ("validate_policy_against_baseline",),
+    ),  # Baseline binding imports AssertionPolicy; defer to avoid a cycle.
+    (
+        "maida/assertions.py",
+        "_run_metric_assertions",
+        "from",
+        "maida.gate",
+        ("aggregate_metrics", "invariant_outcomes", "numeric_metrics"),
+    ),  # Shared gate evaluation imports AssertionPolicy from this module.
+    (
         "maida/_tracing/_context.py",
         "_finalize_implicit_run",
         "from",

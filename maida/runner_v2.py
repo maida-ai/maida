@@ -835,7 +835,7 @@ def run_trials(
             invariants = invariant_outcomes(extracted, policy, baseline)
             assertion_report = (
                 run_assertions(full_id, policy, baseline=baseline, config=config)
-                if policy.source_format != "v2"
+                if policy.source_format == "cli"
                 else _v2_assertion_report(full_id, invariants)
             )
             baseline_diff = (

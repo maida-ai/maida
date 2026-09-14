@@ -68,11 +68,7 @@ def invariant_outcomes(
             result[name] = reached is bool(metric.require)
         elif name == "forbidden_tools":
             forbidden = set(metric.none_of)
-            if policy.source_format == "v1" and not forbidden:
-                baseline_tools = set((baseline or {}).get("tool_path") or [])
-                result[name] = not (tool_path - baseline_tools)
-            else:
-                result[name] = not bool(tool_path & forbidden)
+            result[name] = not bool(tool_path & forbidden)
         elif name == "required_tools":
             result[name] = set(metric.all_of) <= tool_path
         elif name == "no_loops":
@@ -268,7 +264,7 @@ def aggregate_metrics(
         if metric.kind is MetricKind.MEASURED:
             baseline_sample = baseline_values(baseline or {}, name)
             if not baseline_sample and metric.limit is None:
-                if policy.source_format != "v2":
+                if policy.source_format == "cli":
                     continue
                 raise ValueError(
                     f"metrics.{name} declares a tolerance but no baseline sample is bound"
