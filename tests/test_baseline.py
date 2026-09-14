@@ -147,6 +147,39 @@ def test_save_load_roundtrip(temp_data_dir):
     assert loaded == bl
 
 
+@pytest.mark.parametrize("kwargs", [{}, {"force": False}])
+def test_save_baseline_refuses_overwrite(tmp_path, kwargs):
+    path = tmp_path / "baseline.json"
+    original = b'{"original": true}\n'
+    path.write_bytes(original)
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        save_baseline({"replacement": True}, path, **kwargs)
+
+    assert path.read_bytes() == original
+
+
+def test_save_baseline_force_overwrites(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text("old content")
+
+    save_baseline({"replacement": True}, path, force=True)
+
+    assert '"replacement": true' in path.read_text()
+
+
+def test_save_baseline_refuses_dangling_symlink(tmp_path):
+    target = tmp_path / "missing.json"
+    path = tmp_path / "baseline.json"
+    path.symlink_to(target)
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        save_baseline({}, path)
+
+    assert path.is_symlink()
+    assert not target.exists()
+
+
 def test_load_baseline_file_not_found(temp_data_dir):
     with pytest.raises(FileNotFoundError):
         load_baseline(temp_data_dir / "nonexistent.json")

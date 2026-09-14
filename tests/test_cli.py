@@ -415,6 +415,52 @@ def test_baseline_creates_file(empty_data_dir):
     assert data["summary"]["tool_calls"] == 1
 
 
+@pytest.mark.parametrize("from_report", [False, True])
+def test_baseline_overwrite_requires_force(empty_data_dir, from_report):
+    config = load_config()
+    with traced_run(name="overwrite_test"):
+        record_tool_call("search", args={}, result=None)
+    run_id = get_latest_run_id(config)
+    args = [run_id]
+    if from_report:
+        from maida.schema_versions import REPORT_SCHEMA_VERSION
+
+        report = empty_data_dir / "report.json"
+        report.write_text(
+            json.dumps(
+                {
+                    "report_version": REPORT_SCHEMA_VERSION,
+                    "metadata": {},
+                    "trials": [
+                        {
+                            "trace_id": run_id,
+                            "metric_values": {"step_count": 1},
+                            "structural_signature": {},
+                            "invariant_outcomes": {},
+                        }
+                    ],
+                }
+            )
+        )
+        args = ["--from-report", str(report)]
+    out = empty_data_dir / "bl.json"
+    original = b'{"reviewed": true}\n'
+    out.write_bytes(original)
+
+    result = runner.invoke(app, ["baseline", *args, "--out", str(out)])
+
+    assert result.exit_code == 2
+    assert "--force" in result.stderr
+    assert "already exists" in result.stderr
+    assert result.stdout == ""
+    assert out.read_bytes() == original
+
+    result = runner.invoke(app, ["baseline", *args, "--out", str(out), "--force"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text())["source_run_id"] == run_id
+
+
 def test_baseline_missing_run_exit_two(empty_data_dir):
     result = runner.invoke(
         app, ["baseline", "missing_run", "--out", str(empty_data_dir / "bl.json")]
@@ -1498,6 +1544,14 @@ def test_demo_then_baseline_and_assert_pass(empty_data_dir):
     assert result.exit_code == 1 or result.exit_code == 0
     # the same run asserted against its own baseline must pass every check
     assert "FAILED" not in result.output
+
+
+def test_demo_regression_can_be_repeated(empty_data_dir, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for _ in range(2):
+        result = runner.invoke(app, ["demo", "--regression"])
+        assert result.exit_code == 0, result.output
+        assert "PR-comment preview" in result.output
 
 
 def test_demo_regression_story(empty_data_dir, tmp_path, monkeypatch):

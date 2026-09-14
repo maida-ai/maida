@@ -5,8 +5,8 @@ Captures a baseline snapshot from a completed run. The snapshot records structur
 **Usage:**
 
 ```bash
-maida baseline [TRACE_ID] [--out PATH]
-maida baseline --from-report REPORT.json [--out PATH]
+maida baseline [TRACE_ID] [--out PATH] [--force]
+maida baseline --from-report REPORT.json [--out PATH] [--force]
 ```
 
 **Arguments / options:**
@@ -16,6 +16,7 @@ maida baseline --from-report REPORT.json [--out PATH]
 | `TRACE_ID` | *(latest run)* | OTel trace ID or prefix for legacy single-run capture |
 | `--from-report` | - | Build an immutable multi-trial sample from report v2; mutually exclusive with `TRACE_ID` |
 | `--out`, `-o` | `.maida/baselines/<run_name>.json` | Output path for the baseline JSON file |
+| `--force` | `false` | Explicitly allow replacing an existing baseline |
 
 **Examples:**
 
@@ -25,6 +26,10 @@ maida baseline --from-report report.json --out .maida/baselines/my_agent.json
 maida baseline a1b2c3d4 --out baselines/legacy-single-run.json
 ```
 
-**Exit codes:** `0` success; `2` run not found; `10` internal error.
+Existing files are preserved by default. To deliberately replace one, repeat the
+command with `--force`. Use `maida accept` to accept a run change with a recorded
+reason and prior baseline hash.
+
+**Exit codes:** `0` success; `2` run not found, invalid input, or output already exists; `10` internal error.
 
 Report-based capture stores the raw per-trial numeric and invariant vectors, an environment fingerprint, and structural signatures deduplicated with counts. The sample is immutable and never accumulates across gate runs. Check it into version control as part of the reviewed diff.
