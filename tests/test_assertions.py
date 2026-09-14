@@ -1172,3 +1172,40 @@ def test_explicit_ignored_check_is_visible_for_versioned_policy(
     report = run_assertions(trace, policy, config=config)
     assert report.passed
     assert report.results[0].ignored
+
+
+@pytest.mark.parametrize(
+    "tools, expected",
+    [
+        (["lookup", "reply"], True),
+        (["reply", "lookup", "lookup"], True),
+        (["lookup", "unlisted_tool"], False),
+    ],
+)
+def test_stored_run_no_new_tools_preserves_baseline_contract(
+    temp_data_dir, tmp_path, tools, expected
+):
+    from maida.policy import load_policy
+
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
+    )
+    config = load_config()
+    baseline = create_baseline(
+        _make_run(
+            config,
+            events=[(EventType.TOOL_CALL, name, {}) for name in ["lookup", "reply"]],
+        ),
+        config,
+    )
+    trace = _make_run(
+        config, events=[(EventType.TOOL_CALL, name, {}) for name in tools]
+    )
+    report = run_assertions(trace, load_policy(path), baseline, config)
+    assert report.passed is expected
+    assert len(report.results) == 1
+    assert report.results[0].check_name == "no_new_tools"
+    if not expected:
+        assert report.results[0].reason_code == RegressionReasonCode.NEW_TOOL_PATH
+        assert "unlisted_tool" in report.results[0].message

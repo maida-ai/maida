@@ -51,6 +51,16 @@ def structural_signature(metrics: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def baseline_tool_path(baseline: dict[str, Any] | None) -> set[str]:
+    """Require observed tool identity, distinguishing an empty path from missing data."""
+    path = (baseline or {}).get("tool_path")
+    if not isinstance(path, list) or not all(
+        isinstance(tool, str) and tool for tool in path
+    ):
+        raise ValueError("metrics.no_new_tools requires an explicit baseline tool_path")
+    return set(path)
+
+
 def invariant_outcomes(
     metrics: dict[str, Any],
     policy: AssertionPolicy,
@@ -69,6 +79,8 @@ def invariant_outcomes(
         elif name == "forbidden_tools":
             forbidden = set(metric.none_of)
             result[name] = not bool(tool_path & forbidden)
+        elif name == "no_new_tools":
+            result[name] = tool_path <= baseline_tool_path(baseline)
         elif name == "required_tools":
             result[name] = set(metric.all_of) <= tool_path
         elif name == "no_loops":

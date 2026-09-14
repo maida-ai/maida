@@ -198,6 +198,10 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
         allowed.add("allowed")
     if name == "plan_grants":
         allowed.add("approval_required_for")
+    if name == "no_new_tools":
+        allowed = {"kind", "require"}
+        if data.get("require", True) is not True:
+            raise ValueError("metrics.no_new_tools.require must be true")
     _reject_unknown(data, allowed, f"metrics.{name}")
     metric = MetricPolicy(name=name, kind=MetricKind.INVARIANT, aggregate="")
     if name == "forbidden_tools":

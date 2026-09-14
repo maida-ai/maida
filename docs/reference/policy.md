@@ -28,6 +28,12 @@ metrics:
     mode: report_only
 ```
 
+Use `no_new_tools: {kind: invariant, require: true}` to reject every tool absent
+from the bound baseline's `tool_path`. This requires a baseline with an explicit
+tool path (an empty list is valid and permits no tools). Reordering or repeating
+known tools does not violate this rule; counts and loops have separate checks.
+`forbidden_tools` bans only the named tools and is not an equivalent replacement.
+
 Policy is hand-authored input and fails closed. Unknown fields are errors.
 Policy files require an explicit version from the v2+ policy family. Policy v1
 is fully deprecated and unsupported; missing versions are rejected. Currently

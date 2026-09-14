@@ -45,10 +45,12 @@ def _capture_gate_inputs(data_dir: Path) -> tuple[Path, Path]:
     policy_path = data_dir / "policy.yaml"
     policy_path.write_text(
         "version: 2\nmetrics:\n"
+        "  no_new_tools: {kind: invariant, require: true}\n"
+        "  latency_ms: {kind: measured, direction: upper, tolerance: {relative: 0.5}}\n"
         "  no_loops: {kind: invariant, require: true}\n"
-        "  step_count: {kind: measured, direction: upper, limit: 4}\n"
-        "  tool_call_count: {kind: measured, direction: upper, limit: 2}\n"
-        "  cost_tokens: {kind: measured, direction: upper, limit: 30}\n",
+        "  step_count: {kind: measured, direction: upper, limit: 4, tolerance: {relative: 0.5}}\n"
+        "  tool_call_count: {kind: measured, direction: upper, limit: 2, tolerance: {relative: 0.5}}\n"
+        "  cost_tokens: {kind: measured, direction: upper, limit: 30, tolerance: {relative: 0.5}}\n",
         encoding="utf-8",
     )
     return baseline_path, policy_path

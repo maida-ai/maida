@@ -217,6 +217,7 @@ _CHECK_LABELS = {
     "stop_condition_reached": "Terminal state",
     "forbidden_tools": "Allowed tools",
     "required_tools": "Required tools",
+    "no_new_tools": "Baseline tools",
     "task_pass_rate": "Successful behavior",
 }
 
