@@ -1068,6 +1068,7 @@ def baseline_cmd(
     out: Path | None = typer.Option(
         None, "--out", "-o", help="Output path for baseline JSON"
     ),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing baseline"),
 ) -> None:
     """Capture a baseline snapshot from a completed run."""
     try:
@@ -1090,7 +1091,7 @@ def baseline_cmd(
             name_part = bl.get("source_run_name") or run_id
             out = LOCAL_DIR_NAME / "baselines" / f"{name_part}.json"
 
-        save_baseline(bl, out)
+        save_baseline(bl, out, force=force)
         typer.echo(f"Baseline saved to {out}")
     except Exit:
         raise
@@ -1098,6 +1099,9 @@ def baseline_cmd(
         _exit_unsupported_trace_format(e)
     except storage.RunValidationError as e:
         _exit_run_validation_error(e)
+    except FileExistsError as e:
+        typer.echo(str(e), err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
         typer.echo(f"Invalid baseline input: {e}", err=True)
         raise Exit(EXIT_NOT_FOUND)
@@ -1468,7 +1472,7 @@ def _demo_regression(config) -> None:
     _normalize_demo_trace_duration(good_id, config)
     bl = create_baseline(good_id, config)
     bl_path = LOCAL_DIR_NAME / "baselines" / "demo-support-agent.json"
-    save_baseline(bl, bl_path)
+    save_baseline(bl, bl_path, force=True)
     typer.echo(f"   ✓ good run {good_id[:8]} | baseline saved to {bl_path}")
     typer.echo("")
 
