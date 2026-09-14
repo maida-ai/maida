@@ -143,15 +143,17 @@ def create_baseline(trace_id: str, config: MaidaConfig) -> dict:
     return baseline
 
 
-def save_baseline(baseline: dict, path: Path, force: bool = True) -> None:
-    """Write a baseline dict to *path* as pretty-printed JSON."""
+def save_baseline(baseline: dict, path: Path, force: bool = False) -> None:
+    """Write pretty-printed JSON, refusing replacement unless ``force=True``."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and not force:
+    try:
+        f = open(path, "w" if force else "x", encoding="utf-8")
+    except FileExistsError:
         raise FileExistsError(
             f"Baseline file already exists: {path}. "
-            "Cowardly refusing to overwrite without --force."
-        )
-    with open(path, "w", encoding="utf-8") as f:
+            "Use force=True (CLI: --force) to overwrite it."
+        ) from None
+    with f:
         json.dump(baseline, f, ensure_ascii=False, indent=2)
 
 

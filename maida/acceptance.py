@@ -140,7 +140,7 @@ def accept_baseline_update(
             "sha256": previous_hash,
         },
     }
-    save_baseline(new_baseline, baseline_path)
+    save_baseline(new_baseline, baseline_path, force=True)
 
     return BaselineAcceptResult(
         updated=True,
