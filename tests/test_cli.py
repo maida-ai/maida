@@ -943,8 +943,8 @@ def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypa
         encoding="utf-8",
     )
     (project / "policy.yaml").write_text(
-        "version: 2\ntrials: 3\nmetrics:\n"
-        "  task_pass_rate: {kind: statistical, direction: lower, confidence: 0.95, threshold: 0.9, mode: report_only}\n",
+        "version: 2\ntrials: 25\nmetrics:\n"
+        "  task_pass_rate: {kind: statistical, direction: lower, confidence: 0.95, threshold: 0.9}\n",
         encoding="utf-8",
     )
     subprocess.run(["git", "add", "agent.py", "policy.yaml"], cwd=project, check=True)
@@ -979,7 +979,7 @@ def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypa
     )
     assert task["evidence"]["confidence"] == 0.9
     assert task["evidence"]["threshold"] == 0.7
-    assert task["decision_rule"] == "report_only"
+    assert task["decision_rule"] == "wilson_one_sided"
 
 
 def test_run_invalid_statistical_policy_exits_two(

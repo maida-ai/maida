@@ -363,6 +363,7 @@ def _run_metric_assertions(
         "latency_ms": RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED,
         "forbidden_tools": RegressionReasonCode.NEW_TOOL_PATH,
         "required_tools": RegressionReasonCode.NEW_TOOL_PATH,
+        "no_new_tools": RegressionReasonCode.NEW_TOOL_PATH,
         "no_loops": RegressionReasonCode.LOOP_DETECTED,
         "no_guardrails": RegressionReasonCode.GUARDRAIL_EVENT_CHANGED,
         "stop_condition_reached": RegressionReasonCode.TERMINAL_STATE_MISSING,
@@ -372,6 +373,7 @@ def _run_metric_assertions(
             continue  # A stored trace has no separately observed process exit code.
         flag_name = {
             "tool_call_count": "tool_calls",
+            "no_new_tools": "new_tools",
             "latency_ms": "duration",
             "stop_condition_reached": "expect_status",
         }.get(result.check_name, result.check_name)
@@ -392,6 +394,9 @@ def _run_metric_assertions(
         metric = policy.metrics[result.check_name]
         if result.check_name == "forbidden_tools":
             expected = f"none of {list(metric.none_of)}"
+            actual = metrics.get("tool_path") or []
+        elif result.check_name == "no_new_tools":
+            expected = f"only tools from {baseline['tool_path']}"
             actual = metrics.get("tool_path") or []
         elif result.check_name == "required_tools":
             expected = f"all of {list(metric.all_of)}"

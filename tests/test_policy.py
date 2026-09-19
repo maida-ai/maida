@@ -202,3 +202,101 @@ def test_merge_ignored_checks_dedup():
 def test_programmatic_policy_cannot_select_removed_format(kwargs):
     with pytest.raises(ValueError):
         AssertionPolicy(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "baseline, tools, expected",
+    [
+        ({"tool_path": ["lookup", "reply"]}, ["reply", "lookup", "lookup"], True),
+        ({"tool_path": ["lookup", "reply"]}, ["lookup", "unexpected"], False),
+        ({"tool_path": []}, [], True),
+        ({"tool_path": []}, ["unexpected"], False),
+    ],
+)
+def test_no_new_tools_checks_every_candidate_tool(tmp_path, baseline, tools, expected):
+    from maida.gate import invariant_outcomes
+
+    p = tmp_path / "policy.yaml"
+    p.write_text(
+        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
+    )
+    policy = load_policy(p)
+    assert (
+        invariant_outcomes({"summary": {}, "tool_path": tools}, policy, baseline)[
+            "no_new_tools"
+        ]
+        is expected
+    )
+
+
+@pytest.mark.parametrize(
+    "baseline", [None, {}, {"tool_path": None}, {"tool_path": "lookup"}]
+)
+def test_no_new_tools_requires_an_explicit_baseline_tool_path(tmp_path, baseline):
+    from maida.baseline_bind import validate_policy_against_baseline
+
+    p = tmp_path / "policy.yaml"
+    p.write_text(
+        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
+    )
+    with pytest.raises(ValueError, match="baseline tool_path"):
+        validate_policy_against_baseline(load_policy(p), baseline)
+
+
+@pytest.mark.parametrize(
+    "rule", ["require: false", "none_of: [known_bad]", "all_of: [lookup]"]
+)
+def test_no_new_tools_rejects_non_enforcing_configuration(tmp_path, rule):
+    p = tmp_path / "policy.yaml"
+    p.write_text(f"version: 2\nmetrics:\n  no_new_tools: {{kind: invariant, {rule}}}\n")
+    with pytest.raises(ValueError):
+        load_policy(p)
+
+
+def test_no_new_tools_is_enforced_in_every_trial(tmp_path):
+    from maida.gate import aggregate_metrics, invariant_outcomes
+    from maida.statistics import GateVerdict
+
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
+    )
+    policy = load_policy(path)
+    baseline = {"tool_path": ["lookup"]}
+    outcomes = [
+        invariant_outcomes({"summary": {}, "tool_path": tools}, policy, baseline)
+        for tools in [["lookup"], ["unlisted"], ["lookup"]]
+    ]
+    results = aggregate_metrics(
+        policy=policy,
+        trial_values=[{}, {}, {}],
+        trial_invariants=outcomes,
+        process_outcomes=[True, True, True],
+        baseline=baseline,
+        trials_budgeted=3,
+        stopping_rule="fixed_n",
+    )
+    assert (
+        next(
+            result for result in results if result.check_name == "no_new_tools"
+        ).verdict
+        is GateVerdict.FAIL
+    )
+
+
+def test_no_new_tools_schema_matches_loader(tmp_path):
+    import json
+    from pathlib import Path
+    import jsonschema
+
+    schema = json.loads(
+        (Path(__file__).parents[1] / "schemas/policy.schema.json").read_text()
+    )
+    valid = {
+        "version": 2,
+        "metrics": {"no_new_tools": {"kind": "invariant", "require": True}},
+    }
+    jsonschema.validate(valid, schema)
+    valid["metrics"]["no_new_tools"]["require"] = False
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(valid, schema)

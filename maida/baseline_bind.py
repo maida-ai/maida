@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from maida.assertions import AssertionPolicy
-from maida.gate import baseline_values
+from maida.gate import baseline_tool_path, baseline_values
 from maida.policy_types import MetricKind, MetricMode
 from maida.statistics import distributional_minimum_baseline_trials
 
@@ -15,6 +15,8 @@ def validate_policy_against_baseline(
 ) -> None:
     """Reject baseline-dependent configurations before agent execution."""
     for name, metric in policy.metrics.items():
+        if name == "no_new_tools":
+            baseline_tool_path(baseline)
         if metric.kind is MetricKind.MEASURED:
             if (
                 policy.source_format == "v2"

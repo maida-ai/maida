@@ -14,6 +14,15 @@
     "metrics": {
       "type": "object",
       "properties": {
+        "no_new_tools": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "invariant" },
+            "require": { "const": true }
+          },
+          "additionalProperties": false
+        },
         "plan_depth": { "$ref": "#/$defs/planNumericMetric" },
         "plan_fanout": { "$ref": "#/$defs/planNumericMetric" },
         "plan_budget_cost_usd": { "$ref": "#/$defs/planNumericMetric" },
@@ -30,6 +39,7 @@
           "stop_condition_reached",
           "forbidden_tools",
           "required_tools",
+          "no_new_tools",
           "no_loops",
           "no_guardrails",
           "step_count",
