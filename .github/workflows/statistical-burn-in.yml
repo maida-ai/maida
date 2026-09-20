@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
-          version: "0.11.14"
+          version: "0.12.17"
           python-version: "3.13"
       - name: Run fixed-agent burn-in
         run: >-
@@ -28,7 +28,7 @@ jobs:
           --json-out burn-in-report.json
       - name: Upload burn-in report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: statistical-burn-in-report
           path: burn-in-report.json
