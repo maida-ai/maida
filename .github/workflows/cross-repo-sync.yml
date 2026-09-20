@@ -12,43 +12,43 @@ jobs:
   compare:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           path: maida
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           repository: maida-ai/maida-assert
           ref: main
           path: maida-assert
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           repository: maida-ai/maida-ts
           ref: main
           path: maida-ts
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           repository: maida-ai/maida-ai.github.io
           ref: main
           path: maida-ai.github.io
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           repository: maida-ai/maida-tutorials
           ref: main
           path: maida-tutorials
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           repository: maida-ai/maida-workflows
           ref: main
           path: maida-workflows
 
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
-          version: "0.11.14"
+          version: "0.12.17"
           python-version: "3.12"
 
       - name: Compare contracts and fixtures
