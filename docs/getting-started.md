@@ -52,8 +52,9 @@ maida init            # starter .maida/policy.yaml
 maida init --github   # + GitHub Actions workflow
 ```
 
-The generated workflow tracks `maida-ai/maida-assert@v5`, uses policy v2,
-and grants the `checks: write` permission needed for the gate check.
+The generated workflow tracks `maida-ai/maida-assert@main`, uses policy v2,
+and grants the `checks: write` permission needed for the gate check. Review and
+pin the coordinated Action commit before using the workflow in production.
 
 Replace `MAIDA_AGENT_SCRIPT` with your traced entrypoint. Once you have
 checked in a baseline, set `MAIDA_BASELINE` to its path. That enables

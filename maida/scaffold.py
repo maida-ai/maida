@@ -4,9 +4,9 @@ from pathlib import Path
 
 POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
-CHECKOUT_ACTION_REF = "actions/checkout@v7"
-MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@v5"
-MAIDA_ACCEPT_ACTION_REF = "maida-ai/maida-assert/accept-command@v5"
+CHECKOUT_ACTION_REF = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@main"
+MAIDA_ACCEPT_ACTION_REF = "maida-ai/maida-assert/accept-command@main"
 
 POLICY_TEMPLATE = """\
 # Maida policy v2 - enforced locally and by maida-assert main.
@@ -52,18 +52,16 @@ on:
     types: [created]
   repository_dispatch:
     types: [maida_baseline_updated]
-
-# Each job declares only the permissions needed for its event path.
 permissions: {{}}
-
 env:
   # Replace this with the script that runs your traced agent.
-  # It must use @trace or traced_run so Maida records a run.
   MAIDA_AGENT_SCRIPT: my_agent.py
   MAIDA_POLICY: .maida/policy.yaml
   # After committing a baseline, point this at it to enable `/maida accept`:
   MAIDA_BASELINE: ''
-
+concurrency:
+  group: maida-${{{{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr_number }}}}
+  cancel-in-progress: false
 jobs:
   agent-check:
     if: >-
@@ -74,15 +72,17 @@ jobs:
       contents: read
       pull-requests: write
       checks: write
-      # A repository_dispatch run belongs to the default branch, so publish the
-      # gate result explicitly against the accepted PR-head SHA.
       statuses: write
     steps:
+      - name: Verify PR identity
+        id: pr
+        uses: maida-ai/maida-assert/pr-context@main
       - name: Check out repository
-        uses: {CHECKOUT_ACTION_REF}
+        uses: {CHECKOUT_ACTION_REF} # v7
         with:
-          ref: ${{{{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || github.sha }}}}
-
+          ref: ${{{{ steps.pr.outputs.head-sha }}}}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Run Maida regression gate
         id: gate
         uses: {MAIDA_ASSERT_ACTION_REF}
@@ -91,45 +91,81 @@ jobs:
           policy: ${{{{ env.MAIDA_POLICY }}}}
           baseline: ${{{{ env.MAIDA_BASELINE }}}}
           accept-command-enabled: ${{{{ env.MAIDA_BASELINE != '' }}}}
+          configuration-acceptance: ${{{{ vars.MAIDA_CONFIGURATION_ACCEPTANCE }}}}
+      - name: Publish required gate status
+        if: always() && steps.pr.outcome == 'success'
+        uses: maida-ai/maida-assert/publish-status@main
+        with:
+          head-sha: ${{{{ steps.pr.outputs.head-sha }}}}
+          base-sha: ${{{{ steps.pr.outputs.base-sha }}}}
+          verdict: ${{{{ steps.gate.outputs.verdict }}}}
+          conclusion: ${{{{ steps.gate.outputs.conclusion }}}}
+          publication: ${{{{ steps.gate.outputs.publication }}}}
 
-      - name: Publish dispatched gate status
-        if: always() && github.event_name == 'repository_dispatch'
-        env:
-          GH_TOKEN: ${{{{ github.token }}}}
-          TARGET_SHA: ${{{{ github.event.client_payload.sha }}}}
-          GATE_OUTCOME: ${{{{ steps.gate.outcome }}}}
-        shell: bash
-        run: |
-          if [ "$GATE_OUTCOME" = "success" ]; then
-            state=success
-            description="Maida behavioral regression gate passed"
-          else
-            state=failure
-            description="Maida behavioral regression gate failed"
-          fi
-          gh api --method POST \\
-            "repos/${{GITHUB_REPOSITORY}}/statuses/${{TARGET_SHA}}" \\
-            -f state="$state" \\
-            -f context="Maida / agent-check" \\
-            -f description="$description" \\
-            -f target_url="${{GITHUB_SERVER_URL}}/${{GITHUB_REPOSITORY}}/actions/runs/${{GITHUB_RUN_ID}}"
-
-  accept-command:
+  authorize:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/maida accept')
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      authorized: ${{{{ steps.command.outputs.authorized }}}}
+      context: ${{{{ steps.command.outputs.context }}}}
+      head-sha: ${{{{ steps.command.outputs.head-sha }}}}
+    steps:
+      - id: command
+        uses: {MAIDA_ACCEPT_ACTION_REF}
+        with:
+          stage: authorize
+          baseline: ${{{{ env.MAIDA_BASELINE }}}}
+          policy: ${{{{ env.MAIDA_POLICY }}}}
+          github-token: ${{{{ github.token }}}}
+
+  capture:
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: {CHECKOUT_ACTION_REF} # v7
+        with:
+          ref: ${{{{ needs.authorize.outputs.head-sha }}}}
+          persist-credentials: false
+      - uses: maida-ai/maida-assert/capture-acceptance@main
+        with:
+          context: ${{{{ needs.authorize.outputs.context }}}}
+          agent-script: ${{{{ env.MAIDA_AGENT_SCRIPT }}}}
+          artifact-directory: ${{{{ runner.temp }}}}/maida-acceptance
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: maida-accept-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}
+          path: ${{{{ runner.temp }}}}/maida-acceptance/acceptance.json
+          if-no-files-found: error
+          retention-days: 1
+
+  write:
+    needs: [authorize, capture]
+    if: always() && needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    permissions:
       contents: write
       pull-requests: write
     steps:
-      - name: Accept intentional baseline change
-        uses: {MAIDA_ACCEPT_ACTION_REF}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: needs.capture.result == 'success'
         with:
-          agent-script: ${{{{ env.MAIDA_AGENT_SCRIPT }}}}
-          policy: ${{{{ env.MAIDA_POLICY }}}}
-          baseline: ${{{{ env.MAIDA_BASELINE }}}}
+          name: maida-accept-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}
+          path: ${{{{ runner.temp }}}}/maida-acceptance
+      - uses: maida-ai/maida-assert/write-back@main
+        if: always()
+        with:
+          context: ${{{{ needs.authorize.outputs.context }}}}
+          artifact-directory: ${{{{ runner.temp }}}}/maida-acceptance
           github-token: ${{{{ github.token }}}}
 """
 
