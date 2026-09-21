@@ -99,7 +99,7 @@ def test_action_version_references_match_scaffold():
         "docs/regression-testing.md",
     )
 
-    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@v5"
+    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@main"
     assert MAIDA_ASSERT_ACTION_REF in combined
     assert MAIDA_ACCEPT_ACTION_REF in combined
     assert "maida-ai/maida-assert@v2" not in combined

@@ -1691,8 +1691,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     }
 
     job = wf["jobs"]["agent-check"]
-    assert set(wf["jobs"]) == {"agent-check", "accept-command"}
-    assert job["runs-on"] == "ubuntu-latest"
+    assert set(wf["jobs"]) == {"agent-check", "authorize", "capture", "write"}
     assert job["permissions"] == {
         "contents": "read",
         "pull-requests": "write",
@@ -1700,51 +1699,49 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
         "statuses": "write",
     }
     assert "repository_dispatch" in job["if"]
-    assert len(job["steps"]) == 3
-    assert job["steps"][0]["name"] == "Check out repository"
-    assert job["steps"][1]["name"] == "Run Maida regression gate"
-    assert job["steps"][2]["name"] == "Publish dispatched gate status"
-
-    uses = [step.get("uses", "") for step in job["steps"]]
-    assert CHECKOUT_ACTION_REF in uses
-    assert MAIDA_ASSERT_ACTION_REF in uses
-    assert "actions/checkout@v4" not in uses
-    assert "maida-ai/maida-assert@v2" not in uses
-
-    action_inputs = job["steps"][1]["with"]
-    assert action_inputs["agent-script"] == "${{ env.MAIDA_AGENT_SCRIPT }}"
-    assert action_inputs["policy"] == "${{ env.MAIDA_POLICY }}"
-    assert action_inputs["baseline"] == "${{ env.MAIDA_BASELINE }}"
-    assert action_inputs["accept-command-enabled"] == (
-        "${{ env.MAIDA_BASELINE != '' }}"
-    )
-    assert "client_payload.sha" in job["steps"][0]["with"]["ref"]
-
-    status_step = job["steps"][2]
-    assert "always()" in status_step["if"]
-    assert status_step["env"]["TARGET_SHA"] == (
-        "${{ github.event.client_payload.sha }}"
-    )
-    assert status_step["env"]["GATE_OUTCOME"] == "${{ steps.gate.outcome }}"
-    assert "statuses/${TARGET_SHA}" in status_step["run"]
-    assert "Maida / agent-check" in status_step["run"]
-    assert "gh api --method POST \\\n" in workflow_text
-
-    command_job = wf["jobs"]["accept-command"]
-    assert "issue_comment" in command_job["if"]
-    assert "github.event.issue.pull_request" in command_job["if"]
-    assert "/maida accept" in command_job["if"]
-    assert command_job["permissions"] == {
-        "contents": "write",
-        "pull-requests": "write",
+    context, checkout, gate, status = job["steps"]
+    assert context["uses"] == "maida-ai/maida-assert/pr-context@main"
+    assert checkout["uses"] == CHECKOUT_ACTION_REF
+    assert checkout["with"] == {
+        "ref": "${{ steps.pr.outputs.head-sha }}",
+        "fetch-depth": 0,
+        "persist-credentials": False,
     }
-    assert len(command_job["steps"]) == 1
-    command_step = command_job["steps"][0]
-    assert command_step["uses"] == MAIDA_ACCEPT_ACTION_REF
-    assert command_step["with"]["agent-script"] == "${{ env.MAIDA_AGENT_SCRIPT }}"
-    assert command_step["with"]["policy"] == "${{ env.MAIDA_POLICY }}"
-    assert command_step["with"]["baseline"] == "${{ env.MAIDA_BASELINE }}"
-    assert command_step["with"]["github-token"] == "${{ github.token }}"
+    assert gate["uses"] == MAIDA_ASSERT_ACTION_REF
+    assert (
+        gate["with"]["configuration-acceptance"]
+        == "${{ vars.MAIDA_CONFIGURATION_ACCEPTANCE }}"
+    )
+    assert status["if"] == "always() && steps.pr.outcome == 'success'"
+    assert status["uses"] == "maida-ai/maida-assert/publish-status@main"
+    assert status["with"] == {
+        "head-sha": "${{ steps.pr.outputs.head-sha }}",
+        "base-sha": "${{ steps.pr.outputs.base-sha }}",
+        "verdict": "${{ steps.gate.outputs.verdict }}",
+        "conclusion": "${{ steps.gate.outputs.conclusion }}",
+        "publication": "${{ steps.gate.outputs.publication }}",
+    }
+    assert "steps.gate.outcome" not in workflow_text
+    assert "github.sha" not in workflow_text
+    authorize, capture, write = (
+        wf["jobs"][key] for key in ("authorize", "capture", "write")
+    )
+    assert "issue_comment" in authorize["if"]
+    assert authorize["steps"][0]["uses"] == MAIDA_ACCEPT_ACTION_REF
+    assert authorize["steps"][0]["with"]["stage"] == "authorize"
+    assert capture["permissions"] == {"contents": "read"}
+    assert capture["steps"][0]["with"]["persist-credentials"] is False
+    assert (
+        capture["steps"][0]["with"]["ref"] == "${{ needs.authorize.outputs.head-sha }}"
+    )
+    assert write["needs"] == ["authorize", "capture"]
+    assert (
+        write["steps"][-1]["with"]["context"]
+        == "${{ needs.authorize.outputs.context }}"
+    )
+    assert not any(
+        "checkout" in step.get("uses", "") or "run" in step for step in write["steps"]
+    )
     assert "Replace this with the script that runs your traced agent." in workflow_text
     assert "After committing a baseline" in workflow_text
     assert "secrets." not in workflow_text.lower()
