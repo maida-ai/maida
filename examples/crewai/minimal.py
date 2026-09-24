@@ -1,8 +1,12 @@
 """Deterministic CrewAI adapter example using public fake hook contexts.
 
-Run from the repo root:
-  CREWAI_DISABLE_TELEMETRY=true uv run --extra crewai python examples/crewai/minimal.py
-  CREWAI_DISABLE_TELEMETRY=true uv run --extra crewai python examples/crewai/minimal.py --regression
+CrewAI support was dropped after maida-ai 0.5.3 (dependency conflicts). The
+adapter remains in-tree; there is no `[crewai]` extra. Install crewai yourself
+only for local experimentation:
+
+  uv pip install "crewai[tools]"
+  CREWAI_DISABLE_TELEMETRY=true uv run python examples/crewai/minimal.py
+  CREWAI_DISABLE_TELEMETRY=true uv run python examples/crewai/minimal.py --regression
 """
 
 import argparse

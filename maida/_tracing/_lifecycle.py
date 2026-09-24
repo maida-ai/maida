@@ -7,7 +7,7 @@ or reuse the existing run (via context vars) when nested.
 Uses context vars for Maida-specific run state and OTel spans for telemetry export.
 """
 
-import asyncio
+import inspect
 import os
 import sys
 import traceback
@@ -241,7 +241,7 @@ def trace(
             kw["max_duration_s"] = max_duration_s
         params = merge_guardrail_params(base, **kw)
 
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
 
             @wraps(func)
             async def async_inner(*args: P.args, **kwargs: P.kwargs) -> R:

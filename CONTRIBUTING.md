@@ -5,6 +5,16 @@ This document covers dev setup, tests, lint/format, and how to add integrations.
 
 ---
 
+## Versioning and compatibility
+
+This is the source of truth for release-version policy across Maida repositories. The `maida-ai` engine sets the `MAJOR.MINOR` compatibility line. A releasable sibling component uses that same line when it has been tested against it, with its own independent `PATCH` number. For example, an Action `v0.5.2` and engine `v0.5.3` can belong to the same supported line. A sibling does not publish an empty release merely because the engine advanced; it adopts a new line when its support for that line is verified. Each release states its tested engine range and the functionality it supports. Matching numbers alone do not prove feature parity or compatibility. Changes to shared contracts are propagated and checked across repositories before claiming support. Trace, policy, and report schema versions are separate from package versions.
+
+The `maida-ai` Python package uses immutable full Git tags such as `v0.5.3`. Git tags drive the version in `pyproject.toml`; do not edit a version string by hand. Publish the corresponding full version, without `v`, on PyPI. Do not create or move a shortened `vMAJOR.MINOR` tag in this repository. Use patch releases for compatible fixes and minor releases for compatible additions. While the package is at `0.x`, a minor release may also contain an incompatible change; document those changes explicitly. Use a PEP 440 `.postN` release only for a correction to packaging or release metadata that does not change runtime behavior. Runtime fixes get a new patch release.
+
+The GitHub Action has its own versioning and tag policy in the [`maida-assert` README](https://github.com/maida-ai/maida-assert#versioning). Other repositories document their own release mechanism and how they verify Maida compatibility in their contributor docs or README.
+
+---
+
 ## Dev setup
 
 1. **Clone and install with uv (recommended):**
@@ -79,7 +89,7 @@ Examples live under `examples/` and must stay runnable from the repo root:
 - **`examples/langchain/minimal.py`** – minimal LangChain chain; requires `[langchain]` extra.
 - **`examples/langchain/`** – advanced LangChain/LangGraph customer-support demo (`customer_support.py` + `_customer_support/`); requires installing the `examples/langchain` dependencies and API keys (see `_customer_support/README.md`).
 - **`examples/demo/`** – short demo scripts (`pure_python.py`, `langchain.py`).
-- **`examples/crewai/`** – CrewAI example stubs (no runnable script yet; see CHANGELOG for status).
+- **`examples/crewai/`** – historical CrewAI offline example; the `[crewai]` extra was removed after v0.5.3 (see CHANGELOG). Install `crewai[tools]` yourself only for local experimentation.
 
 When changing directory layout or run commands, update README, [docs/index.md](docs/index.md) (Demos section), and this list.
 

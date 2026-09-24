@@ -240,7 +240,7 @@ of them installed.
 |---|---|---|
 | 🦜 LangChain / LangGraph | `maida-ai[langchain]` | [Guide](https://maida.ai/docs/integrations/langchain-langgraph/) |
 | 🤖 OpenAI Agents SDK | `maida-ai[openai]` | [Guide](https://maida.ai/docs/integrations/openai-agents/) |
-| 🛶 CrewAI | `maida-ai[crewai]` | [Guide](https://maida.ai/docs/integrations/crewai/) |
+| 🛶 CrewAI | unsupported after v0.5.3 | [Guide](https://maida.ai/docs/integrations/crewai/) |
 | 📊 Langfuse import | built in | [Guide](https://maida.ai/docs/langfuse/) |
 | 🖥️ Claude Code capture | built in | [Guide](https://maida.ai/docs/claude-code/) |
 | 🧾 Any emitter (no SDK) | built in | [Emitter guide](https://maida.ai/docs/reference/trace-emitter/) |

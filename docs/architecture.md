@@ -122,7 +122,7 @@ Maida adapters are thin translation layers that hook into a framework's callback
 |-------------|--------|----------------|
 | LangChain / LangGraph | `maida.integrations.langchain` | Callback handler (`on_llm_start`/`on_tool_start`) |
 | OpenAI Agents SDK | `maida.integrations.openai_agents` | Tracing processor (`GenerationSpanData`, `FunctionSpanData`, `HandoffSpanData`) |
-| CrewAI | `maida.integrations.crewai` | Execution hooks (`before/after_llm_call`, `before/after_tool_call`) |
+| CrewAI (unsupported after v0.5.3) | `maida.integrations.crewai` | Execution hooks (`before/after_llm_call`, `before/after_tool_call`); `[crewai]` extra removed until dependency conflicts resolve |
 
 **Integration lifecycle:** `maida._integration_utils` provides `_invoke_run_enter` / `_invoke_run_exit` callbacks that adapters register with. This ensures adapters activate only when an explicit Maida run is active.
 

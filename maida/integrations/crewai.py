@@ -28,7 +28,10 @@ try:
     )
 except ImportError as e:
     raise MissingOptionalDependencyError(
-        "CrewAI integration requires optional deps. Install with `pip install maida-ai[crewai]`."
+        "CrewAI integration support was dropped after maida-ai 0.5.3 "
+        "(crewai dependency conflicts block Python 3.14 and openai upgrades). "
+        "Pin maida-ai==0.5.3 with the [crewai] extra, or wait until conflicts resolve. "
+        "The in-tree adapter remains for later restoration."
     ) from e
 
 

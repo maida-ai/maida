@@ -1,16 +1,27 @@
 # CrewAI
 
-**Status: available.** An optional adapter lives at `maida.integrations.crewai`. Importing it registers CrewAI execution hooks that automatically record LLM and tool calls into the active Maida run.
+**Status: unsupported after v0.5.3.** The optional `maida-ai[crewai]` extra is
+removed until CrewAI dependency conflicts are resolved. CrewAI currently holds
+several other packages hostage: it has an import-level incompatibility that
+blocks enabling Python 3.14, and it conflicts with newer `openai` releases we
+otherwise need to bump.
 
-**Requirements:** `crewai[tools]` must be installed. Install Maida with the CrewAI extra:
+The adapter source remains at `maida.integrations.crewai` for later restoration.
+It is not a supported install path on releases after v0.5.3.
+
+**Through v0.5.3:** install Maida with the CrewAI extra:
 
 ```bash
-uv add "maida-ai[crewai]>=0.5"
+uv add "maida-ai[crewai]==0.5.3"
 ```
 
-If `crewai` is not installed, importing the integration raises a clear `ImportError` with install instructions.
+If `crewai` is not installed on a post-v0.5.3 release, importing the in-tree
+adapter raises a clear `ImportError` that explains the pause and points at the
+v0.5.3 pin.
 
-**Usage:**
+The rest of this page documents the adapter as it shipped through v0.5.3.
+
+**Usage (v0.5.3 and earlier):**
 
 ```python
 import maida
@@ -35,7 +46,8 @@ The offline example -- <a href="/docs/assets/examples/crewai-minimal.py" downloa
 from a checkout -- sends fake data through CrewAI's public hook contexts, so it
 exercises the adapter without starting a crew, LLM, or API call. The
 environment flag disables CrewAI's separate anonymous package telemetry for
-this deterministic run:
+this deterministic run. On post-v0.5.3 checkouts the example requires installing
+`crewai[tools]` yourself; there is no Maida extra.
 
 ```bash
 CREWAI_DISABLE_TELEMETRY=true python examples/crewai/minimal.py
