@@ -72,13 +72,9 @@ def _assert_passed_check(report, check_name: str):
 
 def test_small_step_count_variance_passes_under_policy_tolerance(temp_data_dir):
     config = load_config()
-    baseline_run = _make_state_run(
-        config, name="baseline-steps", state_steps=4, duration_ms=1000
-    )
+    baseline_run = _make_state_run(config, name="baseline-steps", state_steps=4, duration_ms=1000)
     baseline = create_baseline(baseline_run, config)
-    current_run = _make_state_run(
-        config, name="current-steps", state_steps=5, duration_ms=1000
-    )
+    current_run = _make_state_run(config, name="current-steps", state_steps=5, duration_ms=1000)
 
     report = run_assertions(
         current_run,
@@ -96,13 +92,9 @@ def test_small_step_count_variance_passes_under_policy_tolerance(temp_data_dir):
 
 def test_small_latency_variance_passes_under_policy_tolerance(temp_data_dir):
     config = load_config()
-    baseline_run = _make_tool_run(
-        config, name="baseline-latency", tools=("search",), duration_ms=1000
-    )
+    baseline_run = _make_tool_run(config, name="baseline-latency", tools=("search",), duration_ms=1000)
     baseline = create_baseline(baseline_run, config)
-    current_run = _make_tool_run(
-        config, name="current-latency", tools=("search",), duration_ms=1100
-    )
+    current_run = _make_tool_run(config, name="current-latency", tools=("search",), duration_ms=1100)
 
     report = run_assertions(
         current_run,
@@ -219,13 +211,9 @@ def test_benign_tool_ordering_passes_without_exact_sequence_policy(temp_data_dir
 
 def test_exact_step_policy_fails_on_small_step_variance(temp_data_dir):
     config = load_config()
-    baseline_run = _make_state_run(
-        config, name="exact-baseline-steps", state_steps=4, duration_ms=1000
-    )
+    baseline_run = _make_state_run(config, name="exact-baseline-steps", state_steps=4, duration_ms=1000)
     baseline = create_baseline(baseline_run, config)
-    current_run = _make_state_run(
-        config, name="exact-current-steps", state_steps=5, duration_ms=1000
-    )
+    current_run = _make_state_run(config, name="exact-current-steps", state_steps=5, duration_ms=1000)
 
     report = run_assertions(
         current_run,
@@ -244,13 +232,9 @@ def test_exact_step_policy_fails_on_small_step_variance(temp_data_dir):
 
 def test_exact_latency_policy_fails_on_small_latency_variance(temp_data_dir):
     config = load_config()
-    baseline_run = _make_tool_run(
-        config, name="exact-baseline-latency", tools=("search",), duration_ms=1000
-    )
+    baseline_run = _make_tool_run(config, name="exact-baseline-latency", tools=("search",), duration_ms=1000)
     baseline = create_baseline(baseline_run, config)
-    current_run = _make_tool_run(
-        config, name="exact-current-latency", tools=("search",), duration_ms=1001
-    )
+    current_run = _make_tool_run(config, name="exact-current-latency", tools=("search",), duration_ms=1001)
 
     report = run_assertions(
         current_run,
@@ -262,9 +246,6 @@ def test_exact_latency_policy_fails_on_small_latency_variance(temp_data_dir):
     assert report.passed is False
     duration_result = next(r for r in report.results if r.check_name == "duration")
     assert duration_result.passed is False
-    assert (
-        duration_result.reason_code
-        == RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED.value
-    )
+    assert duration_result.reason_code == RegressionReasonCode.LATENCY_ENVELOPE_EXCEEDED.value
     assert duration_result.expected == "1000"
     assert duration_result.actual == "1001"

@@ -57,13 +57,9 @@ def _parse_started_at(trace_id: str, value: object) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as error:
-        raise DriftWindowError(
-            f"Trace {trace_id[:8]} has invalid started_at {value!r}"
-        ) from error
+        raise DriftWindowError(f"Trace {trace_id[:8]} has invalid started_at {value!r}") from error
     if parsed.tzinfo is None:
-        raise DriftWindowError(
-            f"Trace {trace_id[:8]} started_at must include a timezone"
-        )
+        raise DriftWindowError(f"Trace {trace_id[:8]} started_at must include a timezone")
     return parsed
 
 
@@ -75,17 +71,13 @@ class NativeTraceWindowSource:
         if not self.runs_dir.is_dir():
             raise DriftWindowError(f"Trace window directory not found: {runs_dir}")
         if self.runs_dir.name != "runs":
-            raise DriftWindowError(
-                "Trace window must be a native Maida runs directory ending in /runs"
-            )
+            raise DriftWindowError("Trace window must be a native Maida runs directory ending in /runs")
         self.analysis_config = replace(config, data_dir=self.runs_dir.parent)
 
     def load_all(self) -> list[LoadedWindowTrace]:
         """Validate and load every completed trace in stable oldest-first order."""
         candidates = sorted(
-            entry
-            for entry in self.runs_dir.iterdir()
-            if entry.is_dir() and not entry.name.startswith(".")
+            entry for entry in self.runs_dir.iterdir() if entry.is_dir() and not entry.name.startswith(".")
         )
         if not candidates:
             raise DriftWindowError(f"Trace window {self.runs_dir} contains no traces")
@@ -93,19 +85,14 @@ class NativeTraceWindowSource:
         loaded: list[LoadedWindowTrace] = []
         for entry in candidates:
             try:
-                trace_id, meta, events = storage.load_run_for_analysis(
-                    entry.name, self.analysis_config
-                )
+                trace_id, meta, events = storage.load_run_for_analysis(entry.name, self.analysis_config)
             except (FileNotFoundError, ValueError, storage.RunValidationError) as error:
-                raise DriftWindowError(
-                    f"Invalid trace window entry {entry.name}: {error}"
-                ) from error
+                raise DriftWindowError(f"Invalid trace window entry {entry.name}: {error}") from error
             except storage.UnsupportedTraceFormatError as error:
                 raise DriftWindowError(str(error)) from error
             if meta.get("status") == "running" or meta.get("ended_at") is None:
                 raise DriftWindowError(
-                    f"Trace {trace_id[:8]} is incomplete; only completed traces "
-                    "can enter a drift window"
+                    f"Trace {trace_id[:8]} is incomplete; only completed traces can enter a drift window"
                 )
             started_at = _parse_started_at(trace_id, meta.get("started_at"))
             loaded.append(
@@ -120,13 +107,9 @@ class NativeTraceWindowSource:
         return loaded
 
     def load(self, agent_name: str) -> list[LoadedWindowTrace]:
-        loaded = [
-            item for item in self.load_all() if item.meta.get("run_name") == agent_name
-        ]
+        loaded = [item for item in self.load_all() if item.meta.get("run_name") == agent_name]
         if not loaded:
-            raise DriftWindowError(
-                f"Trace window contains no completed traces for agent {agent_name!r}"
-            )
+            raise DriftWindowError(f"Trace window contains no completed traces for agent {agent_name!r}")
         return loaded
 
 
@@ -148,16 +131,11 @@ def resolve_drift_target(baseline: dict, requested: str | None) -> DriftTarget:
         if not requested:
             raise DriftWindowError("--agent must not be empty")
         if baseline_agent and requested != baseline_agent:
-            raise DriftWindowError(
-                f"Selected agent {requested!r} does not match baseline agent "
-                f"{baseline_agent!r}"
-            )
+            raise DriftWindowError(f"Selected agent {requested!r} does not match baseline agent {baseline_agent!r}")
         return DriftTarget(agent_name=requested, baseline=baseline)
     if baseline_agent:
         return DriftTarget(agent_name=baseline_agent, baseline=baseline)
-    raise DriftWindowError(
-        "Baseline does not identify an agent; pass --agent to select one"
-    )
+    raise DriftWindowError("Baseline does not identify an agent; pass --agent to select one")
 
 
 def run_drift(
@@ -203,9 +181,7 @@ def run_drift(
                 stderr="",
                 assertion_report=assertion_report,
                 run_status=item.meta.get("status"),
-                baseline_diff=asdict(
-                    compute_diff(item.trace_id, baseline=baseline, config=window_config)
-                ),
+                baseline_diff=asdict(compute_diff(item.trace_id, baseline=baseline, config=window_config)),
                 metric_values=numeric_metrics(extracted),
                 invariant_outcomes=invariants,
                 structural_signature=structural_signature(extracted),
@@ -234,9 +210,5 @@ def run_drift(
         window_input_format="maida_runs",
         baseline_source_run_id=baseline.get("source_run_id"),
         baseline_source_run_name=baseline.get("source_run_name"),
-        baseline_acceptance=(
-            baseline.get("acceptance")
-            if isinstance(baseline.get("acceptance"), dict)
-            else None
-        ),
+        baseline_acceptance=(baseline.get("acceptance") if isinstance(baseline.get("acceptance"), dict) else None),
     )

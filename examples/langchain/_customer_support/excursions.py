@@ -50,9 +50,7 @@ def search_trip_recommendations(
 
     conn.close()
 
-    return [
-        dict(zip([column[0] for column in cursor.description], row)) for row in results
-    ]
+    return [dict(zip([column[0] for column in cursor.description], row)) for row in results]
 
 
 @tool
@@ -69,9 +67,7 @@ def book_excursion(recommendation_id: int) -> str:
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
 
-    cursor.execute(
-        "UPDATE trip_recommendations SET booked = 1 WHERE id = ?", (recommendation_id,)
-    )
+    cursor.execute("UPDATE trip_recommendations SET booked = 1 WHERE id = ?", (recommendation_id,))
     conn.commit()
 
     if cursor.rowcount > 0:
@@ -125,9 +121,7 @@ def cancel_excursion(recommendation_id: int) -> str:
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
 
-    cursor.execute(
-        "UPDATE trip_recommendations SET booked = 0 WHERE id = ?", (recommendation_id,)
-    )
+    cursor.execute("UPDATE trip_recommendations SET booked = 0 WHERE id = ?", (recommendation_id,))
     conn.commit()
 
     if cursor.rowcount > 0:

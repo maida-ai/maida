@@ -19,20 +19,14 @@ LEGACY_BASELINE_VERSIONS = frozenset({"0.2", "0.2.0"})
 
 
 def _signature_id(signature: dict[str, Any]) -> str:
-    encoded = json.dumps(
-        signature, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    encoded = json.dumps(signature, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
 def create_baseline_from_report(report: dict[str, Any]) -> dict[str, Any]:
     """Create one reviewed, immutable baseline trial sample from report v2."""
-    if not machine_minor_compatible(
-        report.get("report_version"), REPORT_SCHEMA_VERSION, stream="report"
-    ):
-        raise ValueError(
-            f"baseline --from-report requires report_version {REPORT_SCHEMA_VERSION}"
-        )
+    if not machine_minor_compatible(report.get("report_version"), REPORT_SCHEMA_VERSION, stream="report"):
+        raise ValueError(f"baseline --from-report requires report_version {REPORT_SCHEMA_VERSION}")
     trials = report.get("trials")
     if not isinstance(trials, list) or not trials:
         raise ValueError("report must contain at least one completed trial")
@@ -40,10 +34,7 @@ def create_baseline_from_report(report: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(metadata, dict):
         raise ValueError("report metadata must be an object")
     if metadata.get("trials_used") != metadata.get("trials_budgeted"):
-        raise ValueError(
-            "baseline reports must contain the full fixed-N sample; "
-            "re-run with --no-fail-fast"
-        )
+        raise ValueError("baseline reports must contain the full fixed-N sample; re-run with --no-fail-fast")
 
     metric_vectors: dict[str, list[float]] = {}
     invariant_vectors: dict[str, list[bool]] = {}
@@ -54,9 +45,7 @@ def create_baseline_from_report(report: dict[str, Any]) -> dict[str, Any]:
         signature = trial.get("structural_signature")
         invariants = trial.get("invariant_outcomes")
         if not isinstance(values, dict) or not isinstance(signature, dict):
-            raise ValueError(
-                "report trials must include metric_values and structural_signature"
-            )
+            raise ValueError("report trials must include metric_values and structural_signature")
         if not isinstance(invariants, dict):
             raise ValueError("report trials must include invariant_outcomes")
         for name, value in values.items():
@@ -135,14 +124,8 @@ def _create_plan_sample(raw_evidence: object) -> dict[str, Any]:
         "artifact_ids": artifact_ids,
         "artifact_counts": dict(sorted(counts.items())),
         "artifacts": dict(sorted(by_id.items())),
-        "metrics": {
-            name: [plan_metric_values(artifact)[name] for artifact in artifacts]
-            for name in metric_names
-        },
-        "sets": {
-            name: [list(plan_set_values(artifact)[name]) for artifact in artifacts]
-            for name in set_names
-        },
+        "metrics": {name: [plan_metric_values(artifact)[name] for artifact in artifacts] for name in metric_names},
+        "sets": {name: [list(plan_set_values(artifact)[name]) for artifact in artifacts] for name in set_names},
     }
 
 
@@ -159,6 +142,5 @@ def validate_baseline_version(baseline: dict[str, Any]) -> None:
     major, minor, _patch = (int(part) for part in parts)
     if (major, minor) != (0, 3):
         raise ValueError(
-            f"unsupported baseline schema_version {version}; "
-            f"this Maida supports {BASELINE_SCHEMA_VERSION}"
+            f"unsupported baseline schema_version {version}; this Maida supports {BASELINE_SCHEMA_VERSION}"
         )

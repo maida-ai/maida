@@ -196,22 +196,12 @@ def _json_sanitize_string(value: str, config: MaidaConfig) -> str:
     )
 
 
-def _sanitize(
-    value: Any, config: MaidaConfig, *, key: str | None = None, depth: int = 0
-) -> Any:
+def _sanitize(value: Any, config: MaidaConfig, *, key: str | None = None, depth: int = 0) -> Any:
     if depth > 12:
         return TRUNCATED_MARKER
-    if (
-        key in _TOKEN_COUNTERS
-        and isinstance(value, int)
-        and not isinstance(value, bool)
-    ):
+    if key in _TOKEN_COUNTERS and isinstance(value, int) and not isinstance(value, bool):
         return value
-    if (
-        key is not None
-        and config.redact
-        and _key_matches_redact(key, config.redact_keys)
-    ):
+    if key is not None and config.redact and _key_matches_redact(key, config.redact_keys):
         return REDACTED_MARKER
     if value is None or isinstance(value, (bool, int, float)):
         return value
@@ -271,29 +261,21 @@ def _validate_fields(
 ) -> None:
     if signal_name not in known_names:
         return
-    missing = [
-        field for field in required.get(signal_name, ()) if field not in attributes
-    ]
+    missing = [field for field in required.get(signal_name, ()) if field not in attributes]
     if missing:
-        raise CaptureValidationError(
-            f"{signal_name} is missing required field(s): {', '.join(missing)}"
-        )
+        raise CaptureValidationError(f"{signal_name} is missing required field(s): {', '.join(missing)}")
     for field in _NONNEGATIVE_FIELDS:
         value = attributes.get(field)
         if value is None:
             continue
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
-            raise CaptureValidationError(
-                f"{signal_name} field {field!r} must be nonnegative"
-            )
+            raise CaptureValidationError(f"{signal_name} field {field!r} must be nonnegative")
     if signal_name == "claude_code.api_error" and attributes.get("attempt", 0) < 1:
         raise CaptureValidationError("claude_code.api_error attempt must be at least 1")
     if signal_name in {"claude_code.tool_result", "claude_code.tool.execution"}:
         if not isinstance(attributes.get("success"), (bool, str)):
             raise CaptureValidationError(f"{signal_name} success must be boolean-like")
-    if signal_name == "claude_code.tool_decision" and attributes.get(
-        "decision"
-    ) not in {
+    if signal_name == "claude_code.tool_decision" and attributes.get("decision") not in {
         "accept",
         "reject",
     }:
@@ -343,9 +325,7 @@ def _scope(scope: Any) -> dict[str, Any]:
     }
 
 
-def _decode_logs(
-    request: ExportLogsServiceRequest, config: MaidaConfig
-) -> list[dict[str, Any]]:
+def _decode_logs(request: ExportLogsServiceRequest, config: MaidaConfig) -> list[dict[str, Any]]:
     decoded: list[dict[str, Any]] = []
     for resource_logs in request.resource_logs:
         resource = _attributes(resource_logs.resource.attributes)
@@ -432,16 +412,10 @@ def _status_code(status: Any) -> str:
 def _nanos_iso(value: int) -> str:
     if value <= 0:
         raise CaptureValidationError("span timestamps must be positive")
-    return (
-        datetime.fromtimestamp(value / 1_000_000_000, timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.fromtimestamp(value / 1_000_000_000, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _decode_traces(
-    request: ExportTraceServiceRequest, config: MaidaConfig
-) -> list[dict[str, Any]]:
+def _decode_traces(request: ExportTraceServiceRequest, config: MaidaConfig) -> list[dict[str, Any]]:
     decoded: list[dict[str, Any]] = []
     for resource_spans in request.resource_spans:
         resource = _attributes(resource_spans.resource.attributes)
@@ -463,9 +437,7 @@ def _decode_traces(
                 parent_span_id = _valid_span_id(span.parent_span_id, optional=True)
                 if span.end_time_unix_nano < span.start_time_unix_nano:
                     raise CaptureValidationError("span end time precedes start time")
-                duration_ms = (
-                    span.end_time_unix_nano - span.start_time_unix_nano
-                ) // 1_000_000
+                duration_ms = (span.end_time_unix_nano - span.start_time_unix_nano) // 1_000_000
                 session_hash = _session_hash(session_id)
                 attributes["session.id"] = session_hash
                 resource = dict(resource)
@@ -547,13 +519,9 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
             try:
                 value = json.loads(line)
             except json.JSONDecodeError as exc:
-                raise CaptureConflictError(
-                    f"existing capture {path} line {line_no} is invalid JSON"
-                ) from exc
+                raise CaptureConflictError(f"existing capture {path} line {line_no} is invalid JSON") from exc
             if not isinstance(value, dict):
-                raise CaptureConflictError(
-                    f"existing capture {path} line {line_no} is not an object"
-                )
+                raise CaptureConflictError(f"existing capture {path} line {line_no} is not an object")
             records.append(value)
     return records
 
@@ -596,18 +564,10 @@ def _capture_lock(root: Path) -> Iterator[None]:
 
 
 def _capture_dir(config: MaidaConfig, session_hash: str) -> Path:
-    return (
-        config.data_dir.expanduser()
-        / "captures"
-        / _SERVICE_NAME
-        / session_hash
-        / _SEGMENT
-    )
+    return config.data_dir.expanduser() / "captures" / _SERVICE_NAME / session_hash / _SEGMENT
 
 
-def _store(
-    records: list[dict[str, Any]], signal: str, config: MaidaConfig
-) -> tuple[int, int]:
+def _store(records: list[dict[str, Any]], signal: str, config: MaidaConfig) -> tuple[int, int]:
     filename = "logs.jsonl" if signal == "logs" else "spans.jsonl"
     groups: dict[str, list[dict[str, Any]]] = {}
     for record in records:
@@ -621,9 +581,7 @@ def _store(
         for session_hash, incoming in groups.items():
             path = _capture_dir(config, session_hash) / filename
             existing = _read_jsonl(path)
-            identities = {
-                _record_identity(item, signal): _canonical(item) for item in existing
-            }
+            identities = {_record_identity(item, signal): _canonical(item) for item in existing}
             additions: list[dict[str, Any]] = []
             for item in incoming:
                 identity = _record_identity(item, signal)
@@ -635,9 +593,7 @@ def _store(
                 elif previous == canonical:
                     deduplicated += 1
                 else:
-                    raise CaptureConflictError(
-                        "conflicting duplicate Claude Code telemetry identity"
-                    )
+                    raise CaptureConflictError("conflicting duplicate Claude Code telemetry identity")
             planned.append((path, existing, additions))
 
         now = utc_now_iso_ms_z()
@@ -670,22 +626,16 @@ def _store(
 
 
 async def _body(request: Request, max_request_bytes: int) -> bytes:
-    content_type = (
-        request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-    )
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
     if content_type not in _PROTOBUF_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=415, detail="content type must be application/x-protobuf"
-        )
+        raise HTTPException(status_code=415, detail="content type must be application/x-protobuf")
     content_length = request.headers.get("content-length")
     if content_length:
         try:
             if int(content_length) > max_request_bytes:
                 raise HTTPException(status_code=413, detail="OTLP request is too large")
         except ValueError as exc:
-            raise HTTPException(
-                status_code=400, detail="invalid Content-Length"
-            ) from exc
+            raise HTTPException(status_code=400, detail="invalid Content-Length") from exc
     body = await request.body()
     if len(body) > max_request_bytes:
         raise HTTPException(status_code=413, detail="OTLP request is too large")
@@ -715,9 +665,7 @@ def create_claude_code_app(
             decoded = _decode_logs(message, config)
             _store(decoded, "logs", config)
         except DecodeError as exc:
-            raise HTTPException(
-                status_code=400, detail="invalid OTLP logs protobuf"
-            ) from exc
+            raise HTTPException(status_code=400, detail="invalid OTLP logs protobuf") from exc
         except CaptureValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except CaptureConflictError as exc:
@@ -734,9 +682,7 @@ def create_claude_code_app(
             decoded = _decode_traces(message, config)
             _store(decoded, "spans", config)
         except DecodeError as exc:
-            raise HTTPException(
-                status_code=400, detail="invalid OTLP traces protobuf"
-            ) from exc
+            raise HTTPException(status_code=400, detail="invalid OTLP traces protobuf") from exc
         except CaptureValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except CaptureConflictError as exc:

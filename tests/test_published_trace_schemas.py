@@ -6,16 +6,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas" / "trace" / "0.2.0"
-FIXTURE = (
-    ROOT
-    / "tests"
-    / "fixtures"
-    / "traces"
-    / "external"
-    / "emitter"
-    / "current"
-    / "multithread"
-)
+FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 
 
 def _read_json(path: Path) -> dict:
@@ -36,9 +27,5 @@ def test_published_schemas_accept_external_fixture() -> None:
 
 
 def test_unversioned_schema_names_are_current_aliases() -> None:
-    assert _read_json(ROOT / "schemas" / "run.schema.json")["$ref"] == (
-        "trace/0.2.0/meta.schema.json"
-    )
-    assert _read_json(ROOT / "schemas" / "event.schema.json")["$ref"] == (
-        "trace/0.2.0/span.schema.json"
-    )
+    assert _read_json(ROOT / "schemas" / "run.schema.json")["$ref"] == ("trace/0.2.0/meta.schema.json")
+    assert _read_json(ROOT / "schemas" / "event.schema.json")["$ref"] == ("trace/0.2.0/span.schema.json")

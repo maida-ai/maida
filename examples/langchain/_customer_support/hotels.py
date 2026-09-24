@@ -50,9 +50,7 @@ def search_hotels(
 
     conn.close()
 
-    return [
-        dict(zip([column[0] for column in cursor.description], row)) for row in results
-    ]
+    return [dict(zip([column[0] for column in cursor.description], row)) for row in results]
 
 
 @tool
@@ -101,9 +99,7 @@ def update_hotel(
     cursor = conn.cursor()
 
     if checkin_date:
-        cursor.execute(
-            "UPDATE hotels SET checkin_date = ? WHERE id = ?", (checkin_date, hotel_id)
-        )
+        cursor.execute("UPDATE hotels SET checkin_date = ? WHERE id = ?", (checkin_date, hotel_id))
     if checkout_date:
         cursor.execute(
             "UPDATE hotels SET checkout_date = ? WHERE id = ?",

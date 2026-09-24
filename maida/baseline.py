@@ -40,10 +40,7 @@ def extract_run_metrics(meta: dict, events: list[dict]) -> dict:
     guardrail_events: list[dict] = []
 
     _action_events = [
-        e
-        for e in events
-        if e.get("event_type")
-        not in (EventType.RUN_START.value, EventType.RUN_END.value)
+        e for e in events if e.get("event_type") not in (EventType.RUN_START.value, EventType.RUN_END.value)
     ]
     for ev in events:
         et = ev.get("event_type", "")
@@ -150,8 +147,7 @@ def save_baseline(baseline: dict, path: Path, force: bool = False) -> None:
         f = open(path, "w" if force else "x", encoding="utf-8")
     except FileExistsError:
         raise FileExistsError(
-            f"Baseline file already exists: {path}. "
-            "Use force=True (CLI: --force) to overwrite it."
+            f"Baseline file already exists: {path}. Use force=True (CLI: --force) to overwrite it."
         ) from None
     with f:
         json.dump(baseline, f, ensure_ascii=False, indent=2)

@@ -154,9 +154,7 @@ class _CannedAnthropicHandler(BaseHTTPRequestHandler):
 def _receiver(data_dir: Path) -> tuple[uvicorn.Server, threading.Thread, int]:
     config = replace(load_config(), data_dir=data_dir)
     app = create_claude_code_app(config)
-    server = uvicorn.Server(
-        uvicorn.Config(app=app, log_level="error", access_log=False)
-    )
+    server = uvicorn.Server(uvicorn.Config(app=app, log_level="error", access_log=False))
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(("127.0.0.1", 0))
@@ -176,14 +174,8 @@ def _receiver(data_dir: Path) -> tuple[uvicorn.Server, threading.Thread, int]:
     return server, thread, port
 
 
-def _filtered_environment(
-    *, home: Path, anthropic_port: int, capture_port: int
-) -> dict[str, str]:
-    environment = {
-        key: os.environ[key]
-        for key in ("PATH", "LANG", "LC_ALL", "TMPDIR")
-        if key in os.environ
-    }
+def _filtered_environment(*, home: Path, anthropic_port: int, capture_port: int) -> dict[str, str]:
+    environment = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL", "TMPDIR") if key in os.environ}
     environment.update(
         {
             "HOME": str(home),
@@ -211,17 +203,11 @@ def _filtered_environment(
 
 
 def _jsonl(path: Path) -> list[dict[str, Any]]:
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def _assert_capture(data_dir: Path) -> dict[str, Any]:
-    manifests = list(
-        (data_dir / "captures" / "claude-code").glob("*/0001/manifest.json")
-    )
+    manifests = list((data_dir / "captures" / "claude-code").glob("*/0001/manifest.json"))
     if len(manifests) != 1:
         raise RuntimeError("expected exactly one captured Claude session")
     capture_dir = manifests[0].parent
@@ -235,11 +221,7 @@ def _assert_capture(data_dir: Path) -> dict[str, Any]:
         raise RuntimeError("Claude smoke did not export required log signals")
     if not required_spans.issubset(span_names):
         raise RuntimeError("Claude smoke did not export required trace signals")
-    api_records = [
-        record
-        for record in logs
-        if record["record"]["event_name"] == "claude_code.api_request"
-    ]
+    api_records = [record for record in logs if record["record"]["event_name"] == "claude_code.api_request"]
     if not any(
         isinstance(record["record"]["attributes"].get("input_tokens"), int)
         and record["record"]["attributes"]["input_tokens"] > 0
@@ -266,9 +248,7 @@ def run_smoke(claude: str) -> dict[str, Any]:
         timeout=10,
     ).stdout.strip()
     if not version.startswith(PINNED_CLAUDE_VERSION):
-        raise RuntimeError(
-            f"Claude Code {PINNED_CLAUDE_VERSION} is required for this smoke"
-        )
+        raise RuntimeError(f"Claude Code {PINNED_CLAUDE_VERSION} is required for this smoke")
 
     with tempfile.TemporaryDirectory(prefix="maida-claude-smoke-") as temporary:
         root = Path(temporary)

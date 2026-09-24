@@ -102,18 +102,10 @@ class AssertionPolicy:
 
     def validate(self) -> None:
         """Fail fast when policy values cannot produce a meaningful gate."""
-        if (
-            isinstance(self.trials, bool)
-            or not isinstance(self.trials, int)
-            or self.trials < 1
-        ):
+        if isinstance(self.trials, bool) or not isinstance(self.trials, int) or self.trials < 1:
             raise ValueError("trials must be an integer of at least 1")
-        self._validate_fraction(
-            "confidence_level", self.confidence_level, inclusive=False
-        )
-        self._validate_fraction(
-            "pass_rate_threshold", self.pass_rate_threshold, inclusive=True
-        )
+        self._validate_fraction("confidence_level", self.confidence_level, inclusive=False)
+        self._validate_fraction("pass_rate_threshold", self.pass_rate_threshold, inclusive=True)
         for name in (
             "step_tolerance",
             "tool_call_tolerance",
@@ -121,12 +113,7 @@ class AssertionPolicy:
             "duration_tolerance",
         ):
             value = getattr(self, name)
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, (int, float))
-                or not math.isfinite(value)
-                or value < 0
-            ):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be a non-negative number")
         for name in (
             "max_steps",
@@ -135,9 +122,7 @@ class AssertionPolicy:
             "max_duration_ms",
         ):
             value = getattr(self, name)
-            if value is not None and (
-                isinstance(value, bool) or not isinstance(value, int) or value < 0
-            ):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
                 raise ValueError(f"{name} must be a non-negative integer or null")
         if self.expect_status not in {None, "ok", "error"}:
             raise ValueError("expect_status must be 'ok', 'error', or null")
@@ -146,9 +131,7 @@ class AssertionPolicy:
         if (
             not isinstance(self.policy_version, tuple)
             or len(self.policy_version) != 2
-            or not all(
-                isinstance(part, int) and part >= 0 for part in self.policy_version
-            )
+            or not all(isinstance(part, int) and part >= 0 for part in self.policy_version)
         ):
             raise ValueError("policy_version must be a (major, minor) tuple")
         if self.policy_version[0] != 2:
@@ -156,13 +139,10 @@ class AssertionPolicy:
         if self.source_format not in {"cli", "v2"}:
             raise ValueError("source_format must be cli or v2")
         if not isinstance(self.metrics, dict) or not all(
-            isinstance(name, str) and isinstance(metric, MetricPolicy)
-            for name, metric in self.metrics.items()
+            isinstance(name, str) and isinstance(metric, MetricPolicy) for name, metric in self.metrics.items()
         ):
             raise ValueError("metrics must map names to MetricPolicy values")
-        if not isinstance(self.ignored_checks, list) or not all(
-            isinstance(name, str) for name in self.ignored_checks
-        ):
+        if not isinstance(self.ignored_checks, list) or not all(isinstance(name, str) for name in self.ignored_checks):
             raise ValueError("ignored_checks must be a list of check names")
 
     @staticmethod
@@ -211,16 +191,10 @@ class AssertionReport:
     @property
     def reason_codes(self) -> list[RegressionReasonCode]:
         """Failure reason codes in result order, de-duplicated for machines."""
-        return list(
-            dict.fromkeys(
-                result.reason_code for result in self.results if not result.passed
-            )
-        )
+        return list(dict.fromkeys(result.reason_code for result in self.results if not result.passed))
 
 
-def _reason_code_for(
-    passed: bool, failure_code: RegressionReasonCode
-) -> RegressionReasonCode:
+def _reason_code_for(passed: bool, failure_code: RegressionReasonCode) -> RegressionReasonCode:
     return RegressionReasonCode.NO_REGRESSION if passed else failure_code
 
 
@@ -301,10 +275,7 @@ def _check_threshold(
         return AssertionResult(
             check_name=check_name,
             passed=passed,
-            message=(
-                f"{int(actual)} {unit} (baseline: {int(baseline_value)}, "
-                f"tolerance: {tolerance:.0%})"
-            ),
+            message=(f"{int(actual)} {unit} (baseline: {int(baseline_value)}, tolerance: {tolerance:.0%})"),
             reason_code=_reason_code_for(passed, reason_code),
             expected=str(int(limit)),
             actual=str(int(actual)),
@@ -338,8 +309,7 @@ def _run_metric_assertions(
     unsupported = [
         name
         for name, metric in policy.metrics.items()
-        if metric.kind not in {MetricKind.INVARIANT, MetricKind.MEASURED}
-        or name in PLAN_METRIC_NAMES
+        if metric.kind not in {MetricKind.INVARIANT, MetricKind.MEASURED} or name in PLAN_METRIC_NAMES
     ]
     if unsupported:
         raise ValueError(
@@ -443,9 +413,7 @@ def run_assertions(
         run_id=full_id,
         baseline_run_id=(baseline or {}).get("source_run_id"),
         baseline_acceptance=(
-            (baseline or {}).get("acceptance")
-            if isinstance((baseline or {}).get("acceptance"), dict)
-            else None
+            (baseline or {}).get("acceptance") if isinstance((baseline or {}).get("acceptance"), dict) else None
         ),
     )
 
@@ -469,9 +437,7 @@ def run_assertions(
         reason: RegressionReasonCode,
         unit: str,
     ) -> Callable[[], AssertionResult | None]:
-        return lambda: _check_threshold(
-            actual, baseline_val, tolerance, max_val, name, reason, unit
-        )
+        return lambda: _check_threshold(actual, baseline_val, tolerance, max_val, name, reason, unit)
 
     def _check_new_tools() -> AssertionResult | None:
         if not (policy.no_new_tools and baseline is not None):
@@ -483,9 +449,7 @@ def run_assertions(
         return AssertionResult(
             check_name="new_tools",
             passed=passed,
-            message=(
-                "no new tools" if passed else f"unexpected tools used: {new_tools}"
-            ),
+            message=("no new tools" if passed else f"unexpected tools used: {new_tools}"),
             reason_code=_reason_code_for(passed, RegressionReasonCode.NEW_TOOL_PATH),
             expected="none",
             actual=str(new_tools) if new_tools else "none",
@@ -518,14 +482,8 @@ def run_assertions(
         return AssertionResult(
             check_name="no_guardrails",
             passed=passed,
-            message=(
-                "no guardrail events"
-                if passed
-                else f"{gr_count} guardrail event(s) detected"
-            ),
-            reason_code=_reason_code_for(
-                passed, RegressionReasonCode.GUARDRAIL_EVENT_CHANGED
-            ),
+            message=("no guardrail events" if passed else f"{gr_count} guardrail event(s) detected"),
+            reason_code=_reason_code_for(passed, RegressionReasonCode.GUARDRAIL_EVENT_CHANGED),
             actual=str(gr_count),
         )
 
@@ -542,9 +500,7 @@ def run_assertions(
                 if passed
                 else f"expected '{policy.expect_status}', got '{actual_status}'"
             ),
-            reason_code=_reason_code_for(
-                passed, RegressionReasonCode.TERMINAL_STATE_MISSING
-            ),
+            reason_code=_reason_code_for(passed, RegressionReasonCode.TERMINAL_STATE_MISSING),
             expected=policy.expect_status,
             actual=actual_status,
         )
@@ -650,11 +606,7 @@ def _markdown_baseline_provenance(acceptance: dict | None) -> list[str]:
     pr_number = pull_request.get("number")
     pr_url = pull_request.get("url")
 
-    if (
-        isinstance(pr_number, int)
-        and isinstance(pr_url, str)
-        and pr_url.startswith(("https://", "http://"))
-    ):
+    if isinstance(pr_number, int) and isinstance(pr_url, str) and pr_url.startswith(("https://", "http://")):
         source_text = f"[PR #{pr_number}]({pr_url})"
     elif isinstance(pr_number, int):
         source_text = f"PR #{pr_number}"
@@ -697,10 +649,7 @@ def _markdown_next_steps(
 
     steps: list[str] = []
     if baseline_path:
-        steps.append(
-            "- Inspect the full diff: "
-            f"`maida diff {short_run} --baseline {baseline_path}`"
-        )
+        steps.append(f"- Inspect the full diff: `maida diff {short_run} --baseline {baseline_path}`")
     else:
         steps.append("- Review the failed checks and policy thresholds above.")
     steps += [
@@ -711,13 +660,9 @@ def _markdown_next_steps(
             "- If this behavior change is intentional, accept it explicitly: "
             f'`maida accept {short_run} --baseline {baseline_path} --reason "..."`'
         )
-        steps.append(
-            "- Review and commit the baseline diff; otherwise fix the agent behavior and rerun the gate."
-        )
+        steps.append("- Review and commit the baseline diff; otherwise fix the agent behavior and rerun the gate.")
     else:
-        steps.append(
-            "- If this is expected, update the policy; otherwise fix the agent behavior and rerun the gate."
-        )
+        steps.append("- If this is expected, update the policy; otherwise fix the agent behavior and rerun the gate.")
     return steps
 
 
@@ -734,9 +679,7 @@ def format_report_text(report: AssertionReport, diff: "RunDiff | None" = None) -
             lines.append(f"  - {r.check_name} [ignored]")
         else:
             mark = _PASS if r.passed else _FAIL
-            lines.append(
-                f"  {mark} {r.check_name} [{_reason_code_text(r.reason_code)}]: {r.message}"
-            )
+            lines.append(f"  {mark} {r.check_name} [{_reason_code_text(r.reason_code)}]: {r.message}")
     total = len(report.results)
     failed = sum(1 for r in report.results if not r.passed)
     ignored_count = sum(1 for r in report.results if r.ignored)
@@ -810,9 +753,7 @@ def format_report_markdown(
     if not report.results:
         lines.append(f"**No checks enabled** | {scope}")
     elif failed:
-        lines.append(
-            f"**{len(failed)} of {len(report.results)} checks failed** | {scope}"
-        )
+        lines.append(f"**{len(failed)} of {len(report.results)} checks failed** | {scope}")
     elif active := len(report.results) - len(ignored):
         parts = [f"**All {active} checks passed** | {scope}"]
         if ignored:
@@ -871,11 +812,7 @@ def format_report_markdown(
             "|---|---|",
         ]
         for r in passed:
-            lines.append(
-                "| \u2705 "
-                f"`{_markdown_table_cell(r.check_name)}` | "
-                f"{_markdown_table_cell(r.message)} |"
-            )
+            lines.append(f"| \u2705 `{_markdown_table_cell(r.check_name)}` | {_markdown_table_cell(r.message)} |")
         lines += ["", "</details>"]
 
     if ignored:
@@ -916,7 +853,6 @@ def format_report_markdown(
         "</details>",
         "",
         "---",
-        "*Gated by [Maida](https://maida.ai) -- the local-first behavioral"
-        " regression gate for AI agents.*",
+        "*Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*",
     ]
     return "\n".join(lines)

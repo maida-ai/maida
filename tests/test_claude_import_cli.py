@@ -22,18 +22,14 @@ def test_cli_import_json_and_idempotent_notice(temp_data_dir):
     _install_fixture("normal", "fixture-normal", temp_data_dir)
     runner = CliRunner()
 
-    first = runner.invoke(
-        app, ["import", "claude-code", "--session-id", "fixture-normal", "--json"]
-    )
+    first = runner.invoke(app, ["import", "claude-code", "--session-id", "fixture-normal", "--json"])
     assert first.exit_code == 0
     payload = json.loads(first.stdout)
     assert payload["imported"] is True
     assert len(payload["trace_id"]) == 32
     assert "Using Claude Code capture segment: 0001" in first.stderr
 
-    second = runner.invoke(
-        app, ["import", "claude-code", "--session-id", "fixture-normal", "--json"]
-    )
+    second = runner.invoke(app, ["import", "claude-code", "--session-id", "fixture-normal", "--json"])
     assert second.exit_code == 0
     assert json.loads(second.stdout)["imported"] is False
 
@@ -59,9 +55,7 @@ def test_cli_import_explicit_segment_text_output(temp_data_dir):
 def test_cli_import_missing_and_malformed_are_exit_two(temp_data_dir):
     malformed = _install_fixture("malformed", "fixture-malformed", temp_data_dir)
     runner = CliRunner()
-    missing = runner.invoke(
-        app, ["import", "claude-code", "--session-id", "../../missing", "--json"]
-    )
+    missing = runner.invoke(app, ["import", "claude-code", "--session-id", "../../missing", "--json"])
     assert missing.exit_code == 2
     assert json.loads(missing.stdout)["error"]["kind"] == "invalid_capture"
 

@@ -59,9 +59,7 @@ def run_demo() -> None:
     @tool
     def flaky_tool(x: str) -> str:
         """Tool that fails to demonstrate TOOL_CALL status=error via callbacks."""
-        raise ValueError(
-            "schema mismatch: expected JSON object with fields {id, value}"
-        )
+        raise ValueError("schema mismatch: expected JSON object with fields {id, value}")
 
     # One tool + one llm (both captured via callbacks)
     _ = search_docs.invoke({"query": "demo"}, config=config)

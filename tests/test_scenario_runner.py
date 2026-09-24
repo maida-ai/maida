@@ -65,16 +65,10 @@ def _project(tmp_path: Path, *, scenario_ids: tuple[str, ...] = ("edit",)) -> Pa
     )
     (project / "policies").mkdir()
     (project / "policies" / "gate.yaml").write_text(
-        "version: 2\n"
-        "trials: 1\n"
-        "fail_fast: true\n"
-        "metrics:\n"
-        "  forbidden_tools: {kind: invariant, none_of: [Bash]}\n",
+        "version: 2\ntrials: 1\nfail_fast: true\nmetrics:\n  forbidden_tools: {kind: invariant, none_of: [Bash]}\n",
         encoding="utf-8",
     )
-    (project / "ignored-secret.txt").write_text(
-        "must not enter workspace", encoding="utf-8"
-    )
+    (project / "ignored-secret.txt").write_text("must not enter workspace", encoding="utf-8")
 
     scenarios = [
         {
@@ -106,9 +100,7 @@ def _project(tmp_path: Path, *, scenario_ids: tuple[str, ...] = ("edit",)) -> Pa
     }
     maida_dir = project / ".maida"
     maida_dir.mkdir()
-    (maida_dir / "scenarios.yaml").write_text(
-        __import__("yaml").safe_dump(manifest, sort_keys=False), encoding="utf-8"
-    )
+    (maida_dir / "scenarios.yaml").write_text(__import__("yaml").safe_dump(manifest, sort_keys=False), encoding="utf-8")
     _git(project, "init", "--quiet")
     _git(
         project,
@@ -146,13 +138,9 @@ def _receiver(_config):
     yield "http://127.0.0.1:43210"
 
 
-def test_manifest_and_runner_isolate_workspace_and_harden_claude_argv(
-    tmp_path, temp_data_dir
-):
+def test_manifest_and_runner_isolate_workspace_and_harden_claude_argv(tmp_path, temp_data_dir):
     project = _project(tmp_path)
-    manifest = load_scenario_manifest(
-        project / ".maida" / "scenarios.yaml", project_root=project
-    )
+    manifest = load_scenario_manifest(project / ".maida" / "scenarios.yaml", project_root=project)
     observed: dict[str, object] = {}
 
     def version_runner(argv, **kwargs):
@@ -161,11 +149,11 @@ def test_manifest_and_runner_isolate_workspace_and_harden_claude_argv(
 
     def process_runner(argv, *, cwd, env, timeout_seconds):
         observed.update(argv=argv, cwd=cwd, env=env, timeout=timeout_seconds)
-        assert sorted(
-            path.relative_to(cwd).as_posix()
-            for path in cwd.rglob("*")
-            if path.is_file()
-        ) == [".claude/settings.json", ".mcp.json", "input.txt"]
+        assert sorted(path.relative_to(cwd).as_posix() for path in cwd.rglob("*") if path.is_file()) == [
+            ".claude/settings.json",
+            ".mcp.json",
+            "input.txt",
+        ]
         assert not (cwd / "ignored-secret.txt").exists()
         return ClaudeProcessOutcome(returncode=0, timed_out=False, cost_usd=0.01)
 
@@ -210,13 +198,9 @@ def test_manifest_and_runner_isolate_workspace_and_harden_claude_argv(
     assert "UNRELATED_SECRET" not in env
 
 
-def test_agent_failure_precedes_assertion_failure_and_never_reports_raw_output(
-    tmp_path, temp_data_dir
-):
+def test_agent_failure_precedes_assertion_failure_and_never_reports_raw_output(tmp_path, temp_data_dir):
     project = _project(tmp_path, scenario_ids=("regression", "crash"))
-    manifest = load_scenario_manifest(
-        project / ".maida" / "scenarios.yaml", project_root=project
-    )
+    manifest = load_scenario_manifest(project / ".maida" / "scenarios.yaml", project_root=project)
     calls = iter(
         [
             ClaudeProcessOutcome(0, False, 0.02),
@@ -227,9 +211,7 @@ def test_agent_failure_precedes_assertion_failure_and_never_reports_raw_output(
     report = run_scenario_manifest(
         manifest,
         config=__import__("maida.config", fromlist=["load_config"]).load_config(),
-        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
-            argv, 0, "2.1.220\n", ""
-        ),
+        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "2.1.220\n", ""),
         process_runner=lambda *args, **kwargs: next(calls),
         receiver_factory=_receiver,
         capture_importer=lambda *args, **kwargs: _Imported(),
@@ -251,9 +233,7 @@ def test_agent_failure_precedes_assertion_failure_and_never_reports_raw_output(
 
 def test_capture_import_failure_is_sanitized_agent_failure(tmp_path, temp_data_dir):
     project = _project(tmp_path)
-    manifest = load_scenario_manifest(
-        project / ".maida" / "scenarios.yaml", project_root=project
-    )
+    manifest = load_scenario_manifest(project / ".maida" / "scenarios.yaml", project_root=project)
 
     def fail_import(*args, **kwargs):
         raise RuntimeError("private agent stream content")
@@ -261,9 +241,7 @@ def test_capture_import_failure_is_sanitized_agent_failure(tmp_path, temp_data_d
     report = run_scenario_manifest(
         manifest,
         config=__import__("maida.config", fromlist=["load_config"]).load_config(),
-        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
-            argv, 0, "2.1.220\n", ""
-        ),
+        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "2.1.220\n", ""),
         process_runner=lambda *args, **kwargs: ClaudeProcessOutcome(0, False, 0.01),
         receiver_factory=_receiver,
         capture_importer=fail_import,
@@ -274,13 +252,9 @@ def test_capture_import_failure_is_sanitized_agent_failure(tmp_path, temp_data_d
     assert "private agent stream content" not in report.render("json")
 
 
-def test_scenario_selection_runs_only_requested_id_and_rejects_missing(
-    tmp_path, temp_data_dir
-):
+def test_scenario_selection_runs_only_requested_id_and_rejects_missing(tmp_path, temp_data_dir):
     project = _project(tmp_path, scenario_ids=("first", "second"))
-    manifest = load_scenario_manifest(
-        project / ".maida" / "scenarios.yaml", project_root=project
-    )
+    manifest = load_scenario_manifest(project / ".maida" / "scenarios.yaml", project_root=project)
     calls = 0
 
     def process_runner(*args, **kwargs):
@@ -292,9 +266,7 @@ def test_scenario_selection_runs_only_requested_id_and_rejects_missing(
         manifest,
         config=__import__("maida.config", fromlist=["load_config"]).load_config(),
         scenario_id="second",
-        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
-            argv, 0, "2.1.220\n", ""
-        ),
+        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "2.1.220\n", ""),
         process_runner=process_runner,
         receiver_factory=_receiver,
         capture_importer=lambda *args, **kwargs: _Imported(),
@@ -318,19 +290,13 @@ def test_scenario_selection_runs_only_requested_id_and_rejects_missing(
         (ClaudeProcessOutcome(0, False, 0.11), "budget_exceeded"),
     ],
 )
-def test_timeout_and_budget_failures_are_agent_failures(
-    tmp_path, temp_data_dir, outcome, reason
-):
+def test_timeout_and_budget_failures_are_agent_failures(tmp_path, temp_data_dir, outcome, reason):
     project = _project(tmp_path)
-    manifest = load_scenario_manifest(
-        project / ".maida" / "scenarios.yaml", project_root=project
-    )
+    manifest = load_scenario_manifest(project / ".maida" / "scenarios.yaml", project_root=project)
     report = run_scenario_manifest(
         manifest,
         config=__import__("maida.config", fromlist=["load_config"]).load_config(),
-        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
-            argv, 0, "2.1.220\n", ""
-        ),
+        version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "2.1.220\n", ""),
         process_runner=lambda *args, **kwargs: outcome,
         receiver_factory=_receiver,
     )
@@ -355,9 +321,7 @@ def test_manifest_rejects_aliases_duplicates_untracked_and_unsafe_config(tmp_pat
     cases.append((duplicate, "scenario IDs must be unique"))
     untracked = json.loads(json.dumps(original))
     untracked["scenarios"][0]["fixture"]["files"].append("untracked.txt")
-    (project / "fixtures" / "workspace" / "untracked.txt").write_text(
-        "not tracked", encoding="utf-8"
-    )
+    (project / "fixtures" / "workspace" / "untracked.txt").write_text("not tracked", encoding="utf-8")
     cases.append((untracked, "tracked file"))
     wildcard = json.loads(json.dumps(original))
     wildcard["claude"]["allowed_tools"] = ["*"]
@@ -367,9 +331,7 @@ def test_manifest_rejects_aliases_duplicates_untracked_and_unsafe_config(tmp_pat
     cases.append((traversal, "traversal-safe"))
 
     for payload, message in cases:
-        path.write_text(
-            __import__("yaml").safe_dump(payload, sort_keys=False), encoding="utf-8"
-        )
+        path.write_text(__import__("yaml").safe_dump(payload, sort_keys=False), encoding="utf-8")
         with pytest.raises(ScenarioInputError, match=message):
             load_scenario_manifest(path, project_root=project)
 
@@ -379,25 +341,19 @@ def test_manifest_rejects_aliases_duplicates_untracked_and_unsafe_config(tmp_pat
         encoding="utf-8",
     )
     _git(project, "add", "--force", "fixtures/workspace/.claude/settings.json")
-    path.write_text(
-        __import__("yaml").safe_dump(original, sort_keys=False), encoding="utf-8"
-    )
+    path.write_text(__import__("yaml").safe_dump(original, sort_keys=False), encoding="utf-8")
     with pytest.raises(ScenarioInputError, match="bypass permissions"):
         load_scenario_manifest(path, project_root=project)
 
 
 def test_version_mismatch_is_preflight_input_error(tmp_path, temp_data_dir):
     project = _project(tmp_path)
-    manifest = load_scenario_manifest(
-        project / ".maida" / "scenarios.yaml", project_root=project
-    )
+    manifest = load_scenario_manifest(project / ".maida" / "scenarios.yaml", project_root=project)
     with pytest.raises(ScenarioInputError, match="requires Claude Code 2.1.220"):
         run_scenario_manifest(
             manifest,
             config=__import__("maida.config", fromlist=["load_config"]).load_config(),
-            version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
-                argv, 0, "2.1.221\n", ""
-            ),
+            version_runner=lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "2.1.221\n", ""),
         )
 
 

@@ -72,10 +72,7 @@ def run_good_agent() -> None:
         record_llm_call(
             model="demo-gpt-4",
             prompt="Draft a reply about the refund timeline for a Pro customer.",
-            response=(
-                "Hi Ada, your refund for ORD-1042 was approved and will arrive "
-                "within 5 business days."
-            ),
+            response=("Hi Ada, your refund for ORD-1042 was approved and will arrive within 5 business days."),
             usage={"prompt_tokens": 64, "completion_tokens": 26, "total_tokens": 90},
             provider="local",
             temperature=0.0,

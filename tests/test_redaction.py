@@ -101,9 +101,7 @@ def test_record_tool_call_redacts_args_with_token_key(temp_data_dir, redact_toke
     spans = load_spans(run_id, config)
     events = spans_to_events(spans)
 
-    tool_events = [
-        e for e in events if e.get("event_type") == EventType.TOOL_CALL.value
-    ]
+    tool_events = [e for e in events if e.get("event_type") == EventType.TOOL_CALL.value]
     assert len(tool_events) == 1
     payload = tool_events[0]["payload"]
     args = payload.get("args")
@@ -112,9 +110,7 @@ def test_record_tool_call_redacts_args_with_token_key(temp_data_dir, redact_toke
     assert args.get("query") == "hello"
 
 
-def test_error_event_payload_redacted_decorator(
-    temp_data_dir, redact_message_and_stack_env
-):
+def test_error_event_payload_redacted_decorator(temp_data_dir, redact_message_and_stack_env):
     """ERROR from @trace has message and stack redacted when redact_keys include message,stack."""
 
     @trace
@@ -139,9 +135,7 @@ def test_error_event_payload_redacted_decorator(
     assert payload.get("error_type") == "ValueError"
 
 
-def test_error_event_payload_redacted_context_manager(
-    temp_data_dir, redact_message_and_stack_env
-):
+def test_error_event_payload_redacted_context_manager(temp_data_dir, redact_message_and_stack_env):
     """ERROR from traced_run() has message and stack redacted when redact_keys include message,stack."""
     with pytest.raises(ValueError, match="secret in context"):
         with traced_run(name="failing_run"):
@@ -178,9 +172,7 @@ def test_run_start_argv_redacted(temp_data_dir):
     spans = load_spans(run_id, config)
     events = spans_to_events(spans)
 
-    run_start_events = [
-        e for e in events if e.get("event_type") == EventType.RUN_START.value
-    ]
+    run_start_events = [e for e in events if e.get("event_type") == EventType.RUN_START.value]
     assert len(run_start_events) == 1
     payload = run_start_events[0]["payload"]
     argv = payload.get("argv")
@@ -209,11 +201,7 @@ def _latest_spans_jsonl(config: MaidaConfig) -> Path:
 
 
 def _read_spans_jsonl(path: Path) -> list[dict]:
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def test_redact_nested_dict():
@@ -274,9 +262,7 @@ def test_redact_substring_match():
     assert out["other"] == "unchanged"
 
 
-def test_arbitrary_otel_span_attributes_and_events_are_sanitized_on_disk(
-    temp_data_dir, monkeypatch
-):
+def test_arbitrary_otel_span_attributes_and_events_are_sanitized_on_disk(temp_data_dir, monkeypatch):
     monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "100")
     secret = "issue55-otel-secret"
     long_value = "x" * 150
@@ -312,9 +298,7 @@ def test_arbitrary_otel_span_attributes_and_events_are_sanitized_on_disk(
     assert len(event_attrs["large_event"].encode("utf-8")) <= 100
 
 
-def test_maida_payload_metadata_and_errors_are_sanitized_on_disk(
-    temp_data_dir, monkeypatch
-):
+def test_maida_payload_metadata_and_errors_are_sanitized_on_disk(temp_data_dir, monkeypatch):
     monkeypatch.setenv(
         "MAIDA_REDACT_KEYS",
         "api_key,token,authorization,cookie,secret,password,message,stack",
@@ -376,9 +360,7 @@ def test_maida_payload_metadata_and_errors_are_sanitized_on_disk(
     assert llm_event["payload"]["error"]["message"] == REDACTED_MARKER
 
 
-def test_assertion_reports_do_not_reexpose_redacted_payloads(
-    temp_data_dir, monkeypatch
-):
+def test_assertion_reports_do_not_reexpose_redacted_payloads(temp_data_dir, monkeypatch):
     monkeypatch.setenv("MAIDA_REDACT_KEYS", "api_key,token,password,secret")
     secret = "issue55-report-secret"
 
@@ -410,9 +392,7 @@ def test_assertion_reports_do_not_reexpose_redacted_payloads(
     assert secret not in rendered
 
 
-def test_exception_message_secret_not_in_events_jsonl(
-    temp_data_dir, redact_message_and_stack_env
-):
+def test_exception_message_secret_not_in_events_jsonl(temp_data_dir, redact_message_and_stack_env):
     """Secret in exception message must NOT appear anywhere in spans.jsonl file content."""
     secret = "sk-leaked-api-key-xyz789"
     assert secret not in REDACTED_MARKER
@@ -431,9 +411,7 @@ def test_exception_message_secret_not_in_events_jsonl(
     spans_path = config.data_dir / "runs" / run_id / "spans.jsonl"
     raw_content = spans_path.read_text(encoding="utf-8")
 
-    assert secret not in raw_content, (
-        f"Secret {secret!r} must not appear in spans.jsonl"
-    )
+    assert secret not in raw_content, f"Secret {secret!r} must not appear in spans.jsonl"
 
 
 def test_argv_api_key_not_in_spans_jsonl(temp_data_dir):
@@ -455,6 +433,4 @@ def test_argv_api_key_not_in_spans_jsonl(temp_data_dir):
     spans_path = config.data_dir / "runs" / run_id / "spans.jsonl"
     raw_content = spans_path.read_text(encoding="utf-8")
 
-    assert secret not in raw_content, (
-        f"API key value {secret!r} must not appear in spans.jsonl"
-    )
+    assert secret not in raw_content, f"API key value {secret!r} must not appear in spans.jsonl"

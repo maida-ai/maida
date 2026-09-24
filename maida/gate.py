@@ -33,10 +33,7 @@ _SUMMARY_KEYS = {
 def numeric_metrics(metrics: dict[str, Any]) -> dict[str, float]:
     """Return the canonical numeric vector for one completed trial."""
     summary = metrics["summary"]
-    return {
-        name: float(summary.get(source, 0) or 0)
-        for name, source in _SUMMARY_KEYS.items()
-    }
+    return {name: float(summary.get(source, 0) or 0) for name, source in _SUMMARY_KEYS.items()}
 
 
 def structural_signature(metrics: dict[str, Any]) -> dict[str, Any]:
@@ -54,9 +51,7 @@ def structural_signature(metrics: dict[str, Any]) -> dict[str, Any]:
 def baseline_tool_path(baseline: dict[str, Any] | None) -> set[str]:
     """Require observed tool identity, distinguishing an empty path from missing data."""
     path = (baseline or {}).get("tool_path")
-    if not isinstance(path, list) or not all(
-        isinstance(tool, str) and tool for tool in path
-    ):
+    if not isinstance(path, list) or not all(isinstance(tool, str) and tool for tool in path):
         raise ValueError("metrics.no_new_tools requires an explicit baseline tool_path")
     return set(path)
 
@@ -127,17 +122,11 @@ def _resolve_mode(
     if metric.mode is not None:
         return metric.mode
     if metric.kind is MetricKind.STATISTICAL:
-        n_min = minimum_trials_for_pass(
-            metric.threshold, metric.confidence, metric.direction
-        )
+        n_min = minimum_trials_for_pass(metric.threshold, metric.confidence, metric.direction)
         return MetricMode.GATING if policy_trials >= n_min else MetricMode.REPORT_ONLY
     if metric.kind is MetricKind.DISTRIBUTIONAL:
         required = distributional_minimum_baseline_trials(metric.coverage)
-        return (
-            MetricMode.GATING
-            if (baseline_trials or 0) >= required
-            else MetricMode.REPORT_ONLY
-        )
+        return MetricMode.GATING if (baseline_trials or 0) >= required else MetricMode.REPORT_ONLY
     return MetricMode.GATING
 
 
@@ -148,9 +137,9 @@ def _measured_bounds(
     lower: float | None = None
     upper: float | None = None
     if baseline_value is not None:
-        allowance = abs(baseline_value) * float(
-            metric.tolerance_relative or 0.0
-        ) + float(metric.tolerance_absolute or 0.0)
+        allowance = abs(baseline_value) * float(metric.tolerance_relative or 0.0) + float(
+            metric.tolerance_absolute or 0.0
+        )
         if metric.direction in {MetricDirection.LOWER, MetricDirection.BOTH}:
             lower = baseline_value - allowance
         if metric.direction in {MetricDirection.UPPER, MetricDirection.BOTH}:
@@ -234,16 +223,8 @@ def aggregate_metrics(
 
     for name, metric in policy.metrics.items():
         values = [trial[name] for trial in trial_values if name in trial]
-        missing_plan_trials = [
-            index
-            for index, trial in enumerate(trial_values, start=1)
-            if name not in trial
-        ]
-        if (
-            name in PLAN_METRIC_NAMES
-            and metric.kind is not MetricKind.INVARIANT
-            and missing_plan_trials
-        ):
+        missing_plan_trials = [index for index, trial in enumerate(trial_values, start=1) if name not in trial]
+        if name in PLAN_METRIC_NAMES and metric.kind is not MetricKind.INVARIANT and missing_plan_trials:
             raise ValueError(
                 f"metrics.{name} requires pre-execution plan evidence for every trial; "
                 f"missing trial(s): {', '.join(map(str, missing_plan_trials))}"
@@ -265,9 +246,7 @@ def aggregate_metrics(
                     outcomes=outcomes,
                     evidence={
                         "violations": len(outcomes) - sum(outcomes),
-                        "description": (
-                            f"violated in {len(outcomes) - sum(outcomes)}/{used} trials"
-                        ),
+                        "description": (f"violated in {len(outcomes) - sum(outcomes)}/{used} trials"),
                     },
                 )
             )
@@ -278,19 +257,11 @@ def aggregate_metrics(
             if not baseline_sample and metric.limit is None:
                 if policy.source_format == "cli":
                     continue
-                raise ValueError(
-                    f"metrics.{name} declares a tolerance but no baseline sample is bound"
-                )
+                raise ValueError(f"metrics.{name} declares a tolerance but no baseline sample is bound")
             observed = aggregate_value(values, metric.aggregate)
-            reference = (
-                aggregate_value(baseline_sample, metric.aggregate)
-                if baseline_sample
-                else None
-            )
+            reference = aggregate_value(baseline_sample, metric.aggregate) if baseline_sample else None
             lower, upper = _measured_bounds(metric, reference)
-            passed = (lower is None or observed >= lower) and (
-                upper is None or observed <= upper
-            )
+            passed = (lower is None or observed >= lower) and (upper is None or observed <= upper)
             results.append(
                 _direct_result(
                     name=name,
@@ -322,8 +293,7 @@ def aggregate_metrics(
             baseline_sample = baseline_values(baseline or {}, name)
             if not baseline_sample:
                 raise ValueError(
-                    f"metrics.{name} requires a baseline trial sample; "
-                    "run `maida baseline --from-report REPORT.json`"
+                    f"metrics.{name} requires a baseline trial sample; run `maida baseline --from-report REPORT.json`"
                 )
             required = distributional_minimum_baseline_trials(metric.coverage)
             mode = _resolve_mode(
@@ -340,16 +310,9 @@ def aggregate_metrics(
                     "`maida baseline --from-report REPORT.json`, or set "
                     "mode: report_only."
                 )
-            bound = (
-                max(baseline_sample)
-                if metric.direction is MetricDirection.UPPER
-                else min(baseline_sample)
-            )
+            bound = max(baseline_sample) if metric.direction is MetricDirection.UPPER else min(baseline_sample)
             harmful = [
-                value > bound
-                if metric.direction is MetricDirection.UPPER
-                else value < bound
-                for value in values
+                value > bound if metric.direction is MetricDirection.UPPER else value < bound for value in values
             ]
             if used == 1:
                 verdict = None
@@ -410,8 +373,7 @@ def aggregate_metrics(
             continue
 
         invariant_successes = [
-            process_ok and all(outcomes.values())
-            for process_ok, outcomes in zip(process_outcomes, trial_invariants)
+            process_ok and all(outcomes.values()) for process_ok, outcomes in zip(process_outcomes, trial_invariants)
         ]
         mode = _resolve_mode(metric, policy_trials=trials_budgeted)
         results.append(

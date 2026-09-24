@@ -130,14 +130,8 @@ def test_max_tool_calls_boundary(temp_data_dir):
     events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(10)]
     run_id = _make_run(config, events=events)
 
-    assert (
-        run_assertions(run_id, AssertionPolicy(max_tool_calls=10), config=config).passed
-        is True
-    )
-    assert (
-        run_assertions(run_id, AssertionPolicy(max_tool_calls=9), config=config).passed
-        is False
-    )
+    assert run_assertions(run_id, AssertionPolicy(max_tool_calls=10), config=config).passed is True
+    assert run_assertions(run_id, AssertionPolicy(max_tool_calls=9), config=config).passed is False
 
 
 # ---------------------------------------------------------------------------
@@ -448,9 +442,7 @@ def test_expect_status_mismatch(temp_data_dir):
     report = run_assertions(run_id, policy, config=config)
     assert report.passed is False
     status_result = next(r for r in report.results if r.check_name == "expect_status")
-    assert (
-        status_result.reason_code == RegressionReasonCode.TERMINAL_STATE_MISSING.value
-    )
+    assert status_result.reason_code == RegressionReasonCode.TERMINAL_STATE_MISSING.value
 
 
 # ---------------------------------------------------------------------------
@@ -602,9 +594,7 @@ def test_ignored_check_reports_passed(temp_data_dir):
     config = load_config()
     events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]
     run_id = _make_run(config, events=events)
-    policy = AssertionPolicy(
-        max_steps=1, max_tool_calls=1, ignored_checks=["step_count", "tool_calls"]
-    )
+    policy = AssertionPolicy(max_steps=1, max_tool_calls=1, ignored_checks=["step_count", "tool_calls"])
     report = run_assertions(run_id, policy, config=config)
     assert report.passed is True
     for r in report.results:
@@ -691,9 +681,7 @@ def test_format_report_json_emits_stable_reason_codes(temp_data_dir):
     data = json.loads(format_report_json(report))
 
     assert data["reason_codes"] == [RegressionReasonCode.STEP_COUNT_EXCEEDED.value]
-    assert data["results"][0]["reason_code"] == (
-        RegressionReasonCode.STEP_COUNT_EXCEEDED.value
-    )
+    assert data["results"][0]["reason_code"] == (RegressionReasonCode.STEP_COUNT_EXCEEDED.value)
 
 
 def test_format_report_markdown_pass_layout(temp_data_dir):
@@ -741,9 +729,7 @@ def test_format_report_markdown_groups_failures_by_reason_code(temp_data_dir):
 
     assert "#### `step_count_exceeded`" in md
     assert "#### `tool_call_count_exceeded`" in md
-    assert md.index("#### `step_count_exceeded`") < md.index(
-        "#### `tool_call_count_exceeded`"
-    )
+    assert md.index("#### `step_count_exceeded`") < md.index("#### `tool_call_count_exceeded`")
 
 
 def test_format_report_markdown_includes_diff_section(temp_data_dir):
@@ -1106,9 +1092,7 @@ def test_format_report_text_omits_diff_on_pass(temp_data_dir):
     "tool, count, expected",
     [("lookup", 1, True), ("delete", 1, False), ("lookup", 2, False)],
 )
-def test_versioned_policy_rules_are_enforced_for_stored_runs(
-    temp_data_dir, tmp_path, tool, count, expected
-):
+def test_versioned_policy_rules_are_enforced_for_stored_runs(temp_data_dir, tmp_path, tool, count, expected):
     from maida.policy import load_policy
 
     path = tmp_path / "policy.yaml"
@@ -1125,9 +1109,7 @@ def test_versioned_policy_rules_are_enforced_for_stored_runs(
     }
 
 
-def test_single_run_rejects_statistical_policy_instead_of_ignoring_it(
-    temp_data_dir, tmp_path
-):
+def test_single_run_rejects_statistical_policy_instead_of_ignoring_it(temp_data_dir, tmp_path):
     from maida.policy import load_policy
 
     path = tmp_path / "policy.yaml"
@@ -1141,9 +1123,7 @@ def test_single_run_rejects_statistical_policy_instead_of_ignoring_it(
 
 
 @pytest.mark.parametrize("override", [{"max_tool_calls": 0}, {"no_new_tools": True}])
-def test_cli_flags_still_apply_with_a_versioned_policy(
-    temp_data_dir, tmp_path, override
-):
+def test_cli_flags_still_apply_with_a_versioned_policy(temp_data_dir, tmp_path, override):
     from maida.policy import load_policy, merge_policy
 
     path = tmp_path / "policy.yaml"
@@ -1151,21 +1131,15 @@ def test_cli_flags_still_apply_with_a_versioned_policy(
     config = load_config()
     baseline = create_baseline(_make_run(config), config)
     trace = _make_run(config, events=[(EventType.TOOL_CALL, "new", {})])
-    report = run_assertions(
-        trace, merge_policy(load_policy(path), override), baseline, config
-    )
+    report = run_assertions(trace, merge_policy(load_policy(path), override), baseline, config)
     assert not report.passed
 
 
-def test_explicit_ignored_check_is_visible_for_versioned_policy(
-    temp_data_dir, tmp_path
-):
+def test_explicit_ignored_check_is_visible_for_versioned_policy(temp_data_dir, tmp_path):
     from maida.policy import load_policy, merge_policy
 
     path = tmp_path / "policy.yaml"
-    path.write_text(
-        "version: 2\nmetrics:\n  tool_call_count: {kind: measured, direction: upper, limit: 0}\n"
-    )
+    path.write_text("version: 2\nmetrics:\n  tool_call_count: {kind: measured, direction: upper, limit: 0}\n")
     config = load_config()
     trace = _make_run(config, events=[(EventType.TOOL_CALL, "lookup", {})])
     policy = merge_policy(load_policy(path), {"ignored_checks": ["tool_calls"]})
@@ -1182,15 +1156,11 @@ def test_explicit_ignored_check_is_visible_for_versioned_policy(
         (["lookup", "unlisted_tool"], False),
     ],
 )
-def test_stored_run_no_new_tools_preserves_baseline_contract(
-    temp_data_dir, tmp_path, tools, expected
-):
+def test_stored_run_no_new_tools_preserves_baseline_contract(temp_data_dir, tmp_path, tools, expected):
     from maida.policy import load_policy
 
     path = tmp_path / "policy.yaml"
-    path.write_text(
-        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
-    )
+    path.write_text("version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n")
     config = load_config()
     baseline = create_baseline(
         _make_run(
@@ -1199,9 +1169,7 @@ def test_stored_run_no_new_tools_preserves_baseline_contract(
         ),
         config,
     )
-    trace = _make_run(
-        config, events=[(EventType.TOOL_CALL, name, {}) for name in tools]
-    )
+    trace = _make_run(config, events=[(EventType.TOOL_CALL, name, {}) for name in tools])
     report = run_assertions(trace, load_policy(path), baseline, config)
     assert report.passed is expected
     assert len(report.results) == 1

@@ -87,10 +87,7 @@ def _make_deprecated_exception(
     old_name: str,
     new_cls: type[BaseException],
 ) -> type[BaseException]:
-    message = (
-        f"'{old_name}' is deprecated and will be removed in a future version. "
-        f"Use '{new_cls.__name__}' instead."
-    )
+    message = f"'{old_name}' is deprecated and will be removed in a future version. Use '{new_cls.__name__}' instead."
 
     @deprecated(message, stacklevel=2)
     class DeprecatedException(new_cls):
@@ -103,14 +100,10 @@ def _make_deprecated_exception(
     return DeprecatedException
 
 
-_AgentDbgAbortSignal = _make_deprecated_exception(
-    "_AgentDbgAbortSignal", _MaidaAbortSignal
-)
+_AgentDbgAbortSignal = _make_deprecated_exception("_AgentDbgAbortSignal", _MaidaAbortSignal)
 
 
-AgentDbgGuardrailExceeded = _make_deprecated_exception(
-    "AgentDbgGuardrailExceeded", GuardrailExceeded
-)
+AgentDbgGuardrailExceeded = _make_deprecated_exception("AgentDbgGuardrailExceeded", GuardrailExceeded)
 
 
 AgentDbgLoopAbort = _make_deprecated_exception("AgentDbgLoopAbort", LoopAbort)

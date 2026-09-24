@@ -69,15 +69,9 @@ class TrialRecord:
     @property
     def passed(self) -> bool:
         process_succeeded = (
-            self.process_exit_code == 0
-            if self.process_exit_code is not None
-            else self.run_status == "ok"
+            self.process_exit_code == 0 if self.process_exit_code is not None else self.run_status == "ok"
         )
-        return (
-            process_succeeded
-            and self.assertion_report.passed
-            and all(self.invariant_outcomes.values())
-        )
+        return process_succeeded and self.assertion_report.passed and all(self.invariant_outcomes.values())
 
     def to_dict(self) -> dict[str, Any]:
         payload = {
@@ -90,9 +84,7 @@ class TrialRecord:
                 {
                     "check_name": result.check_name,
                     "passed": result.passed,
-                    "reason_code": str(
-                        getattr(result.reason_code, "value", result.reason_code)
-                    ),
+                    "reason_code": str(getattr(result.reason_code, "value", result.reason_code)),
                     "message": result.message,
                     "expected": result.expected,
                     "actual": result.actual,
@@ -157,9 +149,7 @@ class TrialRunReport:
             "passed": self.passed,
             "metadata": metadata,
             "trials": [trial.to_dict() for trial in self.trials],
-            "aggregate_results": [
-                result.to_dict() for result in self.aggregate_results
-            ],
+            "aggregate_results": [result.to_dict() for result in self.aggregate_results],
         }
         if self.report_kind != "gate":
             payload["report_kind"] = self.report_kind
@@ -191,10 +181,7 @@ class TrialRunReport:
             for trial in self.trials
         ]
         if self.abort_reason:
-            lines.append(
-                f"Stopped after {len(self.trials)}/{self.trials_requested}: "
-                f"{self.abort_reason}"
-            )
+            lines.append(f"Stopped after {len(self.trials)}/{self.trials_requested}: {self.abort_reason}")
         lines.extend(["", f"RESULT: {self.verdict.value.upper()}"])
         return "\n".join(lines)
 
@@ -311,8 +298,7 @@ def _behavior_lines(diff: dict[str, Any] | None) -> list[str]:
                 continue
             baseline_count, current_count = pair
             lines.append(
-                f"Tool {_inline(tool)} repeated {_number(current_count)} times "
-                f"(baseline: {_number(baseline_count)})."
+                f"Tool {_inline(tool)} repeated {_number(current_count)} times (baseline: {_number(baseline_count)})."
             )
 
     summary = diff.get("summary_diff") or {}
@@ -329,26 +315,17 @@ def _behavior_lines(diff: dict[str, Any] | None) -> list[str]:
         current, baseline = guardrails
         count = int(current) if isinstance(current, (int, float)) else 0
         lines.append(
-            f"Guardrails triggered {_number(current)} {_plural(count, 'time')} "
-            f"(baseline: {_number(baseline)})."
+            f"Guardrails triggered {_number(current)} {_plural(count, 'time')} (baseline: {_number(baseline)})."
         )
     terminal = _pair(diff.get("terminal_status_diff"))
     if terminal is not None:
         current, baseline = terminal
-        lines.append(
-            f"Terminal state changed from {_inline(baseline)} to {_inline(current)}."
-        )
+        lines.append(f"Terminal state changed from {_inline(baseline)} to {_inline(current)}.")
     return lines
 
 
 def _all_behavior_lines(trials: list[TrialRecord]) -> list[str]:
-    return list(
-        dict.fromkeys(
-            sentence
-            for trial in trials
-            for sentence in _behavior_lines(trial.baseline_diff)
-        )
-    )
+    return list(dict.fromkeys(sentence for trial in trials for sentence in _behavior_lines(trial.baseline_diff)))
 
 
 def _check_label(check_name: str) -> str:
@@ -400,20 +377,14 @@ def _result_evidence(result: StatisticalResult) -> str | None:
         if baseline is not None:
             parts.append(f"baseline {_measurement(baseline, result.check_name)}")
         delta = evidence.get("delta")
-        if (
-            result.check_name == "step_count"
-            and isinstance(delta, (int, float))
-            and delta
-        ):
+        if result.check_name == "step_count" and isinstance(delta, (int, float)) and delta:
             parts.append(f"delta {_signed_number(delta)}")
         allowed = evidence.get("allowed") or {}
         lower = allowed.get("lower") if isinstance(allowed, dict) else None
         upper = allowed.get("upper") if isinstance(allowed, dict) else None
         if lower is not None and upper is not None:
             parts.append(
-                "allowed between "
-                f"{_measurement(lower, result.check_name)} and "
-                f"{_measurement(upper, result.check_name)}"
+                f"allowed between {_measurement(lower, result.check_name)} and {_measurement(upper, result.check_name)}"
             )
         elif upper is not None:
             parts.append(f"allowed at most {_measurement(upper, result.check_name)}")
@@ -423,10 +394,7 @@ def _result_evidence(result: StatisticalResult) -> str | None:
         return f"Observed {observed}" + (f" ({'; '.join(parts)})." if parts else ".")
     if result.kind == "invariant":
         if result.check_name == "agent_process" and result.verdict is GateVerdict.PASS:
-            return (
-                f"All {result.trials_used} {_plural(result.trials_used, 'trial')} "
-                "completed successfully."
-            )
+            return f"All {result.trials_used} {_plural(result.trials_used, 'trial')} completed successfully."
         return None
 
     bounds = evidence.get("confidence_bounds") or {}
@@ -435,17 +403,11 @@ def _result_evidence(result: StatisticalResult) -> str | None:
     confidence = float(evidence.get("confidence", 0.0)) * 100
     observed_rate = float(evidence.get("observed_rate", 0.0))
     if result.mode == "report_only":
-        return (
-            f"Observed pass rate {observed_rate:.3f}; {confidence:g}% confidence "
-            f"range {lower:.3f}-{upper:.3f}."
-        )
+        return f"Observed pass rate {observed_rate:.3f}; {confidence:g}% confidence range {lower:.3f}-{upper:.3f}."
     successes = int(evidence.get("successes", result.successes))
     threshold = evidence.get("threshold", 0.0)
     if isinstance(threshold, dict):
-        target = (
-            f"target {_number(threshold.get('lower'))}-"
-            f"{_number(threshold.get('upper'))}"
-        )
+        target = f"target {_number(threshold.get('lower'))}-{_number(threshold.get('upper'))}"
     elif result.direction == "upper":
         target = f"target at most {float(threshold):.3f}"
     else:
@@ -474,24 +436,15 @@ def _result_line(result: StatisticalResult, *, report_only: bool = False) -> str
 
 
 def _count_summary(report: TrialRunReport) -> str:
-    failures = sum(
-        result.verdict is GateVerdict.FAIL for result in report.aggregate_results
-    )
-    inconclusive = sum(
-        result.verdict is GateVerdict.INCONCLUSIVE
-        for result in report.aggregate_results
-    )
+    failures = sum(result.verdict is GateVerdict.FAIL for result in report.aggregate_results)
+    inconclusive = sum(result.verdict is GateVerdict.INCONCLUSIVE for result in report.aggregate_results)
     blocking = sum(result.verdict is not None for result in report.aggregate_results)
     if failures:
         check_summary = f"{failures} blocking {_plural(failures, 'check')} failed"
         if inconclusive:
-            check_summary += (
-                f", {inconclusive} {_plural(inconclusive, 'check')} inconclusive"
-            )
+            check_summary += f", {inconclusive} {_plural(inconclusive, 'check')} inconclusive"
     elif inconclusive:
-        check_summary = (
-            f"{inconclusive} blocking {_plural(inconclusive, 'check')} inconclusive"
-        )
+        check_summary = f"{inconclusive} blocking {_plural(inconclusive, 'check')} inconclusive"
     else:
         check_summary = f"{blocking} blocking {_plural(blocking, 'check')} passed"
 
@@ -509,9 +462,7 @@ def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
     safe_baseline = _markdown_table_cell(baseline_path) if baseline_path else None
     if report.verdict is GateVerdict.PASS:
         if report.trials:
-            return [
-                f"- No gate action needed. Inspect the trace: `maida view {short_trace}`"
-            ]
+            return [f"- No gate action needed. Inspect the trace: `maida view {short_trace}`"]
         return ["- No gate action needed."]
     if report.verdict is GateVerdict.INCONCLUSIVE:
         rerun = (
@@ -526,9 +477,7 @@ def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
 
     steps = ["- Review the behavioral changes and blocking checks above."]
     if safe_baseline:
-        steps.append(
-            f"- Inspect the full diff: `maida diff {short_trace} --baseline {safe_baseline}`"
-        )
+        steps.append(f"- Inspect the full diff: `maida diff {short_trace} --baseline {safe_baseline}`")
     if report.trials:
         steps.append(f"- Open the trace locally: `maida view {short_trace}`")
     if safe_baseline:
@@ -538,20 +487,15 @@ def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
                 "or accept locally: "
                 f"`maida accept {short_trace} --baseline {safe_baseline} "
                 '--reason "..."`',
-                "- Otherwise fix the agent behavior and rerun: "
-                f"`maida run AGENT.py --baseline {safe_baseline}`",
+                f"- Otherwise fix the agent behavior and rerun: `maida run AGENT.py --baseline {safe_baseline}`",
             ]
         )
     else:
-        steps.append(
-            "- Otherwise fix the agent behavior or policy, then rerun the gate."
-        )
+        steps.append("- Otherwise fix the agent behavior or policy, then rerun the gate.")
     return steps
 
 
-def _render_trial_report_markdown(
-    report: TrialRunReport, *, baseline_path: str | None
-) -> str:
+def _render_trial_report_markdown(report: TrialRunReport, *, baseline_path: str | None) -> str:
     icons = {
         GateVerdict.PASS: "✅",
         GateVerdict.FAIL: "❌",
@@ -572,22 +516,16 @@ def _render_trial_report_markdown(
         )
     lines.extend(["", "### Behavior vs baseline", ""])
     behavior_lines = _all_behavior_lines(report.trials)
-    baseline_configured = any(
-        trial.baseline_diff is not None for trial in report.trials
-    )
+    baseline_configured = any(trial.baseline_diff is not None for trial in report.trials)
     if behavior_lines:
         lines.extend(f"- {sentence}" for sentence in behavior_lines)
     elif baseline_configured:
-        lines.append(
-            "No behavior changed from the accepted baseline across the sampled trials."
-        )
+        lines.append("No behavior changed from the accepted baseline across the sampled trials.")
     else:
         lines.append("No baseline comparison was configured for this run.")
 
     blocking_results = [
-        result
-        for result in report.aggregate_results
-        if result.verdict in {GateVerdict.FAIL, GateVerdict.INCONCLUSIVE}
+        result for result in report.aggregate_results if result.verdict in {GateVerdict.FAIL, GateVerdict.INCONCLUSIVE}
     ]
     if blocking_results:
         lines.extend(["", "### Blocking checks", ""])
@@ -616,14 +554,8 @@ def _render_trial_report_markdown(
         lines.append("")
     lines.extend(["### Next steps", "", *_next_steps(report, baseline_path)])
 
-    passing = [
-        result
-        for result in report.aggregate_results
-        if result.verdict is GateVerdict.PASS
-    ]
-    report_only = [
-        result for result in report.aggregate_results if result.verdict is None
-    ]
+    passing = [result for result in report.aggregate_results if result.verdict is GateVerdict.PASS]
+    report_only = [result for result in report.aggregate_results if result.verdict is None]
     lines.extend(
         [
             "",
@@ -638,14 +570,10 @@ def _render_trial_report_markdown(
         lines.extend(["", "#### Report-only metrics", ""])
         lines.extend(_result_line(result, report_only=True) for result in report_only)
 
-    evidence_heading = (
-        "### Window traces" if report.report_kind == "drift" else "#### Trial evidence"
-    )
+    evidence_heading = "### Window traces" if report.report_kind == "drift" else "#### Trial evidence"
     lines.extend(["", evidence_heading, ""])
     if report.trials:
-        execution_heading = (
-            "Run status" if report.report_kind == "drift" else "Process exit"
-        )
+        execution_heading = "Run status" if report.report_kind == "drift" else "Process exit"
         item_heading = "Trace" if report.report_kind == "drift" else "Trial"
         lines.extend(
             [
@@ -658,14 +586,8 @@ def _render_trial_report_markdown(
                 changes = "not configured"
             else:
                 count = len(_behavior_lines(trial.baseline_diff))
-                changes = (
-                    "none" if count == 0 else f"{count} {_plural(count, 'change')}"
-                )
-            execution = (
-                trial.run_status or "unknown"
-                if report.report_kind == "drift"
-                else str(trial.process_exit_code)
-            )
+                changes = "none" if count == 0 else f"{count} {_plural(count, 'change')}"
+            execution = trial.run_status or "unknown" if report.report_kind == "drift" else str(trial.process_exit_code)
             lines.append(
                 f"| {trial.trial} | {'PASS' if trial.passed else 'FAIL'} | "
                 f"`{trial.trace_id[:8]}` | {execution} | {changes} |"
@@ -678,8 +600,7 @@ def _render_trial_report_markdown(
             "</details>",
             "",
             "---",
-            "*Gated by [Maida](https://maida.ai) -- the local-first behavioral"
-            " regression gate for AI agents.*",
+            "*Gated by [Maida](https://maida.ai) -- the local-first behavioral regression gate for AI agents.*",
         ]
     )
     return "\n".join(lines)
@@ -708,9 +629,7 @@ def _copy_workspace(project_root: Path, destination: Path) -> None:
 
 def _environment_fingerprint(project_root: Path) -> dict[str, Any]:
     digest = hashlib.sha256()
-    for relative in sorted(
-        _workspace_files(project_root), key=lambda item: item.as_posix()
-    ):
+    for relative in sorted(_workspace_files(project_root), key=lambda item: item.as_posix()):
         path = project_root / relative
         if not path.is_file():
             continue
@@ -746,11 +665,7 @@ def _v2_assertion_report(
             AssertionResult(
                 check_name=name,
                 passed=passed,
-                message=(
-                    "invariant satisfied"
-                    if passed
-                    else "invariant violated in this trial"
-                ),
+                message=("invariant satisfied" if passed else "invariant violated in this trial"),
             )
         )
     return report
@@ -819,16 +734,9 @@ def run_trials(
                 raise TimeoutError("trial execution exceeded wall-time cap") from error
 
             runs_dir = trial_data_dir / "runs"
-            trace_dirs = (
-                sorted(path for path in runs_dir.iterdir() if path.is_dir())
-                if runs_dir.is_dir()
-                else []
-            )
+            trace_dirs = sorted(path for path in runs_dir.iterdir() if path.is_dir()) if runs_dir.is_dir() else []
             if len(trace_dirs) != 1:
-                raise RunExecutionError(
-                    f"Trial {trial_number} must produce exactly one trace; "
-                    f"found {len(trace_dirs)}"
-                )
+                raise RunExecutionError(f"Trial {trial_number} must produce exactly one trace; found {len(trace_dirs)}")
             trace_id = trace_dirs[0].name
             _preserve_trace(trace_id, trial_data_dir, config)
             full_id, meta, events = load_run_for_analysis(trace_id, config)
@@ -840,9 +748,7 @@ def run_trials(
                 else _v2_assertion_report(full_id, invariants)
             )
             baseline_diff = (
-                asdict(compute_diff(full_id, baseline=baseline, config=config))
-                if baseline is not None
-                else None
+                asdict(compute_diff(full_id, baseline=baseline, config=config)) if baseline is not None else None
             )
             records.append(
                 TrialRecord(
@@ -859,14 +765,8 @@ def run_trials(
                     structural_signature=structural_signature(extracted),
                 )
             )
-            if policy.fail_fast and (
-                completed.returncode != 0 or not all(invariants.values())
-            ):
-                abort_reason = (
-                    "agent_process_failure"
-                    if completed.returncode != 0
-                    else "invariant_violation"
-                )
+            if policy.fail_fast and (completed.returncode != 0 or not all(invariants.values())):
+                abort_reason = "agent_process_failure" if completed.returncode != 0 else "invariant_violation"
                 break
 
     stopping_rule = "fixed_n_fail_fast" if policy.fail_fast else "fixed_n"
@@ -889,9 +789,7 @@ def run_trials(
         abort_reason=abort_reason,
         environment_fingerprint=_environment_fingerprint(root),
         baseline_acceptance=(
-            baseline.get("acceptance")
-            if isinstance((baseline or {}).get("acceptance"), dict)
-            else None
+            baseline.get("acceptance") if isinstance((baseline or {}).get("acceptance"), dict) else None
         ),
     )
     if deadline is not None and time.monotonic() >= deadline:

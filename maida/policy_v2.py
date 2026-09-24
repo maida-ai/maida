@@ -35,11 +35,7 @@ _PREDICATES = frozenset({"all_invariants_passed"})
 
 
 def _finite_number(value: object, field: str) -> float:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-    ):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ValueError(f"{field} must be a finite number")
     return float(value)
 
@@ -74,13 +70,10 @@ def _parse_policy_version(text: str, data: dict[str, Any]) -> tuple[int, int]:
     parts = tuple(int(part) for part in lexeme.split("."))
     version = (parts[0], parts[1] if len(parts) == 2 else 0)
     if version[0] < 2:
-        raise ValueError(
-            f"policy major {version[0]} is unsupported; use version: 2 and metrics"
-        )
+        raise ValueError(f"policy major {version[0]} is unsupported; use version: 2 and metrics")
     if version[0] != _POLICY_VERSION[0]:
         raise ValueError(
-            f"policy major {version[0]} is unsupported; upgrade Maida to a version "
-            f"that supports policy {lexeme}"
+            f"policy major {version[0]} is unsupported; upgrade Maida to a version that supports policy {lexeme}"
         )
     if version[0] == 2 and version[1] > _POLICY_VERSION[1]:
         raise ValueError(
@@ -90,21 +83,13 @@ def _parse_policy_version(text: str, data: dict[str, Any]) -> tuple[int, int]:
     return version
 
 
-def _one_sided_wilson_bounds(
-    successes: int, trials: int, confidence: float
-) -> tuple[float, float]:
+def _one_sided_wilson_bounds(successes: int, trials: int, confidence: float) -> tuple[float, float]:
     z = NormalDist().inv_cdf(confidence)
     proportion = successes / trials
     z2 = z * z
     denominator = 1.0 + z2 / trials
     center = (proportion + z2 / (2.0 * trials)) / denominator
-    margin = (
-        z
-        * math.sqrt(
-            proportion * (1.0 - proportion) / trials + z2 / (4.0 * trials * trials)
-        )
-        / denominator
-    )
+    margin = z * math.sqrt(proportion * (1.0 - proportion) / trials + z2 / (4.0 * trials * trials)) / denominator
     return max(0.0, center - margin), min(1.0, center + margin)
 
 
@@ -118,29 +103,21 @@ def minimum_trials_for_pass(
     if direction is MetricDirection.LOWER:
         theta = float(threshold)
         if theta >= 1.0:
-            raise ValueError(
-                "a lower statistical threshold of 1 makes PASS unreachable"
-            )
+            raise ValueError("a lower statistical threshold of 1 makes PASS unreachable")
         return max(1, math.ceil(theta * z2 / (1.0 - theta)))
     if direction is MetricDirection.UPPER:
         theta = float(threshold)
         if theta <= 0.0:
-            raise ValueError(
-                "an upper statistical threshold of 0 makes PASS unreachable"
-            )
+            raise ValueError("an upper statistical threshold of 0 makes PASS unreachable")
         return max(1, math.ceil((1.0 - theta) * z2 / theta))
 
     lower, upper = threshold
     for trials in range(1, 100_001):
         for successes in range(trials + 1):
-            bound_lower, bound_upper = _one_sided_wilson_bounds(
-                successes, trials, confidence
-            )
+            bound_lower, bound_upper = _one_sided_wilson_bounds(successes, trials, confidence)
             if bound_lower >= lower and bound_upper <= upper:
                 return trials
-    raise ValueError(
-        f"statistical threshold range [{lower}, {upper}] cannot produce a PASS"
-    )
+    raise ValueError(f"statistical threshold range [{lower}, {upper}] cannot produce a PASS")
 
 
 def _parse_direction(value: object, field: str) -> MetricDirection:
@@ -166,16 +143,12 @@ def _reject_unknown(data: dict[str, Any], allowed: set[str], field: str) -> None
 
 
 def _string_tuple(value: object, field: str) -> tuple[str, ...]:
-    if not isinstance(value, list) or not all(
-        isinstance(item, str) and item for item in value
-    ):
+    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
         raise ValueError(f"{field} must be a list of non-empty strings")
     return tuple(value)
 
 
-def _parse_limit(
-    value: object, field: str, direction: MetricDirection
-) -> float | tuple[float, float] | None:
+def _parse_limit(value: object, field: str, direction: MetricDirection) -> float | tuple[float, float] | None:
     if value is None:
         return None
     if direction is MetricDirection.BOTH:
@@ -207,27 +180,18 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
     if name == "forbidden_tools":
         if "none_of" not in data:
             raise ValueError("metrics.forbidden_tools requires none_of")
-        metric.none_of = _string_tuple(
-            data["none_of"], "metrics.forbidden_tools.none_of"
-        )
+        metric.none_of = _string_tuple(data["none_of"], "metrics.forbidden_tools.none_of")
     elif name == "required_tools":
         if "all_of" not in data:
             raise ValueError("metrics.required_tools requires all_of")
         metric.all_of = _string_tuple(data["all_of"], "metrics.required_tools.all_of")
     elif name in {"plan_effectful_modules", "plan_grants", "plan_modules"}:
         configured = {
-            field_name
-            for field_name in ("none_of", "all_of", "allowed", "approval_required_for")
-            if field_name in data
+            field_name for field_name in ("none_of", "all_of", "allowed", "approval_required_for") if field_name in data
         }
         if not configured:
-            raise ValueError(
-                f"metrics.{name} requires none_of, all_of, allowed, or "
-                "approval_required_for"
-            )
-        metric.none_of = _string_tuple(
-            data.get("none_of", []), f"metrics.{name}.none_of"
-        )
+            raise ValueError(f"metrics.{name} requires none_of, all_of, allowed, or approval_required_for")
+        metric.none_of = _string_tuple(data.get("none_of", []), f"metrics.{name}.none_of")
         metric.all_of = _string_tuple(data.get("all_of", []), f"metrics.{name}.all_of")
         if "allowed" in data:
             metric.allowed = _string_tuple(data["allowed"], f"metrics.{name}.allowed")
@@ -236,12 +200,9 @@ def _parse_invariant(name: str, data: dict[str, Any]) -> MetricPolicy:
                 data.get("approval_required_for", []),
                 "metrics.plan_grants.approval_required_for",
             )
-        if metric.allowed is None and not (
-            metric.none_of or metric.all_of or metric.approval_required_for
-        ):
+        if metric.allowed is None and not (metric.none_of or metric.all_of or metric.approval_required_for):
             raise ValueError(
-                f"metrics.{name} must enforce at least one restriction; "
-                "allowed may be empty to prohibit every value"
+                f"metrics.{name} must enforce at least one restriction; allowed may be empty to prohibit every value"
             )
     else:
         require = data.get("require", True)
@@ -261,35 +222,23 @@ def _parse_measured(name: str, data: dict[str, Any]) -> MetricPolicy:
     if aggregate not in {"median", "max", "p90"}:
         raise ValueError(f"metrics.{name}.aggregate must be median, max, or p90")
     if aggregate in {"max", "p90"} and direction is not MetricDirection.UPPER:
-        raise ValueError(
-            f"metrics.{name}.aggregate {aggregate} is only valid for direction upper"
-        )
+        raise ValueError(f"metrics.{name}.aggregate {aggregate} is only valid for direction upper")
     relative = absolute = None
     tolerance = data.get("tolerance")
     if tolerance is not None:
         if not isinstance(tolerance, dict):
             raise ValueError(f"metrics.{name}.tolerance must be an object")
-        _reject_unknown(
-            tolerance, {"relative", "absolute"}, f"metrics.{name}.tolerance"
-        )
+        _reject_unknown(tolerance, {"relative", "absolute"}, f"metrics.{name}.tolerance")
         if not tolerance:
             raise ValueError(f"metrics.{name}.tolerance must not be empty")
         if "relative" in tolerance:
-            relative = _finite_number(
-                tolerance["relative"], f"metrics.{name}.tolerance.relative"
-            )
+            relative = _finite_number(tolerance["relative"], f"metrics.{name}.tolerance.relative")
             if relative < 0:
-                raise ValueError(
-                    f"metrics.{name}.tolerance.relative must be non-negative"
-                )
+                raise ValueError(f"metrics.{name}.tolerance.relative must be non-negative")
         if "absolute" in tolerance:
-            absolute = _finite_number(
-                tolerance["absolute"], f"metrics.{name}.tolerance.absolute"
-            )
+            absolute = _finite_number(tolerance["absolute"], f"metrics.{name}.tolerance.absolute")
             if absolute < 0:
-                raise ValueError(
-                    f"metrics.{name}.tolerance.absolute must be non-negative"
-                )
+                raise ValueError(f"metrics.{name}.tolerance.absolute must be non-negative")
     limit = _parse_limit(data.get("limit"), f"metrics.{name}.limit", direction)
     if tolerance is None and limit is None:
         raise ValueError(f"metrics.{name} requires tolerance or limit")
@@ -326,9 +275,7 @@ def _parse_distributional(name: str, data: dict[str, Any]) -> MetricPolicy:
     )
 
 
-def _parse_threshold(
-    value: object, field: str, direction: MetricDirection
-) -> float | tuple[float, float]:
+def _parse_threshold(value: object, field: str, direction: MetricDirection) -> float | tuple[float, float]:
     if direction is MetricDirection.BOTH:
         if not isinstance(value, dict) or set(value) != {"lower", "upper"}:
             raise ValueError(f"{field} must contain lower and upper")
@@ -353,15 +300,11 @@ def _parse_statistical(name: str, data: dict[str, Any], *, trials: int) -> Metri
     direction = _parse_direction(data.get("direction"), f"metrics.{name}.direction")
     if "threshold" not in data:
         raise ValueError(f"metrics.{name} requires threshold")
-    threshold = _parse_threshold(
-        data["threshold"], f"metrics.{name}.threshold", direction
-    )
+    threshold = _parse_threshold(data["threshold"], f"metrics.{name}.threshold", direction)
     confidence = _fraction(data.get("confidence", 0.95), f"metrics.{name}.confidence")
     predicate = data.get("success_predicate", "all_invariants_passed")
     if predicate not in _PREDICATES:
-        raise ValueError(
-            f"metrics.{name}.success_predicate must be all_invariants_passed"
-        )
+        raise ValueError(f"metrics.{name}.success_predicate must be all_invariants_passed")
     mode = _parse_mode(data.get("mode"), f"metrics.{name}.mode")
     n_min = minimum_trials_for_pass(threshold, confidence, direction)
     if mode is MetricMode.GATING and trials < n_min:
@@ -406,8 +349,7 @@ def _parse_v2(data: dict[str, Any], version: tuple[int, int]) -> AssertionPolicy
             kind = MetricKind(raw_metric.get("kind"))
         except (TypeError, ValueError) as error:
             raise ValueError(
-                f"metrics.{name}.kind must be invariant, measured, "
-                "distributional, or statistical"
+                f"metrics.{name}.kind must be invariant, measured, distributional, or statistical"
             ) from error
         if kind is MetricKind.INVARIANT:
             if name not in INVARIANT_METRIC_NAMES:
@@ -423,19 +365,13 @@ def _parse_v2(data: dict[str, Any], version: tuple[int, int]) -> AssertionPolicy
             metric = _parse_distributional(name, raw_metric)
         else:
             if name != "task_pass_rate":
-                raise ValueError(
-                    "task_pass_rate is the only supported statistical predicate"
-                )
+                raise ValueError("task_pass_rate is the only supported statistical predicate")
             metric = _parse_statistical(name, raw_metric, trials=trials)
         metrics[name] = metric
 
     task_metric = metrics.get("task_pass_rate")
     confidence = task_metric.confidence if task_metric else 0.95
-    threshold = (
-        float(task_metric.threshold)
-        if task_metric and not isinstance(task_metric.threshold, tuple)
-        else 0.90
-    )
+    threshold = float(task_metric.threshold) if task_metric and not isinstance(task_metric.threshold, tuple) else 0.90
     return AssertionPolicy(
         trials=trials,
         confidence_level=confidence,
@@ -462,39 +398,25 @@ def _cli_metrics(policy: AssertionPolicy) -> dict[str, MetricPolicy]:
             kind=MetricKind.MEASURED,
             direction=MetricDirection.UPPER,
             tolerance_relative=policy.tool_call_tolerance,
-            limit=(
-                float(policy.max_tool_calls)
-                if policy.max_tool_calls is not None
-                else None
-            ),
+            limit=(float(policy.max_tool_calls) if policy.max_tool_calls is not None else None),
         ),
         "cost_tokens": MetricPolicy(
             name="cost_tokens",
             kind=MetricKind.MEASURED,
             direction=MetricDirection.UPPER,
             tolerance_relative=policy.cost_tolerance,
-            limit=(
-                float(policy.max_cost_tokens)
-                if policy.max_cost_tokens is not None
-                else None
-            ),
+            limit=(float(policy.max_cost_tokens) if policy.max_cost_tokens is not None else None),
         ),
         "latency_ms": MetricPolicy(
             name="latency_ms",
             kind=MetricKind.MEASURED,
             direction=MetricDirection.UPPER,
             tolerance_relative=policy.duration_tolerance,
-            limit=(
-                float(policy.max_duration_ms)
-                if policy.max_duration_ms is not None
-                else None
-            ),
+            limit=(float(policy.max_duration_ms) if policy.max_duration_ms is not None else None),
         ),
     }
     if policy.no_loops:
-        metrics["no_loops"] = MetricPolicy(
-            name="no_loops", kind=MetricKind.INVARIANT, require=True, aggregate=""
-        )
+        metrics["no_loops"] = MetricPolicy(name="no_loops", kind=MetricKind.INVARIANT, require=True, aggregate="")
     if policy.no_guardrails:
         metrics["no_guardrails"] = MetricPolicy(
             name="no_guardrails",
@@ -564,9 +486,7 @@ def merge_policy(
             if cli_overrides.get("pass_rate_threshold") is not None:
                 task.threshold = merged.pass_rate_threshold
             if task.mode is MetricMode.GATING:
-                n_min = minimum_trials_for_pass(
-                    task.threshold, task.confidence, task.direction
-                )
+                n_min = minimum_trials_for_pass(task.threshold, task.confidence, task.direction)
                 if merged.trials < n_min:
                     raise ValueError(
                         "metrics.task_pass_rate cannot PASS with "

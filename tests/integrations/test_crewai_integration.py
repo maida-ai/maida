@@ -168,9 +168,7 @@ def crewai_module_with_mocked_hooks(monkeypatch):
         _reset_crewai_module_state(crewai_mod)
 
 
-def test_gating_no_active_run_handlers_no_op_and_do_not_record(
-    crewai_module_with_mocked_hooks, temp_data_dir
-):
+def test_gating_no_active_run_handlers_no_op_and_do_not_record(crewai_module_with_mocked_hooks, temp_data_dir):
     """When there is no active Maida run id, hook handlers no-op and do not record events."""
     crewai = crewai_module_with_mocked_hooks
     llm_ctx = make_fake_llm_context(messages=[{"role": "user", "content": "hi"}])
@@ -219,9 +217,7 @@ def test_before_tool_then_after_tool_emits_one_tool_call_with_duration_and_ok(
     """before_tool then after_tool emits one TOOL_CALL with duration_ms and status='ok'."""
     crewai = crewai_module_with_mocked_hooks
     run_id = "test-run-tool"
-    tool_ctx = make_fake_tool_context(
-        tool_name="search", tool_input={"q": "x"}, tool_result={"hits": 2}
-    )
+    tool_ctx = make_fake_tool_context(tool_name="search", tool_input={"q": "x"}, tool_result={"hits": 2})
     with patch.object(crewai, "_get_active_run_id", return_value=run_id):
         crewai._before_tool_call(tool_ctx)
         with patch.object(crewai, "record_tool_call", MagicMock()) as record:
@@ -235,9 +231,7 @@ def test_before_tool_then_after_tool_emits_one_tool_call_with_duration_and_ok(
             meta = kw.get("meta") or {}
             assert meta.get("crewai", {}).get("duration_ms") is not None
             assert meta["crewai"]["duration_ms"] >= 0
-    assert (
-        not crewai._pending_tool.get(run_id) or len(crewai._pending_tool[run_id]) == 0
-    )
+    assert not crewai._pending_tool.get(run_id) or len(crewai._pending_tool[run_id]) == 0
 
 
 def test_missing_after_tool_run_exit_emits_tool_call_error_missing_after_hook(
@@ -246,9 +240,7 @@ def test_missing_after_tool_run_exit_emits_tool_call_error_missing_after_hook(
     """before_tool occurs; run exits with exception; one TOOL_CALL emitted with status='error' and meta.crewai.completion='missing_after_hook'."""
     crewai = crewai_module_with_mocked_hooks
     run_id = "missing-after-tool-run"
-    tool_ctx = make_fake_tool_context(
-        tool_name="fetch", tool_input={"url": "https://x.com"}
-    )
+    tool_ctx = make_fake_tool_context(tool_name="fetch", tool_input={"url": "https://x.com"})
     with patch.object(crewai, "_get_active_run_id", return_value=run_id):
         crewai._before_tool_call(tool_ctx)
     try:
@@ -260,9 +252,7 @@ def test_missing_after_tool_run_exit_emits_tool_call_error_missing_after_hook(
     record.assert_called_once()
     kw = record.call_args.kwargs
     assert kw["status"] == "error"
-    assert (kw.get("meta") or {}).get("crewai", {}).get(
-        "completion"
-    ) == "missing_after_hook"
+    assert (kw.get("meta") or {}).get("crewai", {}).get("completion") == "missing_after_hook"
     assert kw.get("error") is not None
     assert kw["error"].get("error_type") == "ValueError"
     assert run_id not in crewai._pending_tool
@@ -286,17 +276,13 @@ def test_missing_after_llm_run_exit_emits_llm_call_error_missing_after_hook(
     record.assert_called_once()
     kw = record.call_args.kwargs
     assert kw["status"] == "error"
-    assert (kw.get("meta") or {}).get("crewai", {}).get(
-        "completion"
-    ) == "missing_after_hook"
+    assert (kw.get("meta") or {}).get("crewai", {}).get("completion") == "missing_after_hook"
     assert kw.get("error") is not None
     assert kw["error"].get("error_type") == "RuntimeError"
     assert run_id not in crewai._pending_llm
 
 
-def test_flush_pending_on_run_exit_emits_error_events(
-    crewai_module_with_mocked_hooks, temp_data_dir
-):
+def test_flush_pending_on_run_exit_emits_error_events(crewai_module_with_mocked_hooks, temp_data_dir):
     """On run exit (no exception), pending LLM/tool entries get events with status=error and meta.crewai.completion=missing_after_hook."""
     crewai = crewai_module_with_mocked_hooks
     run_id = "flush-run"
@@ -324,19 +310,13 @@ def test_flush_pending_on_run_exit_emits_error_events(
     tool_kw = record_tool.call_args.kwargs
     assert llm_kw.get("status") == "error"
     assert tool_kw.get("status") == "error"
-    assert (llm_kw.get("meta") or {}).get("crewai", {}).get(
-        "completion"
-    ) == "missing_after_hook"
-    assert (tool_kw.get("meta") or {}).get("crewai", {}).get(
-        "completion"
-    ) == "missing_after_hook"
+    assert (llm_kw.get("meta") or {}).get("crewai", {}).get("completion") == "missing_after_hook"
+    assert (tool_kw.get("meta") or {}).get("crewai", {}).get("completion") == "missing_after_hook"
     assert run_id not in crewai._pending_llm
     assert run_id not in crewai._pending_tool
 
 
-def test_flush_pending_with_exception_attaches_error_payload(
-    crewai_module_with_mocked_hooks, temp_data_dir
-):
+def test_flush_pending_with_exception_attaches_error_payload(crewai_module_with_mocked_hooks, temp_data_dir):
     """When run exits with exception, flushed pending events get exception in error payload (error_type, message, stack)."""
     crewai = crewai_module_with_mocked_hooks
     run_id = "exc-run"
@@ -362,10 +342,7 @@ def test_flush_pending_with_exception_attaches_error_payload(
     assert call_kw.get("error") is not None
     assert call_kw["error"].get("error_type") == "ValueError"
     assert "run failed" in str(call_kw["error"].get("message", ""))
-    assert (
-        call_kw["error"].get("stack") is not None
-        and "ValueError" in call_kw["error"]["stack"]
-    )
+    assert call_kw["error"].get("stack") is not None and "ValueError" in call_kw["error"]["stack"]
 
 
 def _load_latest_events():
@@ -435,14 +412,8 @@ def test_crewai_missing_completion_hooks_persist_failed_calls_before_run_end(
 
     @trace(name="CrewAI incomplete calls")
     def run():
-        crewai._before_llm_call(
-            make_fake_llm_context(messages=[{"role": "user", "content": "fail"}])
-        )
-        crewai._before_tool_call(
-            make_fake_tool_context(
-                tool_name="search_docs", tool_input={"query": "fail"}
-            )
-        )
+        crewai._before_llm_call(make_fake_llm_context(messages=[{"role": "user", "content": "fail"}]))
+        crewai._before_tool_call(make_fake_tool_context(tool_name="search_docs", tool_input={"query": "fail"}))
         raise RuntimeError("simulated CrewAI failure")
 
     with pytest.raises(RuntimeError, match="simulated CrewAI failure"):
@@ -464,9 +435,7 @@ def test_crewai_missing_completion_hooks_persist_failed_calls_before_run_end(
     assert events[-1]["payload"] == {"status": "error"}
 
 
-def test_crewai_payloads_are_sanitized_before_persistence(
-    crewai_module_with_mocked_hooks, temp_data_dir, monkeypatch
-):
+def test_crewai_payloads_are_sanitized_before_persistence(crewai_module_with_mocked_hooks, temp_data_dir, monkeypatch):
     """Adapter payloads use Maida's redaction/truncation storage boundary."""
     from maida import trace
     from maida.config import load_config
@@ -497,9 +466,7 @@ def test_crewai_payloads_are_sanitized_before_persistence(
 
     config = load_config()
     run_id, _, events = _load_latest_events()
-    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(
-        encoding="utf-8"
-    )
+    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(encoding="utf-8")
     assert secret not in raw
 
     llm = next(event for event in events if event["event_type"] == "LLM_CALL")

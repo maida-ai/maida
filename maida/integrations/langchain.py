@@ -66,9 +66,7 @@ def _messages_as_prompt(messages: Any) -> Any:
             continue
         for msg in inner:
             if hasattr(msg, "content") and hasattr(msg, "type"):
-                out.append(
-                    {"type": getattr(msg, "type", "unknown"), "content": msg.content}
-                )
+                out.append({"type": getattr(msg, "type", "unknown"), "content": msg.content})
             else:
                 out.append(str(msg))
     return out if out else None
@@ -290,9 +288,7 @@ class LangChainCallbackHandler(BaseCallbackHandler):
         name = (pending or {}).get("name", "unknown")
         args = (pending or {}).get("args") if pending else None
         try:
-            record_tool_call(
-                name=name, args=args, result=None, status="error", error=error
-            )
+            record_tool_call(name=name, args=args, result=None, status="error", error=error)
         except GuardrailExceeded as e:
             self._abort_exception = e
             self.raise_error = True

@@ -68,9 +68,7 @@ def test_baseline_cli_binds_full_report_sample(tmp_path) -> None:
     assert baseline["trial_sample"]["environment_fingerprint"] == {"workspace": "abc"}
 
 
-def test_gate_exit_code_contract_keeps_inconclusive_neutral(
-    tmp_path, monkeypatch
-) -> None:
+def test_gate_exit_code_contract_keeps_inconclusive_neutral(tmp_path, monkeypatch) -> None:
     script = tmp_path / "agent.py"
     script.write_text("pass\n", encoding="utf-8")
 
@@ -82,15 +80,11 @@ def test_gate_exit_code_contract_keeps_inconclusive_neutral(
             to_markdown=lambda: verdict.value,
         )
 
-    monkeypatch.setattr(
-        "maida.cli.run_trials", lambda *args, **kwargs: fake(GateVerdict.INCONCLUSIVE)
-    )
+    monkeypatch.setattr("maida.cli.run_trials", lambda *args, **kwargs: fake(GateVerdict.INCONCLUSIVE))
     neutral = runner.invoke(app, ["run", str(script)])
     assert neutral.exit_code == 0
 
-    monkeypatch.setattr(
-        "maida.cli.run_trials", lambda *args, **kwargs: fake(GateVerdict.FAIL)
-    )
+    monkeypatch.setattr("maida.cli.run_trials", lambda *args, **kwargs: fake(GateVerdict.FAIL))
     failed = runner.invoke(app, ["run", str(script)])
     assert failed.exit_code == 1
 

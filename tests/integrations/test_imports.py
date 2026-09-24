@@ -57,9 +57,7 @@ def test_lazy_module_imports(reload_integrations, name, dependency):
     assert mod is sys.modules[f"maida.integrations.{name}"]
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("langchain_core") is None, reason="langchain not installed"
-)
+@pytest.mark.skipif(importlib.util.find_spec("langchain_core") is None, reason="langchain not installed")
 def test_lazy_attribute_imports(reload_integrations):
     cls = integrations.LangChainCallbackHandler
     assert "maida.integrations.langchain" in sys.modules
@@ -92,7 +90,5 @@ def test_missing_dependency_raises(monkeypatch):
 
     monkeypatch.setattr(importlib, "import_module", fake_import_module)
 
-    with pytest.raises(
-        MissingOptionalDependencyError, match="langchain_core not installed"
-    ):
+    with pytest.raises(MissingOptionalDependencyError, match="langchain_core not installed"):
         _ = integrations.LangChainCallbackHandler

@@ -14,9 +14,7 @@ def test_compare_file_reports_missing_and_changed_consumers(tmp_path: Path) -> N
 
     assert compare_file(source, consumer) == [f"missing consumer file: {consumer}"]
     consumer.write_text('{"version": 2}\n', encoding="utf-8")
-    assert compare_file(source, consumer) == [
-        f"content differs: {source} != {consumer}"
-    ]
+    assert compare_file(source, consumer) == [f"content differs: {source} != {consumer}"]
     consumer.write_bytes(source.read_bytes())
     assert compare_file(source, consumer) == []
 

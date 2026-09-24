@@ -20,11 +20,7 @@ def _normalize_base(base: str) -> str:
 
 
 def _is_external_or_ignored(url: str) -> bool:
-    return (
-        url.startswith("#")
-        or url.startswith("//")
-        or (re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", url) is not None)
-    )
+    return url.startswith("#") or url.startswith("//") or (re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", url) is not None)
 
 
 def _append_raw_true(url: str) -> str:
@@ -99,9 +95,7 @@ def rewrite_readme_links(content: str, base: str) -> str:
     return rewritten
 
 
-def readme_base_url(
-    version: str, base_url: str = "https://github.com/maida-ai/maida/blob/"
-) -> str:
+def readme_base_url(version: str, base_url: str = "https://github.com/maida-ai/maida/blob/") -> str:
     """Return the GitHub blob base URL for a package version."""
     ref = "main" if ".dev" in version else f"v{version}"
     return f"{_normalize_base(base_url)}{ref}/"
@@ -117,18 +111,14 @@ class ReadmeLinksRewriteMetadataHook(MetadataHookInterface):
     def update(self, metadata: dict) -> None:
         version = metadata.get("version")
         if not version:
-            raise RuntimeError(
-                "Package version must be resolved before rewriting README links."
-            )
+            raise RuntimeError("Package version must be resolved before rewriting README links.")
 
         readme_path = Path(self.root) / self.README_FILE
         if not readme_path.is_file():
             raise RuntimeError(f"{self.README_FILE} was not found.")
 
         original = readme_path.read_text(encoding="utf-8")
-        rewritten = rewrite_readme_links(
-            original, readme_base_url(version, self.BASE_URL)
-        )
+        rewritten = rewrite_readme_links(original, readme_base_url(version, self.BASE_URL))
         metadata["readme"] = {
             "content-type": "text/markdown",
             "text": rewritten,

@@ -20,10 +20,7 @@ def read_docs(*relatives: str) -> str:
     for relative in relatives:
         path = ROOT / relative
         if path.is_dir():
-            parts.extend(
-                child.read_text(encoding="utf-8")
-                for child in sorted(path.rglob("*.md"))
-            )
+            parts.extend(child.read_text(encoding="utf-8") for child in sorted(path.rglob("*.md")))
         else:
             parts.append(path.read_text(encoding="utf-8"))
     return "\n".join(parts)
@@ -116,9 +113,7 @@ def test_action_version_references_match_scaffold():
 
 
 def test_baseline_provenance_contract_is_documented():
-    combined = read_docs(
-        "README.md", "docs/cli.md", "docs/cli", "docs/regression-testing.md"
-    )
+    combined = read_docs("README.md", "docs/cli.md", "docs/cli", "docs/regression-testing.md")
 
     required_snippets = [
         "accepted_by",
@@ -134,9 +129,7 @@ def test_baseline_provenance_contract_is_documented():
 
 
 def test_scheduled_checks_document_current_external_emitter_contract():
-    text = " ".join(
-        (ROOT / "docs/scheduled-checks.md").read_text(encoding="utf-8").split()
-    )
+    text = " ".join((ROOT / "docs/scheduled-checks.md").read_text(encoding="utf-8").split())
 
     required_snippets = [
         "External emitters that follow the native trace contract",
@@ -149,11 +142,7 @@ def test_scheduled_checks_document_current_external_emitter_contract():
 
 
 def test_adapter_conformance_contract_covers_required_behavior():
-    text = " ".join(
-        (ROOT / "maida/integrations/CONTRIBUTING.md")
-        .read_text(encoding="utf-8")
-        .split()
-    )
+    text = " ".join((ROOT / "maida/integrations/CONTRIBUTING.md").read_text(encoding="utf-8").split())
 
     required_snippets = [
         "## Adapter conformance contract",
@@ -367,9 +356,7 @@ def test_two_tier_acceptance_design_covers_v3_safety_contract():
     ]
 
     assert [section for section in required_sections if section not in text] == []
-    assert [
-        item for item in required_contracts if item.casefold() not in normalized
-    ] == []
+    assert [item for item in required_contracts if item.casefold() not in normalized] == []
 
     index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
     assert design_path.name not in index

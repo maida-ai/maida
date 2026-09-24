@@ -94,9 +94,7 @@ def test_run_exit_callback_event_before_run_end_and_exc_when_raises(temp_data_di
 
     def on_exit(_run_id, exc_type, exc_value, tb):
         exit_exc_type.append(exc_type)
-        record_tool_call(
-            "run_exit_flush", args={}, result=None, meta={"from": "run_exit"}
-        )
+        record_tool_call("run_exit_flush", args={}, result=None, meta={"from": "run_exit"})
 
     register_run_exit(on_exit)
 
@@ -110,11 +108,7 @@ def test_run_exit_callback_event_before_run_end_and_exc_when_raises(temp_data_di
     config = load_config()
     run_id = get_latest_run_id(config)
     events = spans_to_events(load_spans(run_id, config))
-    run_end_indices = [
-        i
-        for i, e in enumerate(events)
-        if e.get("event_type") == EventType.RUN_END.value
-    ]
+    run_end_indices = [i for i, e in enumerate(events) if e.get("event_type") == EventType.RUN_END.value]
     flush_indices = [
         i
         for i, e in enumerate(events)
@@ -123,6 +117,4 @@ def test_run_exit_callback_event_before_run_end_and_exc_when_raises(temp_data_di
     ]
     assert len(run_end_indices) == 1
     assert len(flush_indices) == 1
-    assert flush_indices[0] < run_end_indices[0], (
-        "run_exit-recorded event must appear before RUN_END"
-    )
+    assert flush_indices[0] < run_end_indices[0], "run_exit-recorded event must appear before RUN_END"

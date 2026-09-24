@@ -143,10 +143,7 @@ def _write_validated_run(config, trace_id, *, meta=None, spans=None):
         json.dumps(meta if meta is not None else _valid_meta(trace_id)),
         encoding="utf-8",
     )
-    span_lines = [
-        json.dumps(span)
-        for span in (spans if spans is not None else [_valid_root_span(trace_id)])
-    ]
+    span_lines = [json.dumps(span) for span in (spans if spans is not None else [_valid_root_span(trace_id)])]
     (run_dir / "spans.jsonl").write_text("\n".join(span_lines) + "\n", encoding="utf-8")
     return run_dir
 
@@ -215,9 +212,7 @@ def test_load_spans_skips_invalid_json_lines(temp_data_dir):
     (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     valid1 = json.dumps({"trace_id": trace_id, "name": "valid1"})
     valid2 = json.dumps({"trace_id": trace_id, "name": "valid2"})
-    (run_dir / "spans.jsonl").write_text(
-        valid1 + "\nnot valid json\n" + valid2 + "\n{broken\n", encoding="utf-8"
-    )
+    (run_dir / "spans.jsonl").write_text(valid1 + "\nnot valid json\n" + valid2 + "\n{broken\n", encoding="utf-8")
     loaded = load_spans(trace_id, config)
     assert len(loaded) == 2
     assert loaded[0]["name"] == "valid1"
@@ -284,9 +279,7 @@ def test_load_validated_run_missing_required_file_has_next_step(temp_data_dir):
     trace_id = "abcabc14" + "a" * 24
     run_dir = config.data_dir / "runs" / trace_id
     run_dir.mkdir(parents=True)
-    (run_dir / "meta.json").write_text(
-        json.dumps(_valid_meta(trace_id)), encoding="utf-8"
-    )
+    (run_dir / "meta.json").write_text(json.dumps(_valid_meta(trace_id)), encoding="utf-8")
 
     with pytest.raises(RunValidationError) as excinfo:
         load_validated_run(trace_id, config)
@@ -302,9 +295,7 @@ def test_load_validated_run_malformed_span_is_sanitized(temp_data_dir):
     trace_id = "abcabc15" + "a" * 24
     run_dir = config.data_dir / "runs" / trace_id
     run_dir.mkdir(parents=True)
-    (run_dir / "meta.json").write_text(
-        json.dumps(_valid_meta(trace_id)), encoding="utf-8"
-    )
+    (run_dir / "meta.json").write_text(json.dumps(_valid_meta(trace_id)), encoding="utf-8")
     (run_dir / "spans.jsonl").write_text(
         '{"secret":"sk-test-DO-NOT-LEAK",\n',
         encoding="utf-8",

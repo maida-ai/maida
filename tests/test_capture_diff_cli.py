@@ -148,9 +148,7 @@ def test_capture_diff_pass_is_zero_and_keeps_notices_off_stdout(temp_data_dir):
         ),
     ],
 )
-def test_capture_diff_rejects_invalid_option_combinations(
-    temp_data_dir, arguments: list[str], message: str
-):
+def test_capture_diff_rejects_invalid_option_combinations(temp_data_dir, arguments: list[str], message: str):
     result = CliRunner().invoke(app, ["diff", *arguments])
 
     assert result.exit_code == 2
@@ -251,9 +249,7 @@ def test_capture_diff_malformed_capture_is_exit_two(temp_data_dir):
     assert "Invalid Claude Code capture" in result.stderr
 
 
-def test_capture_diff_ingestion_and_runtime_failures_are_exit_ten(
-    monkeypatch, temp_data_dir
-):
+def test_capture_diff_ingestion_and_runtime_failures_are_exit_ten(monkeypatch, temp_data_dir):
     baseline_path, _ = _capture_gate_inputs(temp_data_dir)
     runner = CliRunner()
 
@@ -280,9 +276,7 @@ def test_capture_diff_ingestion_and_runtime_failures_are_exit_ten(
     def fail_evaluation(*args, **kwargs):
         raise RunValidationError("a" * 32, "evaluation failed")
 
-    monkeypatch.setattr(
-        "maida.cli.evaluate_stored_run_against_baseline", fail_evaluation
-    )
+    monkeypatch.setattr("maida.cli.evaluate_stored_run_against_baseline", fail_evaluation)
     runtime = runner.invoke(
         app,
         [
@@ -303,9 +297,7 @@ def test_legacy_diff_still_inspects_regressions_with_exit_zero(temp_data_dir):
     baseline_path, _ = _capture_gate_inputs(temp_data_dir)
     regression = import_claude_capture(SESSIONS["regression"], load_config())
 
-    result = CliRunner().invoke(
-        app, ["diff", regression.trace_id, "--baseline", str(baseline_path)]
-    )
+    result = CliRunner().invoke(app, ["diff", regression.trace_id, "--baseline", str(baseline_path)])
 
     assert result.exit_code == 0
     assert "Run comparison:" in result.stdout

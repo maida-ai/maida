@@ -144,10 +144,7 @@ def test_detect_loop_repeated_tool_calls_with_similar_structural_args():
     assert payload is not None
     assert payload["pattern_type"] == "repeated_call"
     assert payload["pattern_length"] == 1
-    assert (
-        payload["pattern"]
-        == "TOOL_CALL:search_db args:{filters:{include_archived:bool,limit:int},query:str}"
-    )
+    assert payload["pattern"] == "TOOL_CALL:search_db args:{filters:{include_archived:bool,limit:int},query:str}"
 
 
 def test_detect_loop_alternating_tool_cycle():
@@ -171,9 +168,7 @@ def test_detect_loop_alternating_tool_cycle_at_default_repetitions():
     """Alternating A-B cycles are detected at the default repetition threshold."""
     events = [
         _make_event(f"e-{i}", "TOOL_CALL", {"tool_name": name})
-        for i, name in enumerate(
-            ("search", "summarize", "search", "summarize", "search", "summarize")
-        )
+        for i, name in enumerate(("search", "summarize", "search", "summarize", "search", "summarize"))
     ]
 
     payload = detect_loop(events, window=12, repetitions=3)
@@ -241,10 +236,7 @@ def test_detect_loop_truncates_deep_structural_arg_signatures():
 
     assert payload is not None
     assert payload["pattern_type"] == "repeated_call"
-    assert (
-        payload["pattern"]
-        == "TOOL_CALL:inspect_tree args:{root:{branch:{leaf:{hidden:...}}}}"
-    )
+    assert payload["pattern"] == "TOOL_CALL:inspect_tree args:{root:{branch:{leaf:{hidden:...}}}}"
     assert "value" not in payload["pattern"]
     assert "payload-" not in payload["pattern"]
 
@@ -252,9 +244,7 @@ def test_detect_loop_truncates_deep_structural_arg_signatures():
 def test_detect_loop_different_argument_shapes_are_not_same_loop():
     """Same tool can repeat harmlessly when calls use different structural args."""
     events = [
-        _make_event(
-            "e-0", "TOOL_CALL", {"tool_name": "search", "args": {"query": "a"}}
-        ),
+        _make_event("e-0", "TOOL_CALL", {"tool_name": "search", "args": {"query": "a"}}),
         _make_event(
             "e-1",
             "TOOL_CALL",
@@ -272,20 +262,14 @@ def test_detect_loop_different_argument_shapes_are_not_same_loop():
 
 def test_detect_loop_legitimate_repetition_can_pass_under_policy():
     """Policy can allow limited repetition by requiring more repeats before warning."""
-    events = [
-        _make_event(f"e-{i}", "TOOL_CALL", {"tool_name": "poll_status"})
-        for i in range(3)
-    ]
+    events = [_make_event(f"e-{i}", "TOOL_CALL", {"tool_name": "poll_status"}) for i in range(3)]
 
     assert detect_loop(events, window=12, repetitions=4) is None
 
 
 def test_detect_loop_uses_tail_window_for_long_traces():
     """Long traces are evaluated against the configured tail window only."""
-    prefix = [
-        _make_event(f"prefix-{i}", "TOOL_CALL", {"tool_name": f"step_{i}"})
-        for i in range(30)
-    ]
+    prefix = [_make_event(f"prefix-{i}", "TOOL_CALL", {"tool_name": f"step_{i}"}) for i in range(30)]
     loop = [
         _make_event(
             f"loop-{i}",

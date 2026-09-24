@@ -37,9 +37,7 @@ def agent_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def test_run_trials_isolates_workspace_and_preserves_one_trace_per_trial(
-    agent_repo: Path, temp_data_dir: Path
-) -> None:
+def test_run_trials_isolates_workspace_and_preserves_one_trace_per_trial(agent_repo: Path, temp_data_dir: Path) -> None:
     _write_agent(
         agent_repo,
         """
@@ -94,9 +92,7 @@ def test_run_trials_rejects_invalid_wall_time_budget(agent_repo, temp_data_dir, 
 
 
 @pytest.mark.parametrize("trials", [1, 2])
-def test_run_trials_shares_budget_and_checks_final_processing(
-    agent_repo, temp_data_dir, monkeypatch, trials
-):
+def test_run_trials_shares_budget_and_checks_final_processing(agent_repo, temp_data_dir, monkeypatch, trials):
     import sys
 
     _write_agent(
@@ -128,9 +124,7 @@ def test_run_trials_shares_budget_and_checks_final_processing(
     assert len(executions) == 1
 
 
-def test_run_trials_copies_nonignored_untracked_files(
-    agent_repo: Path, temp_data_dir: Path
-) -> None:
+def test_run_trials_copies_nonignored_untracked_files(agent_repo: Path, temp_data_dir: Path) -> None:
     (agent_repo / "scenario.txt").write_text("expected", encoding="utf-8")
     _write_agent(
         agent_repo,
@@ -170,9 +164,7 @@ def test_run_trials_rejects_agent_that_does_not_produce_exactly_one_trace(
         )
 
 
-def test_run_trials_rejects_non_positive_trial_count(
-    agent_repo: Path, temp_data_dir: Path
-) -> None:
+def test_run_trials_rejects_non_positive_trial_count(agent_repo: Path, temp_data_dir: Path) -> None:
     _write_agent(agent_repo, "print('unused')\n")
 
     with pytest.raises(ValueError, match="at least 1"):
@@ -185,9 +177,7 @@ def test_run_trials_rejects_non_positive_trial_count(
         )
 
 
-def test_trial_report_json_records_metadata_and_check_outcomes(
-    agent_repo: Path, temp_data_dir: Path
-) -> None:
+def test_trial_report_json_records_metadata_and_check_outcomes(agent_repo: Path, temp_data_dir: Path) -> None:
     _write_agent(
         agent_repo,
         """
@@ -235,18 +225,13 @@ def test_trial_report_markdown_is_verdict_first_with_behavior_and_details(
     markdown = report.to_markdown()
     assert markdown.startswith("## ✅ Maida verdict: pass")
     assert "### Behavior vs baseline" in markdown
-    assert (
-        "<summary>Passing checks, report-only metrics, and trial evidence</summary>"
-        in markdown
-    )
+    assert "<summary>Passing checks, report-only metrics, and trial evidence</summary>" in markdown
     assert "**Steps stayed within the allowed range.**" in markdown
     assert "`step_count`" in markdown
     assert f"`{report.trials[0].trace_id[:8]}`" in markdown
 
 
-def test_trial_report_records_each_baseline_diff(
-    agent_repo: Path, temp_data_dir: Path
-) -> None:
+def test_trial_report_records_each_baseline_diff(agent_repo: Path, temp_data_dir: Path) -> None:
     config = load_config(project_root=agent_repo)
     with traced_run(name="baseline"):
         record_tool_call("old-tool", args={}, result="ok")
@@ -282,11 +267,7 @@ with traced_run(name="candidate"):
 
 def test_statistical_report_schema_pins_three_verdict_contract() -> None:
     schema = json.loads(
-        (
-            Path(__file__).parents[1]
-            / "schemas"
-            / "statistical-gate-report.schema.json"
-        ).read_text(encoding="utf-8")
+        (Path(__file__).parents[1] / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8")
     )
 
     assert schema["properties"]["report_version"]["const"] == REPORT_SCHEMA_VERSION

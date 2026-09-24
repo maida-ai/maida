@@ -74,9 +74,7 @@ class TraceValidationError(ValueError):
         self.spec_version = spec_version
         self.status = status
         self.span_count = span_count
-        summary = "; ".join(
-            f"{item.location}: {item.message}" for item in self.diagnostics
-        )
+        summary = "; ".join(f"{item.location}: {item.message}" for item in self.diagnostics)
         super().__init__(summary or "trace content is invalid")
 
 
@@ -127,9 +125,7 @@ def _valid_non_negative_int(value: object, *, nullable: bool) -> bool:
     return type(value) is int and value >= 0
 
 
-def _partial_string(
-    meta: dict[str, Any], field: str, pattern: re.Pattern[str] | None = None
-) -> str | None:
+def _partial_string(meta: dict[str, Any], field: str, pattern: re.Pattern[str] | None = None) -> str | None:
     value = meta.get(field)
     if not isinstance(value, str):
         return None
@@ -189,14 +185,12 @@ def _validate_meta(meta: dict[str, Any], diagnostics: list[TraceDiagnostic]) -> 
                 _diagnostic(
                     "unsupported_version",
                     f"{META_JSON}.spec_version",
-                    "declares unsupported spec_version "
-                    f"{_safe_version_display(declared)!r}; expected {SPEC_VERSION!r}",
+                    f"declares unsupported spec_version {_safe_version_display(declared)!r}; expected {SPEC_VERSION!r}",
                 )
             )
 
     if "trace_id" in meta and (
-        not isinstance(meta["trace_id"], str)
-        or _TRACE_ID_RE.fullmatch(meta["trace_id"]) is None
+        not isinstance(meta["trace_id"], str) or _TRACE_ID_RE.fullmatch(meta["trace_id"]) is None
     ):
         diagnostics.append(
             _diagnostic(
@@ -233,9 +227,7 @@ def _validate_meta(meta: dict[str, Any], diagnostics: list[TraceDiagnostic]) -> 
                 "must be an RFC 3339 date-time or null",
             )
         )
-    if "duration_ms" in meta and not _valid_non_negative_int(
-        meta.get("duration_ms"), nullable=True
-    ):
+    if "duration_ms" in meta and not _valid_non_negative_int(meta.get("duration_ms"), nullable=True):
         diagnostics.append(
             _diagnostic(
                 "invalid_value",
@@ -271,9 +263,7 @@ def _validate_meta(meta: dict[str, Any], diagnostics: list[TraceDiagnostic]) -> 
                 diagnostics=diagnostics,
             )
             for field in count_fields:
-                if field in counts and not _valid_non_negative_int(
-                    counts[field], nullable=False
-                ):
+                if field in counts and not _valid_non_negative_int(counts[field], nullable=False):
                     diagnostics.append(
                         _diagnostic(
                             "invalid_value",
@@ -301,9 +291,7 @@ def _validate_event(
         diagnostics=diagnostics,
     )
     if "name" in event and not isinstance(event.get("name"), str):
-        diagnostics.append(
-            _diagnostic("invalid_type", f"{location}.name", "must be a string")
-        )
+        diagnostics.append(_diagnostic("invalid_type", f"{location}.name", "must be a string"))
     if "timestamp" in event and not _valid_datetime(event.get("timestamp")):
         diagnostics.append(
             _diagnostic(
@@ -313,9 +301,7 @@ def _validate_event(
             )
         )
     if "attributes" in event and not isinstance(event.get("attributes"), dict):
-        diagnostics.append(
-            _diagnostic("invalid_type", f"{location}.attributes", "must be an object")
-        )
+        diagnostics.append(_diagnostic("invalid_type", f"{location}.attributes", "must be an object"))
 
 
 def _validate_spans(
@@ -349,10 +335,7 @@ def _validate_spans(
 
         trace_id = span.get("trace_id")
         if "trace_id" in span:
-            if (
-                not isinstance(trace_id, str)
-                or _TRACE_ID_RE.fullmatch(trace_id) is None
-            ):
+            if not isinstance(trace_id, str) or _TRACE_ID_RE.fullmatch(trace_id) is None:
                 diagnostics.append(
                     _diagnostic(
                         "invalid_id",
@@ -393,9 +376,7 @@ def _validate_spans(
                 span_line_by_id[span_id] = line_no
 
         parent = span.get("parent_span_id")
-        valid_parent = parent is None or (
-            isinstance(parent, str) and _SPAN_ID_RE.fullmatch(parent) is not None
-        )
+        valid_parent = parent is None or (isinstance(parent, str) and _SPAN_ID_RE.fullmatch(parent) is not None)
         if "parent_span_id" in span and not valid_parent:
             diagnostics.append(
                 _diagnostic(
@@ -411,9 +392,7 @@ def _validate_spans(
             parent_by_id[span_id] = parent
 
         if "name" in span and not isinstance(span.get("name"), str):
-            diagnostics.append(
-                _diagnostic("invalid_type", f"{location}.name", "must be a string")
-            )
+            diagnostics.append(_diagnostic("invalid_type", f"{location}.name", "must be a string"))
         if "kind" in span and span.get("kind") not in _SPAN_KINDS:
             diagnostics.append(
                 _diagnostic(
@@ -431,11 +410,7 @@ def _validate_spans(
                 )
             )
         end_time = span.get("end_time")
-        if (
-            "end_time" in span
-            and end_time is not None
-            and not _valid_datetime(end_time)
-        ):
+        if "end_time" in span and end_time is not None and not _valid_datetime(end_time):
             diagnostics.append(
                 _diagnostic(
                     "invalid_datetime",
@@ -443,9 +418,7 @@ def _validate_spans(
                     "must be an RFC 3339 date-time or null",
                 )
             )
-        if "duration_ms" in span and not _valid_non_negative_int(
-            span.get("duration_ms"), nullable=True
-        ):
+        if "duration_ms" in span and not _valid_non_negative_int(span.get("duration_ms"), nullable=True):
             diagnostics.append(
                 _diagnostic(
                     "invalid_value",
@@ -454,19 +427,11 @@ def _validate_spans(
                 )
             )
         if "attributes" in span and not isinstance(span.get("attributes"), dict):
-            diagnostics.append(
-                _diagnostic(
-                    "invalid_type", f"{location}.attributes", "must be an object"
-                )
-            )
+            diagnostics.append(_diagnostic("invalid_type", f"{location}.attributes", "must be an object"))
         if "events" in span:
             events = span.get("events")
             if not isinstance(events, list):
-                diagnostics.append(
-                    _diagnostic(
-                        "invalid_type", f"{location}.events", "must be an array"
-                    )
-                )
+                diagnostics.append(_diagnostic("invalid_type", f"{location}.events", "must be an array"))
             else:
                 for event_no, event in enumerate(events):
                     _validate_event(
@@ -483,9 +448,7 @@ def _validate_spans(
                     "must be OK, ERROR, or UNSET",
                 )
             )
-        if "status_description" in span and not isinstance(
-            span.get("status_description"), str
-        ):
+        if "status_description" in span and not isinstance(span.get("status_description"), str):
             diagnostics.append(
                 _diagnostic(
                     "invalid_type",
@@ -496,9 +459,7 @@ def _validate_spans(
 
     completed = status in {"ok", "error"}
     if completed and not root_lines:
-        diagnostics.append(
-            _diagnostic("missing_root", SPANS_JSONL, "contains no root span")
-        )
+        diagnostics.append(_diagnostic("missing_root", SPANS_JSONL, "contains no root span"))
     if len(root_lines) > 1:
         diagnostics.append(
             _diagnostic(
@@ -556,9 +517,7 @@ def validate_trace_payload(
     """Validate already-parsed native trace data without writing it."""
     diagnostics: list[TraceDiagnostic] = []
     if not isinstance(meta, dict):
-        diagnostics.append(
-            _diagnostic("invalid_type", META_JSON, "must contain a JSON object")
-        )
+        diagnostics.append(_diagnostic("invalid_type", META_JSON, "must contain a JSON object"))
         meta = {}
     if not isinstance(spans, list) or not spans:
         diagnostics.append(_diagnostic("empty_spans", SPANS_JSONL, "contains no spans"))
@@ -576,11 +535,7 @@ def validate_trace_payload(
         )
 
     spec_version = _partial_string(meta, "spec_version")
-    safe_spec_version = (
-        spec_version
-        if spec_version is not None and _SAFE_VERSION_RE.fullmatch(spec_version)
-        else None
-    )
+    safe_spec_version = spec_version if spec_version is not None and _SAFE_VERSION_RE.fullmatch(spec_version) else None
     safe_status = status if status in _RUN_STATUSES else None
     if diagnostics:
         raise TraceValidationError(
@@ -596,9 +551,7 @@ def validate_trace_payload(
 def _resolve_trace_directory(path: Path) -> Path:
     candidate = path.expanduser()
     if not candidate.exists():
-        raise TraceInputError(
-            _diagnostic("path_not_found", "trace", "trace path does not exist")
-        )
+        raise TraceInputError(_diagnostic("path_not_found", "trace", "trace path does not exist"))
     if candidate.is_dir():
         run_dir = candidate
     elif candidate.is_file() and candidate.name == META_JSON:
@@ -629,17 +582,11 @@ def _read_meta(path: Path) -> dict[str, Any]:
         with path.open("r", encoding="utf-8") as handle:
             value = json.load(handle)
     except json.JSONDecodeError:
-        raise TraceValidationError(
-            [_diagnostic("malformed_json", META_JSON, "is malformed JSON")]
-        )
+        raise TraceValidationError([_diagnostic("malformed_json", META_JSON, "is malformed JSON")])
     except OSError:
-        raise TraceInputError(
-            _diagnostic("unreadable_file", META_JSON, "meta.json could not be read")
-        )
+        raise TraceInputError(_diagnostic("unreadable_file", META_JSON, "meta.json could not be read"))
     if not isinstance(value, dict):
-        raise TraceValidationError(
-            [_diagnostic("invalid_type", META_JSON, "must contain a JSON object")]
-        )
+        raise TraceValidationError([_diagnostic("invalid_type", META_JSON, "must contain a JSON object")])
     return value
 
 
@@ -676,9 +623,7 @@ def _read_spans(path: Path) -> list[dict[str, Any]]:
     except TraceValidationError:
         raise
     except OSError:
-        raise TraceInputError(
-            _diagnostic("unreadable_file", SPANS_JSONL, "spans.jsonl could not be read")
-        )
+        raise TraceInputError(_diagnostic("unreadable_file", SPANS_JSONL, "spans.jsonl could not be read"))
     return spans
 
 

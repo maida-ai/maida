@@ -64,9 +64,7 @@ def test_stop_on_loop_disabled_no_abort(temp_data_dir):
     events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
-    loop_warnings = [
-        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
-    ]
+    loop_warnings = [e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value]
     errors = [e for e in events if e.get("event_type") == EventType.ERROR.value]
     assert len(loop_warnings) == 1
     assert len(errors) == 0
@@ -428,9 +426,7 @@ def test_loop_warning_dedup_no_guardrail_emits_one_per_pattern(temp_data_dir):
     events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
-    loop_warnings = [
-        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
-    ]
+    loop_warnings = [e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value]
     patterns = {e["payload"]["pattern"] for e in loop_warnings}
     assert len(patterns) <= 2, f"at most 2 distinct patterns, got {patterns}"
     assert len(loop_warnings) == len(patterns), (
@@ -470,9 +466,7 @@ def test_loop_warning_dedup_with_stop_on_loop_emits_minimal_warnings(temp_data_d
     events = spans_to_events(load_spans(run_id, config))
     run_meta = load_run_meta(run_id, config)
 
-    loop_warnings = [
-        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
-    ]
+    loop_warnings = [e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value]
     patterns = {e["payload"]["pattern"] for e in loop_warnings}
     assert len(loop_warnings) == len(patterns), (
         f"each pattern should produce exactly one LOOP_WARNING, "
@@ -508,22 +502,15 @@ def test_stop_on_loop_re_raises_after_swallowed_abort(temp_data_dir):
 
     run_loop_counting_aborts()
 
-    assert abort_count > 1, (
-        f"expected multiple LoopAbort raises when framework keeps "
-        f"swallowing, got {abort_count}"
-    )
+    assert abort_count > 1, f"expected multiple LoopAbort raises when framework keeps swallowing, got {abort_count}"
 
     config = load_config()
     run_id = get_latest_run_id(config)
     events = spans_to_events(load_spans(run_id, config))
 
-    loop_warnings = [
-        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
-    ]
+    loop_warnings = [e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value]
     patterns = {e["payload"]["pattern"] for e in loop_warnings}
-    assert len(loop_warnings) == len(patterns), (
-        "dedup must still prevent duplicate LOOP_WARNING events"
-    )
+    assert len(loop_warnings) == len(patterns), "dedup must still prevent duplicate LOOP_WARNING events"
 
 
 # ---------------------------------------------------------------------------
@@ -549,9 +536,5 @@ def test_nested_traced_run_applies_guardrail_params(temp_data_dir):
     run_id = get_latest_run_id(config)
     events = spans_to_events(load_spans(run_id, config))
 
-    loop_warnings = [
-        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
-    ]
-    assert len(loop_warnings) >= 1, (
-        "nested traced_run with stop_on_loop=True should emit LOOP_WARNING"
-    )
+    loop_warnings = [e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value]
+    assert len(loop_warnings) >= 1, "nested traced_run with stop_on_loop=True should emit LOOP_WARNING"

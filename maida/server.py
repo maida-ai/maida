@@ -62,9 +62,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail=str(e))
 
     @app.get("/api/runs/{trace_id}/spans")
-    def get_run_spans(
-        trace_id: str, config: MaidaConfig = Depends(_get_config)
-    ) -> dict:
+    def get_run_spans(trace_id: str, config: MaidaConfig = Depends(_get_config)) -> dict:
         trace_id = _validated_trace_id(trace_id)
         try:
             # TODO: cache or incrementally project events for large live traces.
@@ -84,9 +82,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/runs/{trace_id}/paths")
-    def get_run_paths(
-        trace_id: str, config: MaidaConfig = Depends(_get_config)
-    ) -> dict:
+    def get_run_paths(trace_id: str, config: MaidaConfig = Depends(_get_config)) -> dict:
         try:
             paths = storage.get_run_paths(trace_id, config)
         except ValueError:
@@ -96,9 +92,7 @@ def create_app() -> FastAPI:
         return {"spec_version": SPEC_VERSION, "trace_id": trace_id, "paths": paths}
 
     @app.get("/api/runs/{trace_id}/rename")
-    def validate_run_for_rename(
-        trace_id: str, config: MaidaConfig = Depends(_get_config)
-    ) -> dict:
+    def validate_run_for_rename(trace_id: str, config: MaidaConfig = Depends(_get_config)) -> dict:
         trace_id = _validated_trace_id(trace_id)
         try:
             # TODO: cache or incrementally project events for large live traces.
@@ -129,9 +123,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail=str(e))
 
     @app.delete("/api/runs/{trace_id}")
-    def delete_run(
-        trace_id: str, config: MaidaConfig = Depends(_get_config)
-    ) -> Response:
+    def delete_run(trace_id: str, config: MaidaConfig = Depends(_get_config)) -> Response:
         try:
             storage.delete_run(trace_id, config)
         except ValueError:

@@ -187,13 +187,9 @@ def _read_jsonl(path: Path, display: str) -> list[dict[str, Any]]:
         try:
             value = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise ClaudeCaptureInputError(
-                f"capture {display} line {line_no} is malformed JSON"
-            ) from exc
+            raise ClaudeCaptureInputError(f"capture {display} line {line_no} is malformed JSON") from exc
         if not isinstance(value, dict):
-            raise ClaudeCaptureInputError(
-                f"capture {display} line {line_no} must be an object"
-            )
+            raise ClaudeCaptureInputError(f"capture {display} line {line_no} must be an object")
         values.append(value)
     return values
 
@@ -227,9 +223,7 @@ def _deduplicate(values: list[dict[str, Any]], signal: str) -> list[dict[str, An
         canonical = _canonical(value)
         previous = by_identity.get(identity)
         if previous is not None and previous != canonical:
-            raise ClaudeCaptureInputError(
-                f"capture has conflicting duplicate {signal} identities"
-            )
+            raise ClaudeCaptureInputError(f"capture has conflicting duplicate {signal} identities")
         if previous is None:
             by_identity[identity] = canonical
             unique.append(value)
@@ -242,20 +236,14 @@ def _require_nonnegative(attributes: dict[str, Any], display: str) -> None:
         if value is None:
             continue
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
-            raise ClaudeCaptureInputError(
-                f"{display} field {field!r} must be nonnegative"
-            )
+            raise ClaudeCaptureInputError(f"{display} field {field!r} must be nonnegative")
 
 
-def _validate_resource(
-    item: dict[str, Any], session_hash: str, display: str
-) -> str | None:
+def _validate_resource(item: dict[str, Any], session_hash: str, display: str) -> str | None:
     if item.get("session_hash") != session_hash:
         raise ClaudeCaptureInputError(f"{display} session hash does not match manifest")
     resource = item.get("resource")
-    if not isinstance(resource, dict) or not isinstance(
-        resource.get("attributes"), dict
-    ):
+    if not isinstance(resource, dict) or not isinstance(resource.get("attributes"), dict):
         raise ClaudeCaptureInputError(f"{display} resource attributes are missing")
     attributes = resource["attributes"]
     if attributes.get("service.name") != "claude-code":
@@ -333,13 +321,9 @@ def _validate_log(item: dict[str, Any], session_hash: str, line_no: int) -> str 
         ),
         "claude_code.hook.session_end": ("hook_event_name", "reason"),
     }
-    missing = [
-        field for field in required.get(event_name, ()) if field not in attributes
-    ]
+    missing = [field for field in required.get(event_name, ()) if field not in attributes]
     if event_name in _KNOWN_LOGS and missing:
-        raise ClaudeCaptureInputError(
-            f"{event_name} is missing required field(s): {', '.join(missing)}"
-        )
+        raise ClaudeCaptureInputError(f"{event_name} is missing required field(s): {', '.join(missing)}")
     if event_name.startswith("claude_code.hook."):
         tool_input = attributes.get("tool_input")
         if tool_input is not None and not isinstance(tool_input, dict):
@@ -353,9 +337,7 @@ def _parse_time(value: object, display: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise ClaudeCaptureInputError(
-            f"{display} must be an ISO-8601 timestamp"
-        ) from exc
+        raise ClaudeCaptureInputError(f"{display} must be an ISO-8601 timestamp") from exc
     if parsed.tzinfo is None:
         raise ClaudeCaptureInputError(f"{display} must include a timezone")
     return parsed.astimezone(timezone.utc)
@@ -372,9 +354,7 @@ def _validate_span(item: dict[str, Any], session_hash: str, line_no: int) -> str
         if not isinstance(value, str) or pattern.fullmatch(value) is None:
             raise ClaudeCaptureInputError(f"{display} has invalid {field}")
     parent = span.get("parent_span_id")
-    if parent is not None and (
-        not isinstance(parent, str) or _SPAN_ID_RE.fullmatch(parent) is None
-    ):
+    if parent is not None and (not isinstance(parent, str) or _SPAN_ID_RE.fullmatch(parent) is None):
         raise ClaudeCaptureInputError(f"{display} has invalid parent_span_id")
     if not isinstance(span.get("name"), str) or not span["name"]:
         raise ClaudeCaptureInputError(f"{display} name must be a nonempty string")
@@ -400,9 +380,7 @@ def load_capture_segment(path: Path) -> ClaudeCaptureSegment:
     path = path.expanduser()
     manifest = _read_json(path / "manifest.json", "manifest.json")
     if manifest.get("capture_version") != 1 or manifest.get("source") != "claude-code":
-        raise ClaudeCaptureInputError(
-            "capture manifest has an unsupported source/version"
-        )
+        raise ClaudeCaptureInputError("capture manifest has an unsupported source/version")
     session_hash = manifest.get("session_hash")
     segment = manifest.get("segment")
     if not isinstance(session_hash, str) or _HASH_RE.fullmatch(session_hash) is None:
@@ -430,9 +408,7 @@ def load_capture_segment(path: Path) -> ClaudeCaptureSegment:
         for signal, values in (("logs", logs), ("spans", spans)):
             declared = signals.get(signal)
             if declared is not None and declared != len(values):
-                raise ClaudeCaptureInputError(
-                    f"capture manifest signals.{signal} does not match stored records"
-                )
+                raise ClaudeCaptureInputError(f"capture manifest signals.{signal} does not match stored records")
     source_fingerprint = _hash_id(
         f"mapping-v{_MAPPING_VERSION}",
         session_hash,
@@ -463,23 +439,15 @@ def load_claude_capture(
     if not isinstance(session_id, str) or not session_id.strip():
         raise ClaudeCaptureInputError("--session-id must be a nonempty string")
     session_hash = hashlib.sha256(session_id.strip().encode("utf-8")).hexdigest()
-    session_dir = (
-        config.data_dir.expanduser() / "captures" / "claude-code" / session_hash
-    )
+    session_dir = config.data_dir.expanduser() / "captures" / "claude-code" / session_hash
     if segment == "latest":
         if not session_dir.is_dir():
-            raise ClaudeCaptureInputError(
-                f"Claude Code capture {session_hash[:12]} was not found"
-            )
+            raise ClaudeCaptureInputError(f"Claude Code capture {session_hash[:12]} was not found")
         candidates = sorted(
-            entry.name
-            for entry in session_dir.iterdir()
-            if entry.is_dir() and (entry / "manifest.json").is_file()
+            entry.name for entry in session_dir.iterdir() if entry.is_dir() and (entry / "manifest.json").is_file()
         )
         if not candidates:
-            raise ClaudeCaptureInputError(
-                f"Claude Code capture {session_hash[:12]} has no segments"
-            )
+            raise ClaudeCaptureInputError(f"Claude Code capture {session_hash[:12]} has no segments")
         selected = candidates[-1]
     else:
         if _SEGMENT_RE.fullmatch(segment) is None or segment in {".", ".."}:
@@ -654,19 +622,12 @@ def normalize_claude_capture(
             item["span"]["span_id"],
         ),
     )
-    source_by_key = {
-        f"{item['span']['trace_id']}:{item['span']['span_id']}": item
-        for item in ordered_source_spans
-    }
+    source_by_key = {f"{item['span']['trace_id']}:{item['span']['span_id']}": item for item in ordered_source_spans}
     normalized_ids = {key: span_id(f"source-span:{key}") for key in source_by_key}
     parents: dict[str, str | None] = {}
     for key, item in source_by_key.items():
         source = item["span"]
-        parent_key = (
-            f"{source['trace_id']}:{source['parent_span_id']}"
-            if source.get("parent_span_id")
-            else None
-        )
+        parent_key = f"{source['trace_id']}:{source['parent_span_id']}" if source.get("parent_span_id") else None
         parents[key] = parent_key if parent_key in source_by_key else None
     cycle_members = _cycle_members(parents)
 
@@ -737,35 +698,24 @@ def normalize_claude_capture(
             attrs.update(
                 {
                     GEN_AI_OPERATION_NAME: "chat",
-                    GEN_AI_SYSTEM: str(
-                        source_attributes.get("gen_ai.system") or "anthropic"
-                    ),
+                    GEN_AI_SYSTEM: str(source_attributes.get("gen_ai.system") or "anthropic"),
                     GEN_AI_REQUEST_MODEL: model,
                 }
             )
             input_tokens = source_attributes.get("input_tokens")
             output_tokens = source_attributes.get("output_tokens")
-            if isinstance(input_tokens, (int, float)) and not isinstance(
-                input_tokens, bool
-            ):
+            if isinstance(input_tokens, (int, float)) and not isinstance(input_tokens, bool):
                 attrs[GEN_AI_USAGE_INPUT_TOKENS] = int(input_tokens)
-            if isinstance(output_tokens, (int, float)) and not isinstance(
-                output_tokens, bool
-            ):
+            if isinstance(output_tokens, (int, float)) and not isinstance(output_tokens, bool):
                 attrs[GEN_AI_USAGE_OUTPUT_TOKENS] = int(output_tokens)
-            if (
-                GEN_AI_USAGE_INPUT_TOKENS in attrs
-                or GEN_AI_USAGE_OUTPUT_TOKENS in attrs
-            ):
-                attrs[GEN_AI_USAGE_TOTAL_TOKENS] = attrs.get(
-                    GEN_AI_USAGE_INPUT_TOKENS, 0
-                ) + attrs.get(GEN_AI_USAGE_OUTPUT_TOKENS, 0)
+            if GEN_AI_USAGE_INPUT_TOKENS in attrs or GEN_AI_USAGE_OUTPUT_TOKENS in attrs:
+                attrs[GEN_AI_USAGE_TOTAL_TOKENS] = attrs.get(GEN_AI_USAGE_INPUT_TOKENS, 0) + attrs.get(
+                    GEN_AI_USAGE_OUTPUT_TOKENS, 0
+                )
             if source_attributes.get("request_id"):
                 attrs[GEN_AI_RESPONSE_ID] = str(source_attributes["request_id"])
             if source_attributes.get("stop_reason"):
-                attrs[GEN_AI_RESPONSE_FINISH_REASONS] = str(
-                    source_attributes["stop_reason"]
-                )
+                attrs[GEN_AI_RESPONSE_FINISH_REASONS] = str(source_attributes["stop_reason"])
             if source_attributes.get("success") is False:
                 status = "ERROR"
             is_action = True
@@ -785,12 +735,8 @@ def normalize_claude_capture(
                 status = "ERROR"
             is_action = True
         if status == "ERROR":
-            attrs[MAIDA_ERROR_TYPE] = str(
-                source_attributes.get("error_type") or "ClaudeCodeError"
-            )
-            attrs[MAIDA_ERROR_MESSAGE] = str(
-                source_attributes.get("error") or status_description
-            )
+            attrs[MAIDA_ERROR_TYPE] = str(source_attributes.get("error_type") or "ClaudeCodeError")
+            attrs[MAIDA_ERROR_MESSAGE] = str(source_attributes.get("error") or status_description)
 
         projected = _normalized_span(
             trace_id=trace_id,
@@ -830,28 +776,16 @@ def normalize_claude_capture(
     consumed_hook_logs: set[str] = set()
     for tool_use_id, source_logs in hook_tools.items():
         pre = next(
-            (
-                item
-                for item in source_logs
-                if item["record"]["event_name"] == "claude_code.hook.pre_tool_use"
-            ),
+            (item for item in source_logs if item["record"]["event_name"] == "claude_code.hook.pre_tool_use"),
             None,
         )
-        terminals = [
-            item
-            for item in source_logs
-            if item["record"]["event_name"] != "claude_code.hook.pre_tool_use"
-        ]
+        terminals = [item for item in source_logs if item["record"]["event_name"] != "claude_code.hook.pre_tool_use"]
         if len(terminals) > 1:
-            raise ClaudeCaptureInputError(
-                f"hook tool {tool_use_id!r} has conflicting terminal events"
-            )
+            raise ClaudeCaptureInputError(f"hook tool {tool_use_id!r} has conflicting terminal events")
         terminal = terminals[0] if terminals else None
         names = {item["record"]["attributes"].get("tool_name") for item in source_logs}
         if len(names) != 1 or not all(isinstance(name, str) and name for name in names):
-            raise ClaudeCaptureInputError(
-                f"hook tool {tool_use_id!r} has conflicting tool names"
-            )
+            raise ClaudeCaptureInputError(f"hook tool {tool_use_id!r} has conflicting tool names")
 
         primary = terminal or pre
         if primary is None:  # pragma: no cover - groups always contain a source log
@@ -871,9 +805,7 @@ def normalize_claude_capture(
         if not isinstance(duration, (int, float)) or isinstance(duration, bool):
             duration = 0
         duration_start = end - timedelta(milliseconds=duration)
-        start = (
-            min(_log_time(pre), duration_start) if pre is not None else duration_start
-        )
+        start = min(_log_time(pre), duration_start) if pre is not None else duration_start
         interaction_times.setdefault(group, []).extend((start, end))
 
         terminal_name = terminal["record"]["event_name"] if terminal else None
@@ -926,20 +858,14 @@ def normalize_claude_capture(
         status_description = ""
         if terminal_name == "claude_code.hook.post_tool_use_failure":
             status = "ERROR"
-            status_description = str(
-                merged_attributes.get("error") or "Claude Code tool failed"
-            )
+            status_description = str(merged_attributes.get("error") or "Claude Code tool failed")
             attrs[MAIDA_ERROR_TYPE] = (
-                "ClaudeCodeToolInterrupted"
-                if merged_attributes.get("is_interrupt") is True
-                else "ClaudeCodeToolError"
+                "ClaudeCodeToolInterrupted" if merged_attributes.get("is_interrupt") is True else "ClaudeCodeToolError"
             )
             attrs[MAIDA_ERROR_MESSAGE] = status_description
         elif terminal_name == "claude_code.hook.permission_denied":
             status = "ERROR"
-            status_description = str(
-                merged_attributes.get("reason") or "Claude Code tool was denied"
-            )
+            status_description = str(merged_attributes.get("reason") or "Claude Code tool was denied")
             attrs[MAIDA_ERROR_TYPE] = "ClaudeCodePermissionDenied"
             attrs[MAIDA_ERROR_MESSAGE] = status_description
 
@@ -958,9 +884,7 @@ def normalize_claude_capture(
         )
         normalized.append(projected)
         action_spans.append(projected)
-        consumed_hook_logs.update(
-            _source_identity(item, "logs") for item in source_logs
-        )
+        consumed_hook_logs.update(_source_identity(item, "logs") for item in source_logs)
 
     tool_results = {
         item["record"]["attributes"].get("tool_use_id")
@@ -985,12 +909,8 @@ def normalize_claude_capture(
         group = log_group(item)
         interaction_id = ensure_interaction(group)
         interaction_times.setdefault(group, []).append(when)
-        correlated = normalized_by_source.get(
-            (record.get("trace_id", ""), record.get("span_id", ""))
-        )
-        correlated_type = (
-            span_to_event_dict(correlated)["event_type"] if correlated else None
-        )
+        correlated = normalized_by_source.get((record.get("trace_id", ""), record.get("span_id", "")))
+        correlated_type = span_to_event_dict(correlated)["event_type"] if correlated else None
         consumed = False
         if event_name == "claude_code.user_prompt" and correlated is not None:
             consumed = True
@@ -1015,11 +935,9 @@ def normalize_claude_capture(
                 GEN_AI_USAGE_INPUT_TOKENS in correlated["attributes"]
                 or GEN_AI_USAGE_OUTPUT_TOKENS in correlated["attributes"]
             ):
-                correlated["attributes"][GEN_AI_USAGE_TOTAL_TOKENS] = correlated[
-                    "attributes"
-                ].get(GEN_AI_USAGE_INPUT_TOKENS, 0) + correlated["attributes"].get(
-                    GEN_AI_USAGE_OUTPUT_TOKENS, 0
-                )
+                correlated["attributes"][GEN_AI_USAGE_TOTAL_TOKENS] = correlated["attributes"].get(
+                    GEN_AI_USAGE_INPUT_TOKENS, 0
+                ) + correlated["attributes"].get(GEN_AI_USAGE_OUTPUT_TOKENS, 0)
             if event_name == "claude_code.api_error":
                 correlated["status_code"] = "ERROR"
                 correlated["attributes"][MAIDA_ERROR_TYPE] = "ClaudeCodeAPIError"
@@ -1038,9 +956,7 @@ def normalize_claude_capture(
             if event_name == "claude_code.tool_result":
                 args = _sanitize(_tool_args(attributes), config)
                 correlated["events"] = [
-                    event
-                    for event in correlated["events"]
-                    if event.get("name") != "maida.tool.args"
+                    event for event in correlated["events"] if event.get("name") != "maida.tool.args"
                 ]
                 correlated["events"].append(
                     {
@@ -1075,10 +991,7 @@ def normalize_claude_capture(
 
         if event_name == "claude_code.user_prompt":
             continue
-        if (
-            event_name == "claude_code.tool_decision"
-            and attributes.get("tool_use_id") in tool_results
-        ):
+        if event_name == "claude_code.tool_decision" and attributes.get("tool_use_id") in tool_results:
             continue
 
         meta = _source_meta(
@@ -1115,17 +1028,13 @@ def normalize_claude_capture(
             )
             input_tokens = attributes.get("input_tokens")
             output_tokens = attributes.get("output_tokens")
-            if isinstance(input_tokens, (int, float)) and not isinstance(
-                input_tokens, bool
-            ):
+            if isinstance(input_tokens, (int, float)) and not isinstance(input_tokens, bool):
                 attrs[GEN_AI_USAGE_INPUT_TOKENS] = int(input_tokens)
-            if isinstance(output_tokens, (int, float)) and not isinstance(
-                output_tokens, bool
-            ):
+            if isinstance(output_tokens, (int, float)) and not isinstance(output_tokens, bool):
                 attrs[GEN_AI_USAGE_OUTPUT_TOKENS] = int(output_tokens)
-            attrs[GEN_AI_USAGE_TOTAL_TOKENS] = attrs.get(
-                GEN_AI_USAGE_INPUT_TOKENS, 0
-            ) + attrs.get(GEN_AI_USAGE_OUTPUT_TOKENS, 0)
+            attrs[GEN_AI_USAGE_TOTAL_TOKENS] = attrs.get(GEN_AI_USAGE_INPUT_TOKENS, 0) + attrs.get(
+                GEN_AI_USAGE_OUTPUT_TOKENS, 0
+            )
             if attributes.get("request_id"):
                 attrs[GEN_AI_RESPONSE_ID] = str(attributes["request_id"])
             if event_name == "claude_code.api_error":
@@ -1134,8 +1043,7 @@ def normalize_claude_capture(
                 attrs[MAIDA_ERROR_MESSAGE] = str(attributes.get("error") or "API error")
             is_action = True
         elif event_name == "claude_code.tool_result" or (
-            event_name == "claude_code.tool_decision"
-            and attributes.get("decision") == "reject"
+            event_name == "claude_code.tool_decision" and attributes.get("decision") == "reject"
         ):
             tool_name = str(attributes.get("tool_name") or "unknown")
             name = tool_name
@@ -1148,17 +1056,11 @@ def normalize_claude_capture(
                     "attributes": {"args": json.dumps(args, ensure_ascii=False)},
                 }
             )
-            failed = event_name == "claude_code.tool_decision" or not _truthy(
-                attributes.get("success")
-            )
+            failed = event_name == "claude_code.tool_decision" or not _truthy(attributes.get("success"))
             if failed:
                 status = "ERROR"
-                attrs[MAIDA_ERROR_TYPE] = str(
-                    attributes.get("error_type") or "ClaudeCodeToolError"
-                )
-                attrs[MAIDA_ERROR_MESSAGE] = str(
-                    attributes.get("error") or "Claude Code tool was rejected"
-                )
+                attrs[MAIDA_ERROR_TYPE] = str(attributes.get("error_type") or "ClaudeCodeToolError")
+                attrs[MAIDA_ERROR_MESSAGE] = str(attributes.get("error") or "Claude Code tool was rejected")
             is_action = True
 
         projected = _normalized_span(
@@ -1201,9 +1103,7 @@ def normalize_claude_capture(
                                 "mapping_version": _MAPPING_VERSION,
                                 "source_kind": "synthetic_interaction",
                                 "source_name": group,
-                                "service_version": capture.service_versions[-1]
-                                if capture.service_versions
-                                else None,
+                                "service_version": capture.service_versions[-1] if capture.service_versions else None,
                             }
                         },
                         config,
@@ -1224,9 +1124,7 @@ def normalize_claude_capture(
         action_window.append(event)
         if len(action_window) > config.loop_window:
             action_window = action_window[-config.loop_window :]
-        payload = detect_loop(
-            action_window, config.loop_window, config.loop_repetitions
-        )
+        payload = detect_loop(action_window, config.loop_window, config.loop_repetitions)
         if payload is None:
             continue
         key = pattern_key(payload)
@@ -1262,16 +1160,8 @@ def normalize_claude_capture(
     starts = [_parse_time(span["start_time"], "span start_time") for span in normalized]
     ends = [_parse_time(span["end_time"], "span end_time") for span in normalized]
     root_start, root_end = min(starts), max(ends)
-    llm_calls = sum(
-        1
-        for span in action_spans
-        if span_to_event_dict(span)["event_type"] == "LLM_CALL"
-    )
-    tool_calls = sum(
-        1
-        for span in action_spans
-        if span_to_event_dict(span)["event_type"] == "TOOL_CALL"
-    )
+    llm_calls = sum(1 for span in action_spans if span_to_event_dict(span)["event_type"] == "LLM_CALL")
+    tool_calls = sum(1 for span in action_spans if span_to_event_dict(span)["event_type"] == "TOOL_CALL")
     errors = sum(1 for span in normalized if span["status_code"] == "ERROR")
     root_source = {
         "mapping_version": _MAPPING_VERSION,
@@ -1360,31 +1250,17 @@ def _existing_matches(run: NormalizedClaudeRun, config: MaidaConfig) -> bool:
     except FileNotFoundError:
         return False
     except Exception as exc:
-        raise ClaudeCaptureImportError(
-            f"existing destination run {run.trace_id} is invalid"
-        ) from exc
+        raise ClaudeCaptureImportError(f"existing destination run {run.trace_id} is invalid") from exc
     root = next((span for span in spans if span.get("parent_span_id") is None), None)
     if root is None:
-        raise ClaudeCaptureImportError(
-            f"existing destination run {run.trace_id} has no root span"
-        )
+        raise ClaudeCaptureImportError(f"existing destination run {run.trace_id} has no root span")
     try:
         source = json.loads(root["attributes"][MAIDA_META])["claude_code"]
     except (KeyError, TypeError, json.JSONDecodeError) as exc:
-        raise ClaudeCaptureImportError(
-            f"existing destination run {run.trace_id} is not a Claude import"
-        ) from exc
-    if (
-        source.get("session_hash") != run.session_hash
-        or source.get("segment") != run.segment
-    ):
-        raise ClaudeCaptureImportError(
-            f"deterministic trace ID collision at destination {run.trace_id}"
-        )
-    if (
-        source.get("mapping_version") != _MAPPING_VERSION
-        or source.get("source_fingerprint") != run.source_fingerprint
-    ):
+        raise ClaudeCaptureImportError(f"existing destination run {run.trace_id} is not a Claude import") from exc
+    if source.get("session_hash") != run.session_hash or source.get("segment") != run.segment:
+        raise ClaudeCaptureImportError(f"deterministic trace ID collision at destination {run.trace_id}")
+    if source.get("mapping_version") != _MAPPING_VERSION or source.get("source_fingerprint") != run.source_fingerprint:
         raise ClaudeCaptureChangedError(
             f"Claude Code capture changed since destination {run.trace_id} was imported; "
             "refusing to overwrite the local run"

@@ -16,16 +16,7 @@ from maida.trace_validation import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE = (
-    ROOT
-    / "tests"
-    / "fixtures"
-    / "traces"
-    / "external"
-    / "emitter"
-    / "current"
-    / "multithread"
-)
+FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 TRACE_ID = "80000000000000000000000000000001"
 
 
@@ -40,12 +31,8 @@ def _read_jsonl(path: Path) -> list[dict]:
 def _copy_fixture(tmp_path: Path) -> Path:
     run_dir = tmp_path / "emitted-run"
     run_dir.mkdir()
-    (run_dir / "meta.json").write_text(
-        (FIXTURE / "meta.json").read_text(encoding="utf-8"), encoding="utf-8"
-    )
-    (run_dir / "spans.jsonl").write_text(
-        (FIXTURE / "spans.jsonl").read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    (run_dir / "meta.json").write_text((FIXTURE / "meta.json").read_text(encoding="utf-8"), encoding="utf-8")
+    (run_dir / "spans.jsonl").write_text((FIXTURE / "spans.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
     return run_dir
 
 
@@ -152,25 +139,18 @@ def test_external_fixture_installs_projects_and_asserts_end_to_end(
         ),
     ],
 )
-def test_validate_trace_path_reports_semantic_failures(
-    tmp_path: Path, mutate, code: str, location: str
-) -> None:
+def test_validate_trace_path_reports_semantic_failures(tmp_path: Path, mutate, code: str, location: str) -> None:
     run_dir = _copy_fixture(tmp_path)
     meta = _read_json(run_dir / "meta.json")
     spans = _read_jsonl(run_dir / "spans.jsonl")
     mutate(meta, spans)
     (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    (run_dir / "spans.jsonl").write_text(
-        "\n".join(json.dumps(span) for span in spans) + "\n", encoding="utf-8"
-    )
+    (run_dir / "spans.jsonl").write_text("\n".join(json.dumps(span) for span in spans) + "\n", encoding="utf-8")
 
     with pytest.raises(TraceValidationError) as excinfo:
         validate_trace_path(run_dir)
 
-    assert any(
-        diagnostic.code == code and diagnostic.location == location
-        for diagnostic in excinfo.value.diagnostics
-    )
+    assert any(diagnostic.code == code and diagnostic.location == location for diagnostic in excinfo.value.diagnostics)
 
 
 def test_validate_trace_path_allows_incomplete_running_topology(tmp_path: Path) -> None:
@@ -204,9 +184,7 @@ def test_validate_trace_path_rejects_bad_input_paths(tmp_path: Path) -> None:
 
 def test_validate_trace_path_sanitizes_malformed_content(tmp_path: Path) -> None:
     run_dir = _copy_fixture(tmp_path)
-    (run_dir / "spans.jsonl").write_text(
-        '{"secret":"sk-test-DO-NOT-LEAK",\n', encoding="utf-8"
-    )
+    (run_dir / "spans.jsonl").write_text('{"secret":"sk-test-DO-NOT-LEAK",\n', encoding="utf-8")
 
     with pytest.raises(TraceValidationError) as excinfo:
         validate_trace_path(run_dir)

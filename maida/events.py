@@ -63,9 +63,7 @@ def new_event(
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an event dict (backward compat for guardrail/loop detection)."""
-    type_str = (
-        event_type.value if isinstance(event_type, EventType) else str(event_type)
-    )
+    type_str = event_type.value if isinstance(event_type, EventType) else str(event_type)
     event_id = str(uuid.uuid4())
     ts = utc_now_iso_ms_z()
     safe_payload = _ensure_json_safe(payload) if payload is not None else {}
@@ -159,9 +157,7 @@ def derive_event_payload(span: dict) -> dict[str, Any]:
         prompt_tokens = attrs.get("gen_ai.usage.input_tokens")
         completion_tokens = attrs.get("gen_ai.usage.output_tokens")
         total_tokens = attrs.get("gen_ai.usage.total_tokens")
-        if total_tokens is None and (
-            prompt_tokens is not None or completion_tokens is not None
-        ):
+        if total_tokens is None and (prompt_tokens is not None or completion_tokens is not None):
             total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
         return {
             "model": span.get("name", ""),
@@ -389,13 +385,7 @@ def spans_to_events(spans: list[dict]) -> list[dict[str, Any]]:
         root_attrs = root_span.get("attributes", {})
         run_name = root_attrs.get("maida.run_name")
         status_code = root_span.get("status_code", "UNSET")
-        status = (
-            "ok"
-            if status_code == "OK"
-            else "error"
-            if status_code == "ERROR"
-            else "unknown"
-        )
+        status = "ok" if status_code == "OK" else "error" if status_code == "ERROR" else "unknown"
         events.append(
             {
                 "spec_version": SPEC_VERSION,

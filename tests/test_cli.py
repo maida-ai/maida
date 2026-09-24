@@ -71,9 +71,7 @@ def _make_run(config, *, name="test_run", events=None, status="ok"):
                         result=payload.get("result"),
                     )
                 elif ev_type == EventType.LLM_CALL:
-                    record_llm_call(
-                        ev_name, prompt="p", response="r", usage=payload.get("usage")
-                    )
+                    record_llm_call(ev_name, prompt="p", response="r", usage=payload.get("usage"))
                 elif ev_type == EventType.LOOP_WARNING:
                     record_tool_call(ev_name, args={}, result=None)
     return get_latest_run_id(config)
@@ -160,9 +158,7 @@ def test_export_success_path_writes_run_and_events(empty_data_dir):
     data = json.loads(tmpfile.read_text())
     assert data["run"]["run_name"] == "export_success_run"
     assert len(data["events"]) >= 2
-    tool_events = [
-        e for e in data["events"] if e.get("event_type") == EventType.TOOL_CALL.value
-    ]
+    tool_events = [e for e in data["events"] if e.get("event_type") == EventType.TOOL_CALL.value]
     assert len(tool_events) == 1
     assert tool_events[0].get("payload", {}).get("tool_name") == "test_tool"
 
@@ -385,9 +381,7 @@ def test_view_server_stays_running_until_interrupt(monkeypatch, empty_data_dir):
     view_thread = threading.Thread(target=run_view)
     view_thread.start()
     time.sleep(0.4)
-    assert view_thread.is_alive(), (
-        "view should still be running (blocked on server join)"
-    )
+    assert view_thread.is_alive(), "view should still be running (blocked on server join)"
     block_event.set()
     view_thread.join(timeout=5)
     assert view_result["done"]
@@ -462,9 +456,7 @@ def test_baseline_overwrite_requires_force(empty_data_dir, from_report):
 
 
 def test_baseline_missing_run_exit_two(empty_data_dir):
-    result = runner.invoke(
-        app, ["baseline", "missing_run", "--out", str(empty_data_dir / "bl.json")]
-    )
+    result = runner.invoke(app, ["baseline", "missing_run", "--out", str(empty_data_dir / "bl.json")])
     assert result.exit_code == 2
 
 
@@ -573,25 +565,17 @@ def test_accept_records_github_provenance_and_verdict(empty_data_dir, monkeypatc
     }
     assert acceptance["verdict"] == {
         "outcome": "accepted",
-        "summary": (
-            "Accepted run status ok: 2 events, 2 tool calls, 0 errors, 0 loop warnings."
-        ),
+        "summary": ("Accepted run status ok: 2 events, 2 tool calls, 0 errors, 0 loop warnings."),
     }
 
 
-def test_accept_rejects_invalid_pr_provenance_without_rewriting_baseline(
-    empty_data_dir, monkeypatch
-):
+def test_accept_rejects_invalid_pr_provenance_without_rewriting_baseline(empty_data_dir, monkeypatch):
     config = load_config()
-    baseline_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
-    )
+    baseline_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "search", {})])
     baseline_path = empty_data_dir / "baseline.json"
     runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
     before = baseline_path.read_bytes()
-    current_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
-    )
+    current_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})])
     monkeypatch.setenv("MAIDA_PR_NUMBER", "not-a-number")
 
     result = runner.invoke(
@@ -613,14 +597,10 @@ def test_accept_rejects_invalid_pr_provenance_without_rewriting_baseline(
 
 def test_accept_records_local_provenance_without_pr_source(empty_data_dir, monkeypatch):
     config = load_config()
-    baseline_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
-    )
+    baseline_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "search", {})])
     baseline_path = empty_data_dir / "baseline.json"
     runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
-    current_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
-    )
+    current_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})])
     monkeypatch.setenv("MAIDA_ACCEPTED_BY", "local-reviewer")
     for name in (
         "GITHUB_ACTOR",
@@ -654,14 +634,10 @@ def test_accept_records_local_provenance_without_pr_source(empty_data_dir, monke
 
 def test_accept_reason_alias_updates_baseline(empty_data_dir):
     config = load_config()
-    baseline_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
-    )
+    baseline_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "search", {})])
     baseline_path = empty_data_dir / "baseline.json"
     runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
-    current_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})]
-    )
+    current_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "lookup", {})])
 
     result = runner.invoke(
         app,
@@ -675,15 +651,11 @@ def test_accept_reason_alias_updates_baseline(empty_data_dir):
 
 def test_accept_defaults_to_latest_run(empty_data_dir):
     config = load_config()
-    baseline_run = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
-    )
+    baseline_run = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "search", {})])
     baseline_path = empty_data_dir / "baseline.json"
     runner.invoke(app, ["baseline", baseline_run, "--out", str(baseline_path)])
     _make_run(config, name="older", events=[(EventType.TOOL_CALL, "older_tool", {})])
-    newest = _make_run(
-        config, name="newer", events=[(EventType.TOOL_CALL, "newest_tool", {})]
-    )
+    newest = _make_run(config, name="newer", events=[(EventType.TOOL_CALL, "newest_tool", {})])
 
     result = runner.invoke(
         app,
@@ -699,9 +671,7 @@ def test_accept_defaults_to_latest_run(empty_data_dir):
 
 def test_accept_noop_leaves_baseline_untouched(empty_data_dir):
     config = load_config()
-    run_id = _make_run(
-        config, name="agent", events=[(EventType.TOOL_CALL, "search", {})]
-    )
+    run_id = _make_run(config, name="agent", events=[(EventType.TOOL_CALL, "search", {})])
     baseline_path = empty_data_dir / "baseline.json"
     runner.invoke(app, ["baseline", run_id, "--out", str(baseline_path)])
     before = baseline_path.read_bytes()
@@ -741,9 +711,7 @@ def test_accept_blank_reason_exit_two(empty_data_dir):
     baseline_path = empty_data_dir / "baseline.json"
     runner.invoke(app, ["baseline", run_id, "--out", str(baseline_path)])
 
-    result = runner.invoke(
-        app, ["accept", run_id, "--baseline", str(baseline_path), "--reason", "   "]
-    )
+    result = runner.invoke(app, ["accept", run_id, "--baseline", str(baseline_path), "--reason", "   "])
 
     assert result.exit_code == 2
     assert "Acceptance reason required" in result.stderr
@@ -827,9 +795,7 @@ def test_accept_malformed_run_exit_two(empty_data_dir):
     _write_run_with_malformed_span(empty_data_dir, bad_trace_id)
     _write_trace_run(empty_data_dir, baseline_trace_id, "baseline")
     baseline_path = empty_data_dir / "baseline.json"
-    result = runner.invoke(
-        app, ["baseline", baseline_trace_id, "--out", str(baseline_path)]
-    )
+    result = runner.invoke(app, ["baseline", baseline_trace_id, "--out", str(baseline_path)])
     assert result.exit_code == 0
 
     result = runner.invoke(
@@ -888,9 +854,7 @@ def test_run_command_missing_script_exits_two(empty_data_dir, tmp_path, monkeypa
     assert "Agent script not found" in result.stderr
 
 
-def test_run_inconclusive_is_neutral_and_writes_json_sidecar(
-    empty_data_dir, tmp_path, monkeypatch
-):
+def test_run_inconclusive_is_neutral_and_writes_json_sidecar(empty_data_dir, tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
     subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
@@ -972,19 +936,13 @@ def test_run_statistical_cli_overrides_policy(empty_data_dir, tmp_path, monkeypa
     payload = json.loads(result.stdout)
     assert payload["metadata"]["trials_used"] == 5
     assert payload["metadata"]["trials_budgeted"] == 5
-    task = next(
-        item
-        for item in payload["aggregate_results"]
-        if item["check_name"] == "task_pass_rate"
-    )
+    task = next(item for item in payload["aggregate_results"] if item["check_name"] == "task_pass_rate")
     assert task["evidence"]["confidence"] == 0.9
     assert task["evidence"]["threshold"] == 0.7
     assert task["decision_rule"] == "wilson_one_sided"
 
 
-def test_run_invalid_statistical_policy_exits_two(
-    empty_data_dir, tmp_path, monkeypatch
-):
+def test_run_invalid_statistical_policy_exits_two(empty_data_dir, tmp_path, monkeypatch):
     subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
     (tmp_path / "agent.py").write_text("print('unused')\n", encoding="utf-8")
     (tmp_path / "policy.yaml").write_text(
@@ -1089,9 +1047,7 @@ def test_assert_markdown_uses_report_formatter(monkeypatch, empty_data_dir):
 
     monkeypatch.setattr("maida.cli.format_report_markdown", fake_format_report_markdown)
 
-    result = runner.invoke(
-        app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"]
-    )
+    result = runner.invoke(app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"])
 
     assert result.exit_code == 0
     assert result.stdout == "CLI markdown report\n"
@@ -1106,9 +1062,7 @@ def test_assert_json_format(empty_data_dir):
 
     run_id = get_latest_run_id(config)
 
-    result = runner.invoke(
-        app, ["assert", run_id, "--max-steps", "10", "--format", "json"]
-    )
+    result = runner.invoke(app, ["assert", run_id, "--max-steps", "10", "--format", "json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert "Usage ping: disabled" in result.stderr
@@ -1123,9 +1077,7 @@ def test_assert_markdown_format(empty_data_dir):
 
     run_id = get_latest_run_id(config)
 
-    result = runner.invoke(
-        app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"]
-    )
+    result = runner.invoke(app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"])
     assert result.exit_code == 0
     assert "Maida verdict" in result.output
 
@@ -1365,8 +1317,7 @@ def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch, tmp_path):
                 "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
                 "topology": "normalize -> [draft, review] -> publish",
                 "rendered": (
-                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\n"
-                    "Plan fan-out is 2; policy allows at most 1 (plan_fanout)."
+                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\nPlan fan-out is 2; policy allows at most 1 (plan_fanout)."
                 ),
             }
 
@@ -1403,8 +1354,7 @@ def test_demo_plan_discovers_printed_policy_recovery_path(
                 "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
                 "topology": "normalize -> [draft, review] -> publish",
                 "rendered": (
-                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\n"
-                    "Plan fan-out is 2; policy allows at most 1 (plan_fanout)."
+                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\nPlan fan-out is 2; policy allows at most 1 (plan_fanout)."
                 ),
             }
 
@@ -1421,9 +1371,7 @@ def test_demo_plan_discovers_printed_policy_recovery_path(
     policy = tmp_path / ".maida" / "policy.yaml"
     policy.parent.mkdir()
     policy.write_text(
-        "version: 2.1\n"
-        "metrics:\n"
-        "  plan_fanout: {kind: measured, direction: upper, limit: 2}\n",
+        "version: 2.1\nmetrics:\n  plan_fanout: {kind: measured, direction: upper, limit: 2}\n",
         encoding="utf-8",
     )
 
@@ -1452,8 +1400,7 @@ def test_demo_plan_explicit_policy_wins_over_discovered_default(
                 "schemas": {"plan": "0.1.0", "policy": "2.1", "report": "2.0.1"},
                 "topology": "normalize -> [draft, review] -> publish",
                 "rendered": (
-                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\n"
-                    "Plan fan-out is 2; policy allows at most 1 (plan_fanout)."
+                    "PLAN REFUSED: PLAN_FANOUT_EXCEEDED\nPlan fan-out is 2; policy allows at most 1 (plan_fanout)."
                 ),
             }
 
@@ -1482,9 +1429,7 @@ def test_demo_plan_missing_optional_backend_uses_canonical_install_instruction(
     install_command = _PLAN_BACKEND_INSTALL_COMMAND
 
     def missing_backend(name):
-        raise ModuleNotFoundError(
-            "No module named 'maida.workflows'", name="maida.workflows"
-        )
+        raise ModuleNotFoundError("No module named 'maida.workflows'", name="maida.workflows")
 
     monkeypatch.setattr("maida.cli.import_module", missing_backend)
 
@@ -1509,11 +1454,7 @@ def test_demo_plan_install_instruction_has_lower_bounds_aligned_with_contract():
     assert has_lower_bound(requirements["maida-ai"])
     assert has_lower_bound(requirements["maida-workflows"])
 
-    contract = json.loads(
-        (Path(__file__).parents[1] / "contracts" / "current-main.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    contract = json.loads((Path(__file__).parents[1] / "contracts" / "current-main.json").read_text(encoding="utf-8"))
     assert str(requirements["maida-ai"]) == contract["install_requirement"]
 
 
@@ -1572,19 +1513,10 @@ def test_demo_regression_story(empty_data_dir, tmp_path, monkeypatch):
     assert len(runs) == 2
 
     # the gate must fail and explain itself
-    assert "Local-only canned data: no API keys, no network calls, no repo clone." in (
-        result.output
-    )
-    assert (
-        "Story: baseline -> regressed refactor -> failed gate -> PR-comment preview."
-        in result.output
-    )
-    assert "baseline behavior: lookup_customer -> search_kb -> send_reply" in (
-        result.output
-    )
-    assert "regression: demo-gpt-4-mini loops on search_kb, then escalates" in (
-        result.output
-    )
+    assert "Local-only canned data: no API keys, no network calls, no repo clone." in (result.output)
+    assert "Story: baseline -> regressed refactor -> failed gate -> PR-comment preview." in result.output
+    assert "baseline behavior: lookup_customer -> search_kb -> send_reply" in (result.output)
+    assert "regression: demo-gpt-4-mini loops on search_kb, then escalates" in (result.output)
     assert "finished with status ok; behavior still changed" in result.output
     assert "FAILED" in result.output
     assert "escalate_to_human" in result.output
@@ -1708,10 +1640,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
         "persist-credentials": False,
     }
     assert gate["uses"] == MAIDA_ASSERT_ACTION_REF
-    assert (
-        gate["with"]["configuration-acceptance"]
-        == "${{ vars.MAIDA_CONFIGURATION_ACCEPTANCE }}"
-    )
+    assert gate["with"]["configuration-acceptance"] == "${{ vars.MAIDA_CONFIGURATION_ACCEPTANCE }}"
     assert status["if"] == "always() && steps.pr.outcome == 'success'"
     assert status["uses"] == "maida-ai/maida-assert/publish-status@main"
     assert status["with"] == {
@@ -1723,25 +1652,16 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     }
     assert "steps.gate.outcome" not in workflow_text
     assert "github.sha" not in workflow_text
-    authorize, capture, write = (
-        wf["jobs"][key] for key in ("authorize", "capture", "write")
-    )
+    authorize, capture, write = (wf["jobs"][key] for key in ("authorize", "capture", "write"))
     assert "issue_comment" in authorize["if"]
     assert authorize["steps"][0]["uses"] == MAIDA_ACCEPT_ACTION_REF
     assert authorize["steps"][0]["with"]["stage"] == "authorize"
     assert capture["permissions"] == {"contents": "read"}
     assert capture["steps"][0]["with"]["persist-credentials"] is False
-    assert (
-        capture["steps"][0]["with"]["ref"] == "${{ needs.authorize.outputs.head-sha }}"
-    )
+    assert capture["steps"][0]["with"]["ref"] == "${{ needs.authorize.outputs.head-sha }}"
     assert write["needs"] == ["authorize", "capture"]
-    assert (
-        write["steps"][-1]["with"]["context"]
-        == "${{ needs.authorize.outputs.context }}"
-    )
-    assert not any(
-        "checkout" in step.get("uses", "") or "run" in step for step in write["steps"]
-    )
+    assert write["steps"][-1]["with"]["context"] == "${{ needs.authorize.outputs.context }}"
+    assert not any("checkout" in step.get("uses", "") or "run" in step for step in write["steps"])
     assert "Replace this with the script that runs your traced agent." in workflow_text
     assert "After committing a baseline" in workflow_text
     assert "secrets." not in workflow_text.lower()
@@ -1765,9 +1685,7 @@ def test_init_skips_existing_without_force(empty_data_dir, tmp_path, monkeypatch
 
 
 @pytest.mark.parametrize("policy_text", ["assert: {}\n", "version: 1\nassert: {}\n"])
-def test_run_rejects_unsupported_policy_before_executing_agent(
-    tmp_path, monkeypatch, policy_text
-):
+def test_run_rejects_unsupported_policy_before_executing_agent(tmp_path, monkeypatch, policy_text):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "agent.py").write_text("raise RuntimeError('agent must not execute')\n")
     (tmp_path / "policy.yaml").write_text(policy_text)

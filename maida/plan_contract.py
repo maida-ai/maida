@@ -69,9 +69,7 @@ def _string(value: object, field_name: str) -> str:
 def _digest(value: object, field_name: str) -> str:
     result = _string(value, field_name)
     if _DIGEST_RE.fullmatch(result) is None:
-        raise _fail(
-            "PLAN_ARTIFACT_INVALID", f"{field_name} must be a lowercase SHA-256 digest"
-        )
+        raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must be a lowercase SHA-256 digest")
     return result
 
 
@@ -85,12 +83,7 @@ def _integer(value: object, field_name: str, *, minimum: int = 0) -> int:
 
 
 def _number(value: object, field_name: str) -> float:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value < 0
-    ):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
         raise _fail(
             "PLAN_ARTIFACT_INVALID",
             f"{field_name} must be a finite non-negative number",
@@ -103,9 +96,7 @@ def _string_set(value: object, field_name: str) -> tuple[str, ...]:
         raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must be an array")
     items = tuple(_string(item, field_name) for item in value)
     if len(set(items)) != len(items):
-        raise _fail(
-            "PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates"
-        )
+        raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates")
     return tuple(sorted(items))
 
 
@@ -173,22 +164,14 @@ def _modules(value: object, field_name: str) -> tuple[_PlanModule, ...]:
         )
         modules.append(
             _PlanModule(
-                module_id=_string(
-                    data["module_id"], f"{field_name}[{index}].module_id"
-                ),
-                module_digest=_digest(
-                    data["module_digest"], f"{field_name}[{index}].module_digest"
-                ),
-                count=_integer(
-                    data["count"], f"{field_name}[{index}].count", minimum=1
-                ),
+                module_id=_string(data["module_id"], f"{field_name}[{index}].module_id"),
+                module_digest=_digest(data["module_digest"], f"{field_name}[{index}].module_digest"),
+                count=_integer(data["count"], f"{field_name}[{index}].count", minimum=1),
             )
         )
     identities = [(item.module_id, item.module_digest) for item in modules]
     if len(set(identities)) != len(identities):
-        raise _fail(
-            "PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates"
-        )
+        raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates")
     return tuple(sorted(modules))
 
 
@@ -217,9 +200,7 @@ def _grant(value: object, field_name: str) -> _PlanGrant:
     )
 
 
-def _approval_requirements(
-    value: object, field_name: str
-) -> tuple[tuple[str, str], ...]:
+def _approval_requirements(value: object, field_name: str) -> tuple[tuple[str, str], ...]:
     if not isinstance(value, list):
         raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must be an array")
     result = []
@@ -233,9 +214,7 @@ def _approval_requirements(
             )
         )
     if len(set(result)) != len(result):
-        raise _fail(
-            "PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates"
-        )
+        raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates")
     return tuple(sorted(result))
 
 
@@ -253,16 +232,12 @@ def _alias_provenance(value: object, field_name: str) -> tuple[tuple[str, str], 
             )
         )
     if len(set(result)) != len(result):
-        raise _fail(
-            "PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates"
-        )
+        raise _fail("PLAN_ARTIFACT_INVALID", f"{field_name} must not contain duplicates")
     return tuple(sorted(result))
 
 
 def _canonical_digest(value: Mapping[str, Any]) -> str:
-    encoded = json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -316,8 +291,7 @@ class PlanArtifact:
             "signature": self._signature_dict(),
             "trusted_context": {
                 "alias_provenance": [
-                    {"alias": alias, "node_key": node_key}
-                    for node_key, alias in self.alias_provenance
+                    {"alias": alias, "node_key": node_key} for node_key, alias in self.alias_provenance
                 ],
                 "region_grant": self.region_grant.to_dict(),
             },
@@ -387,19 +361,13 @@ class PlanArtifact:
                 signature["effectful_modules"],
                 "plan artifact.signature.effectful_modules",
             ),
-            max_depth=_integer(
-                signature["max_depth"], "plan artifact.signature.max_depth", minimum=1
-            ),
-            max_fanout=_integer(
-                signature["max_fanout"], "plan artifact.signature.max_fanout"
-            ),
+            max_depth=_integer(signature["max_depth"], "plan artifact.signature.max_depth", minimum=1),
+            max_fanout=_integer(signature["max_fanout"], "plan artifact.signature.max_fanout"),
             module_composition=_modules(
                 signature["module_composition"],
                 "plan artifact.signature.module_composition",
             ),
-            node_count=_integer(
-                signature["node_count"], "plan artifact.signature.node_count", minimum=1
-            ),
+            node_count=_integer(signature["node_count"], "plan artifact.signature.node_count", minimum=1),
             output_schema_digests=_digest_list(
                 signature["output_schema_digests"],
                 "plan artifact.signature.output_schema_digests",
@@ -412,9 +380,7 @@ class PlanArtifact:
                 signature["topology_digest"],
                 "plan artifact.signature.topology_digest",
             ),
-            region_grant=_grant(
-                context["region_grant"], "plan artifact.trusted_context.region_grant"
-            ),
+            region_grant=_grant(context["region_grant"], "plan artifact.trusted_context.region_grant"),
             alias_provenance=_alias_provenance(
                 context["alias_provenance"],
                 "plan artifact.trusted_context.alias_provenance",
@@ -446,9 +412,9 @@ def _make_artifact(
     region_grant: _PlanGrant,
     alias_provenance: tuple[tuple[str, str], ...],
 ) -> PlanArtifact:
-    if not set(required_grant.capabilities) <= set(
-        region_grant.capabilities
-    ) or not set(required_grant.effects) <= set(region_grant.effects):
+    if not set(required_grant.capabilities) <= set(region_grant.capabilities) or not set(required_grant.effects) <= set(
+        region_grant.effects
+    ):
         raise _fail(
             "PLAN_REQUIRED_GRANT_EXCEEDS_REGION",
             "plan required grant exceeds its trusted region grant",
@@ -546,9 +512,7 @@ def plan_artifact_from_resolved_signature(value: Mapping[str, Any]) -> PlanArtif
                 f"resolved_nodes[{index}].effects must be an array",
             )
         for effect_index, effect in enumerate(effects):
-            effect_data = _mapping(
-                effect, f"resolved_nodes[{index}].effects[{effect_index}]"
-            )
+            effect_data = _mapping(effect, f"resolved_nodes[{index}].effects[{effect_index}]")
             _string(
                 effect_data.get("name"),
                 f"resolved_nodes[{index}].effects[{effect_index}].name",
@@ -567,23 +531,17 @@ def plan_artifact_from_resolved_signature(value: Mapping[str, Any]) -> PlanArtif
         plan_id=_string(data["region_id"], "region_id"),
         source_signature_version=_string(data["version"], "version"),
         aggregate_budget=_budget(data["aggregate_budget"], "aggregate_budget"),
-        approval_requirements=_approval_requirements(
-            data["approval_requirements"], "approval_requirements"
-        ),
+        approval_requirements=_approval_requirements(data["approval_requirements"], "approval_requirements"),
         effectful_modules=tuple(sorted(effectful_modules)),
         max_depth=_integer(data["max_depth"], "max_depth", minimum=1),
         max_fanout=_integer(data["max_fanout"], "max_fanout"),
         module_composition=modules,
         node_count=node_count,
-        output_schema_digests=_digest_list(
-            data["output_schema_digests"], "output_schema_digests"
-        ),
+        output_schema_digests=_digest_list(data["output_schema_digests"], "output_schema_digests"),
         required_grant=_grant(data["required_grant"], "required_grant"),
         topology_digest=_digest(data["topology_digest"], "topology_digest"),
         region_grant=_grant(data["region_grant"], "region_grant"),
-        alias_provenance=_alias_provenance(
-            data["alias_provenance"], "alias_provenance"
-        ),
+        alias_provenance=_alias_provenance(data["alias_provenance"], "alias_provenance"),
     )
 
 
@@ -624,9 +582,7 @@ def _set_invariant_passes(
     )
 
 
-def _baseline_topology_digests(
-    baseline: Mapping[str, Any] | None, *, plan_id: str
-) -> set[str]:
+def _baseline_topology_digests(baseline: Mapping[str, Any] | None, *, plan_id: str) -> set[str]:
     if not isinstance(baseline, Mapping):
         return set()
     sample = baseline.get("plan_sample")
@@ -653,20 +609,14 @@ def plan_invariant_outcomes(
 ) -> dict[str, bool]:
     """Evaluate policy 2.1's exact set rules for one plan artifact."""
     plan_sets = plan_set_values(artifact)
-    plan_sets["plan_modules"] = tuple(
-        sorted({module.module_id for module in artifact.module_composition})
-    )
-    approved = {
-        effect_name for _node_key, effect_name in artifact.approval_requirements
-    }
+    plan_sets["plan_modules"] = tuple(sorted({module.module_id for module in artifact.module_composition}))
+    approved = {effect_name for _node_key, effect_name in artifact.approval_requirements}
     outcomes = {}
     for name, values in plan_sets.items():
         metric = policy.metrics.get(name)
         if metric is None or getattr(metric.kind, "value", metric.kind) != "invariant":
             continue
-        approval_scope = (
-            set(artifact.required_grant.effects) if name == "plan_grants" else set()
-        )
+        approval_scope = set(artifact.required_grant.effects) if name == "plan_grants" else set()
         outcomes[name] = _set_invariant_passes(
             set(values),
             metric,
@@ -674,13 +624,8 @@ def plan_invariant_outcomes(
             approval_scope=approval_scope,
         )
     shape_metric = policy.metrics.get("plan_shape_seen")
-    if (
-        shape_metric is not None
-        and getattr(shape_metric.kind, "value", shape_metric.kind) == "invariant"
-    ):
-        seen = artifact.topology_digest in _baseline_topology_digests(
-            baseline, plan_id=artifact.plan_id
-        )
+    if shape_metric is not None and getattr(shape_metric.kind, "value", shape_metric.kind) == "invariant":
+        seen = artifact.topology_digest in _baseline_topology_digests(baseline, plan_id=artifact.plan_id)
         outcomes["plan_shape_seen"] = seen is bool(shape_metric.require)
     return outcomes
 
@@ -733,14 +678,10 @@ class PlanGraphChange:
         try:
             kind = PlanDiffKind(data.get("kind"))
         except (TypeError, ValueError) as error:
-            raise _fail(
-                "PLAN_EVIDENCE_INVALID", "unknown plan graph change kind"
-            ) from error
+            raise _fail("PLAN_EVIDENCE_INVALID", "unknown plan graph change kind") from error
         resolvable = data.get("resolvable")
         if not isinstance(resolvable, bool):
-            raise _fail(
-                "PLAN_EVIDENCE_INVALID", "graph change resolvable must be boolean"
-            )
+            raise _fail("PLAN_EVIDENCE_INVALID", "graph change resolvable must be boolean")
         return cls(
             kind=kind,
             location=_string(data.get("location"), "graph change location"),
@@ -800,25 +741,15 @@ class PlanEvidence:
         if not isinstance(self.valid, bool):
             raise _fail("PLAN_EVIDENCE_INVALID", "plan evidence valid must be boolean")
         if self.trial is not None and (
-            isinstance(self.trial, bool)
-            or not isinstance(self.trial, int)
-            or self.trial < 1
+            isinstance(self.trial, bool) or not isinstance(self.trial, int) or self.trial < 1
         ):
-            raise _fail(
-                "PLAN_EVIDENCE_INVALID", "plan evidence trial must be at least 1"
-            )
+            raise _fail("PLAN_EVIDENCE_INVALID", "plan evidence trial must be at least 1")
         if self.valid and self.artifact is None:
-            raise _fail(
-                "PLAN_EVIDENCE_INVALID", "valid plan evidence requires an artifact"
-            )
+            raise _fail("PLAN_EVIDENCE_INVALID", "valid plan evidence requires an artifact")
         if self.valid and self.issues:
-            raise _fail(
-                "PLAN_EVIDENCE_INVALID", "valid plan evidence cannot contain issues"
-            )
+            raise _fail("PLAN_EVIDENCE_INVALID", "valid plan evidence cannot contain issues")
         if not self.valid and not self.issues:
-            raise _fail(
-                "PLAN_EVIDENCE_INVALID", "invalid plan evidence requires an issue"
-            )
+            raise _fail("PLAN_EVIDENCE_INVALID", "invalid plan evidence requires an issue")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -849,9 +780,7 @@ class PlanEvidence:
         artifact_data = data.get("artifact")
         artifact = None
         if artifact_data is not None:
-            artifact = PlanArtifact.from_dict(
-                _mapping(artifact_data, "plan evidence artifact")
-            )
+            artifact = PlanArtifact.from_dict(_mapping(artifact_data, "plan evidence artifact"))
         issues_data = data.get("issues")
         changes_data = data.get("graph_changes")
         if data.get("checked_before_execution") is not True:
@@ -867,13 +796,9 @@ class PlanEvidence:
         return cls(
             artifact=artifact,
             valid=data.get("valid"),
-            issues=tuple(
-                PlanValidationIssue.from_dict(_mapping(item, "plan evidence issue"))
-                for item in issues_data
-            ),
+            issues=tuple(PlanValidationIssue.from_dict(_mapping(item, "plan evidence issue")) for item in issues_data),
             graph_changes=tuple(
-                PlanGraphChange.from_dict(_mapping(item, "plan graph change"))
-                for item in changes_data
+                PlanGraphChange.from_dict(_mapping(item, "plan graph change")) for item in changes_data
             ),
             trial=data.get("trial"),
         )

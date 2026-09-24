@@ -51,9 +51,7 @@ def _copy_trace(
         assert span["trace_id"] == old_trace_id
         span["trace_id"] = trace_id
         spans.append(span)
-    spans_path.write_text(
-        "".join(json.dumps(span) + "\n" for span in spans), encoding="utf-8"
-    )
+    spans_path.write_text("".join(json.dumps(span) + "\n" for span in spans), encoding="utf-8")
     return destination
 
 
@@ -92,19 +90,11 @@ def _window(tmp_path: Path) -> Path:
 
 
 def _read_tree(path: Path) -> dict[str, bytes]:
-    return {
-        item.relative_to(path).as_posix(): item.read_bytes()
-        for item in sorted(path.rglob("*"))
-        if item.is_file()
-    }
+    return {item.relative_to(path).as_posix(): item.read_bytes() for item in sorted(path.rglob("*")) if item.is_file()}
 
 
 def _artifact_text(path: Path) -> str:
-    return "\n".join(
-        item.read_text(encoding="utf-8")
-        for item in sorted(path.rglob("*"))
-        if item.is_file()
-    )
+    return "\n".join(item.read_text(encoding="utf-8") for item in sorted(path.rglob("*")) if item.is_file())
 
 
 def test_native_window_load_all_validates_every_trace_and_sorts_oldest_first(
@@ -174,17 +164,10 @@ def test_extract_window_writes_reviewable_multi_workflow_draft_atomically(
     assert orders["ceilings"] == {"tool_calls": 4, "tokens": 25}
     assert orders["terminal_states"] == ["ok"]
 
-    artifact_paths = {
-        item.relative_to(out_dir).as_posix()
-        for item in out_dir.rglob("*")
-        if item.is_file()
-    }
+    artifact_paths = {item.relative_to(out_dir).as_posix() for item in out_dir.rglob("*") if item.is_file()}
     assert artifact_paths == {
         "draft.json",
-        *{
-            f"{workflow['artifact_dir']}/baseline.json"
-            for workflow in draft["workflows"]
-        },
+        *{f"{workflow['artifact_dir']}/baseline.json" for workflow in draft["workflows"]},
         *{f"{workflow['artifact_dir']}/policy.yaml" for workflow in draft["workflows"]},
     }
     assert all(
@@ -202,20 +185,14 @@ def test_extracted_baselines_and_policies_are_valid_and_pass_the_source_window(
     runs_dir = _window(tmp_path)
     out_dir = tmp_path / "gate-draft"
     draft = extract_window(runs_dir, out_dir=out_dir, config=load_config())
-    baseline_schema = json.loads(
-        (ROOT / "schemas" / "baseline.schema.json").read_text(encoding="utf-8")
-    )
-    policy_schema = json.loads(
-        (ROOT / "schemas" / "policy.schema.json").read_text(encoding="utf-8")
-    )
+    baseline_schema = json.loads((ROOT / "schemas" / "baseline.schema.json").read_text(encoding="utf-8"))
+    policy_schema = json.loads((ROOT / "schemas" / "policy.schema.json").read_text(encoding="utf-8"))
 
     for workflow in draft["workflows"]:
         artifact_dir = out_dir / workflow["artifact_dir"]
         baseline = load_baseline(artifact_dir / "baseline.json")
         policy = load_policy(artifact_dir / "policy.yaml")
-        policy_payload = yaml.safe_load(
-            (artifact_dir / "policy.yaml").read_text(encoding="utf-8")
-        )
+        policy_payload = yaml.safe_load((artifact_dir / "policy.yaml").read_text(encoding="utf-8"))
         jsonschema.validate(baseline, baseline_schema)
         jsonschema.validate(policy_payload, policy_schema)
         assert baseline["source_run_ids"] == workflow["trace_ids"]
@@ -230,9 +207,7 @@ def test_extracted_baselines_and_policies_are_valid_and_pass_the_source_window(
         )
         assert report.verdict is GateVerdict.PASS
 
-    policy_text = (
-        out_dir / draft["workflows"][1]["artifact_dir"] / "policy.yaml"
-    ).read_text(encoding="utf-8")
+    policy_text = (out_dir / draft["workflows"][1]["artifact_dir"] / "policy.yaml").read_text(encoding="utf-8")
     assert "DRAFT" in policy_text
     assert "human review" in policy_text
     assert "required_tools:" in policy_text
@@ -283,9 +258,7 @@ def test_extraction_is_deterministic_and_omits_trace_payloads_and_paths(
         ([""], "must not be empty"),
     ],
 )
-def test_extract_window_rejects_invalid_workflow_selections(
-    tmp_path: Path, selectors: list[str], message: str
-) -> None:
+def test_extract_window_rejects_invalid_workflow_selections(tmp_path: Path, selectors: list[str], message: str) -> None:
     runs_dir = _window(tmp_path)
     out_dir = tmp_path / "draft"
 

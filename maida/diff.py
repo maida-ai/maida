@@ -115,37 +115,21 @@ def compute_diff(
 
     current_tool_sequence = _as_string_list(metrics_a.get("tool_call_sequence"))
     baseline_tool_sequence = _as_string_list(metrics_b.get("tool_call_sequence"))
-    counts_a = _as_int_counter(metrics_a.get("tool_call_counts")) or Counter(
-        current_tool_sequence
-    )
+    counts_a = _as_int_counter(metrics_a.get("tool_call_counts")) or Counter(current_tool_sequence)
     counts_b = _as_int_counter(metrics_b.get("tool_call_counts"))
     counts_b_exact = bool(metrics_b.get("_tool_call_counts_exact", True))
     repeated_tools = {
         tool: (counts_b.get(tool, 0), current_count)
         for tool, current_count in sorted(counts_a.items())
-        if current_count > 1
-        and (
-            tool not in tools_b
-            or (counts_b_exact and current_count > counts_b.get(tool, 0))
-        )
+        if current_count > 1 and (tool not in tools_b or (counts_b_exact and current_count > counts_b.get(tool, 0)))
     }
 
-    common_tools = {
-        tool
-        for tool in counts_a
-        if counts_a[tool] and (counts_b.get(tool) or tool in tools_b)
-    }
+    common_tools = {tool for tool in counts_a if counts_a[tool] and (counts_b.get(tool) or tool in tools_b)}
     exact_a = bool(metrics_a.get("_tool_call_sequence_exact"))
     exact_b = bool(metrics_b.get("_tool_call_sequence_exact"))
-    current_common_sequence = [
-        tool for tool in current_tool_sequence if tool in common_tools
-    ]
-    baseline_common_sequence = [
-        tool for tool in baseline_tool_sequence if tool in common_tools
-    ]
-    reordered_tools = (
-        exact_a and exact_b and current_common_sequence != baseline_common_sequence
-    )
+    current_common_sequence = [tool for tool in current_tool_sequence if tool in common_tools]
+    baseline_common_sequence = [tool for tool in baseline_tool_sequence if tool in common_tools]
+    reordered_tools = exact_a and exact_b and current_common_sequence != baseline_common_sequence
 
     tool_path_diff = {
         "new": new_tools,
@@ -270,18 +254,14 @@ def _format_tool_sequence(sequence: list[str]) -> str:
 
 def _has_tool_path_changes(diff: RunDiff) -> bool:
     exact_sequences = bool(
-        diff.tool_path_diff.get("current_sequence_exact")
-        and diff.tool_path_diff.get("baseline_sequence_exact")
+        diff.tool_path_diff.get("current_sequence_exact") and diff.tool_path_diff.get("baseline_sequence_exact")
     )
     return bool(
         diff.new_tools
         or diff.removed_tools
         or diff.repeated_tools
         or diff.reordered_tools
-        or (
-            exact_sequences
-            and diff.current_tool_sequence != diff.baseline_tool_sequence
-        )
+        or (exact_sequences and diff.current_tool_sequence != diff.baseline_tool_sequence)
     )
 
 
@@ -417,9 +397,7 @@ def format_diff_text(diff: RunDiff) -> str:
     if _has_tool_path_changes(diff):
         lines.append("")
         lines.append("Tool path:")
-        lines.append(
-            f"  baseline: {_format_tool_sequence(diff.baseline_tool_sequence)}"
-        )
+        lines.append(f"  baseline: {_format_tool_sequence(diff.baseline_tool_sequence)}")
         lines.append(f"  current: {_format_tool_sequence(diff.current_tool_sequence)}")
         lines.append("")
         lines.append("Tool call changes:")
@@ -428,9 +406,7 @@ def format_diff_text(diff: RunDiff) -> str:
         for t in diff.removed_tools:
             lines.append(f"  - {t} (removed)")
         for tool, (baseline_count, current_count) in diff.repeated_tools.items():
-            lines.append(
-                f"  ~ {tool} repeated: {baseline_count} -> {current_count} calls"
-            )
+            lines.append(f"  ~ {tool} repeated: {baseline_count} -> {current_count} calls")
         if diff.reordered_tools:
             lines.append("  ! order changed for shared tool calls")
 
@@ -446,10 +422,7 @@ def format_diff_text(diff: RunDiff) -> str:
     if diff.guardrail_event_diff is not None:
         current, baseline = diff.guardrail_event_diff
         lines.append("")
-        lines.append(
-            f"Guardrail events: {baseline} -> {current} "
-            f"({_pct_change(current, baseline)})"
-        )
+        lines.append(f"Guardrail events: {baseline} -> {current} ({_pct_change(current, baseline)})")
 
     if diff.terminal_status_diff is not None and "status" not in diff.summary_diff:
         current, baseline = diff.terminal_status_diff

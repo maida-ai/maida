@@ -23,11 +23,7 @@ def test_scenario_cli_preserves_report_exit_and_stdout(monkeypatch, exit_code):
             ScenarioResult(
                 scenario_id="example",
                 status=ScenarioStatus(
-                    "pass"
-                    if exit_code == 0
-                    else "assertion_failed"
-                    if exit_code == 1
-                    else "agent_failed"
+                    "pass" if exit_code == 0 else "assertion_failed" if exit_code == 1 else "agent_failed"
                 ),
             )
         ]

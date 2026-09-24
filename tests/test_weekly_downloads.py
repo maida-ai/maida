@@ -26,9 +26,7 @@ def payload(days=14):
 
 def test_two_complete_weeks_exclude_mirrors():
     data = payload()
-    data["data"].append(
-        {"date": "2026-08-24", "category": "with_mirrors", "downloads": 999}
-    )
+    data["data"].append({"date": "2026-08-24", "category": "with_mirrors", "downloads": 999})
     rows = snapshot.weekly_rows(data, date(2026, 9, 6), 2)
     assert [r["pypi_downloads"] for r in rows] == [21, 70]
     assert all(r["pypi_status"] == "complete" for r in rows)
@@ -130,10 +128,7 @@ def npm_payload():
         "package": "@maida-ai/core",
         "start": "2026-08-24",
         "end": "2026-09-06",
-        "downloads": [
-            {"day": row["date"], "downloads": row["downloads"]}
-            for row in payload()["data"]
-        ],
+        "downloads": [{"day": row["date"], "downloads": row["downloads"]} for row in payload()["data"]],
     }
 
 
@@ -164,9 +159,7 @@ def test_npm_failure_preserves_pypi(tmp_path, monkeypatch):
 
 
 def test_pypi_failure_preserves_npm(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        snapshot, "fetch_stats", lambda: (_ for _ in ()).throw(URLError("offline"))
-    )
+    monkeypatch.setattr(snapshot, "fetch_stats", lambda: (_ for _ in ()).throw(URLError("offline")))
     monkeypatch.setattr(snapshot, "fetch_npm_stats", lambda *_: npm_payload())
     output = tmp_path / "snapshot.csv"
     assert snapshot.main(["--week-ending", "2026-09-06", "--output", str(output)]) == 1
@@ -183,9 +176,7 @@ def offline_npm(monkeypatch):
     return original
 
 
-@pytest.mark.parametrize(
-    "change", ["package", "range", "duplicate", "negative", "boolean", "date", "shape"]
-)
+@pytest.mark.parametrize("change", ["package", "range", "duplicate", "negative", "boolean", "date", "shape"])
 def test_npm_invalid_data_rejected(change):
     data = npm_payload()
     if change == "package":

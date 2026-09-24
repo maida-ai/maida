@@ -43,13 +43,9 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
 
     with zipfile.ZipFile(wheels[0]) as wheel:
         names = set(wheel.namelist())
-        entry_points_path = next(
-            name for name in names if name.endswith(".dist-info/entry_points.txt")
-        )
+        entry_points_path = next(name for name in names if name.endswith(".dist-info/entry_points.txt"))
         entry_points = wheel.read(entry_points_path).decode()
-        metadata_path = next(
-            name for name in names if name.endswith(".dist-info/METADATA")
-        )
+        metadata_path = next(name for name in names if name.endswith(".dist-info/METADATA"))
         metadata = wheel.read(metadata_path).decode()
 
     assert "maida/__init__.py" in names
@@ -64,9 +60,7 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     version_match = re.search(r"^Version:\s*(\S+)", metadata, flags=re.MULTILINE)
     assert version_match is not None
-    expected = _HOOK.rewrite_readme_links(
-        readme, _HOOK.readme_base_url(version_match.group(1))
-    )
+    expected = _HOOK.rewrite_readme_links(readme, _HOOK.readme_base_url(version_match.group(1)))
     assert expected in metadata
 
     relative_urls = _relative_readme_urls(readme)

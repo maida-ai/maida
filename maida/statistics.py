@@ -86,9 +86,7 @@ def _validate_counts(successes: int, trials: int, confidence: float) -> None:
         raise ValueError("confidence must be greater than 0 and less than 1")
 
 
-def wilson_one_sided_bounds(
-    successes: int, trials: int, *, confidence: float = 0.95
-) -> tuple[float, float]:
+def wilson_one_sided_bounds(successes: int, trials: int, *, confidence: float = 0.95) -> tuple[float, float]:
     """Return separate lower/upper Wilson bounds, each with one-sided coverage."""
     _validate_counts(successes, trials, confidence)
     z = NormalDist().inv_cdf(confidence)
@@ -96,20 +94,11 @@ def wilson_one_sided_bounds(
     z_squared = z * z
     denominator = 1.0 + z_squared / trials
     center = (proportion + z_squared / (2.0 * trials)) / denominator
-    margin = (
-        z
-        * math.sqrt(
-            proportion * (1.0 - proportion) / trials
-            + z_squared / (4.0 * trials * trials)
-        )
-        / denominator
-    )
+    margin = z * math.sqrt(proportion * (1.0 - proportion) / trials + z_squared / (4.0 * trials * trials)) / denominator
     return max(0.0, center - margin), min(1.0, center + margin)
 
 
-def wilson_interval(
-    successes: int, trials: int, *, confidence_level: float = 0.95
-) -> tuple[float, float]:
+def wilson_interval(successes: int, trials: int, *, confidence_level: float = 0.95) -> tuple[float, float]:
     """Compatibility alias for callers migrating to one-sided Wilson bounds."""
     return wilson_one_sided_bounds(successes, trials, confidence=confidence_level)
 
@@ -165,9 +154,7 @@ def aggregate_outcomes(
     parsed_mode = MetricMode(mode)
     successes = sum(values)
     trials = len(values)
-    lower, upper = wilson_one_sided_bounds(
-        successes, trials, confidence=confidence_level
-    )
+    lower, upper = wilson_one_sided_bounds(successes, trials, confidence=confidence_level)
     verdict = None
     decision_rule = "report_only"
     if parsed_mode is MetricMode.GATING:

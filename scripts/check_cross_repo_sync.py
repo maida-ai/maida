@@ -26,14 +26,8 @@ def compare_tree(source: Path, consumer: Path) -> list[str]:
         return [f"missing source directory: {source}"]
     if not consumer.is_dir():
         return [f"missing consumer directory: {consumer}"]
-    source_files = {
-        path.relative_to(source): path for path in source.rglob("*") if path.is_file()
-    }
-    consumer_files = {
-        path.relative_to(consumer): path
-        for path in consumer.rglob("*")
-        if path.is_file()
-    }
+    source_files = {path.relative_to(source): path for path in source.rglob("*") if path.is_file()}
+    consumer_files = {path.relative_to(consumer): path for path in consumer.rglob("*") if path.is_file()}
     problems: list[str] = []
     for relative in sorted(source_files.keys() - consumer_files.keys()):
         problems.append(f"missing consumer file: {consumer / relative}")

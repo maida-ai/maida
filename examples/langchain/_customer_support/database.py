@@ -17,9 +17,7 @@ _DEFAULT_DB = os.path.join(_DATA_DIR, "travel2.sqlite")
 def download_db(local_file: str | None = None):
     local_file = local_file or _DEFAULT_DB
     logger.info(f"Downloading database to {local_file}...")
-    db_url = (
-        "https://storage.googleapis.com/benchmarks-artifacts/travel-db/travel2.sqlite"
-    )
+    db_url = "https://storage.googleapis.com/benchmarks-artifacts/travel-db/travel2.sqlite"
     # The backup lets us restart for each tutorial section
     # backup_file = "travel2.backup.sqlite"
     backup_file = local_file.replace(".sqlite", ".backup.sqlite")
@@ -42,22 +40,17 @@ def update_dates(file, backup_file: str | None = None):
     conn = sqlite3.connect(file)
     conn.cursor()
 
-    tables = pd.read_sql(
-        "SELECT name FROM sqlite_master WHERE type='table';", conn
-    ).name.tolist()
+    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", conn).name.tolist()
     tdf = {}
     for t in tables:
         tdf[t] = pd.read_sql(f"SELECT * from {t}", conn)
 
-    example_time = pd.to_datetime(
-        tdf["flights"]["actual_departure"].replace("\\N", pd.NaT)
-    ).max()
+    example_time = pd.to_datetime(tdf["flights"]["actual_departure"].replace("\\N", pd.NaT)).max()
     current_time = pd.to_datetime("now").tz_localize(example_time.tz)
     time_diff = current_time - example_time
 
     tdf["bookings"]["book_date"] = (
-        pd.to_datetime(tdf["bookings"]["book_date"].replace("\\N", pd.NaT), utc=True)
-        + time_diff
+        pd.to_datetime(tdf["bookings"]["book_date"].replace("\\N", pd.NaT), utc=True) + time_diff
     )
 
     datetime_columns = [
@@ -67,9 +60,7 @@ def update_dates(file, backup_file: str | None = None):
         "actual_arrival",
     ]
     for column in datetime_columns:
-        tdf["flights"][column] = (
-            pd.to_datetime(tdf["flights"][column].replace("\\N", pd.NaT)) + time_diff
-        )
+        tdf["flights"][column] = pd.to_datetime(tdf["flights"][column].replace("\\N", pd.NaT)) + time_diff
 
     for table_name, df in tdf.items():
         df.to_sql(table_name, conn, if_exists="replace", index=False)

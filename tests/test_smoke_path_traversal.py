@@ -24,10 +24,7 @@ def test_smoke_accepts_rejection_and_preserves_path(tmp_path, status):
 def run_smoke(tmp_path, status):
     curl = tmp_path / "curl"
     calls = tmp_path / "calls"
-    curl.write_text(
-        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$SMOKE_CALLS"\n'
-        'printf "%s" "$SMOKE_STATUS"\n'
-    )
+    curl.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$SMOKE_CALLS"\nprintf "%s" "$SMOKE_STATUS"\n')
     curl.chmod(0o755)
     completed = subprocess.run(
         ["bash", "scripts/smoke_path_traversal.sh", "http://127.0.0.1:8712"],

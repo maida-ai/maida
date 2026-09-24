@@ -98,9 +98,7 @@ def search_flights(
 
 
 @tool
-def update_ticket_to_new_flight(
-    ticket_no: str, new_flight_id: int, *, config: RunnableConfig
-) -> str:
+def update_ticket_to_new_flight(ticket_no: str, new_flight_id: int, *, config: RunnableConfig) -> str:
     """Update the user's ticket to a new valid flight."""
     configuration = config.get("configurable", {})
     passenger_id = configuration.get("passenger_id", None)
@@ -123,16 +121,12 @@ def update_ticket_to_new_flight(
     new_flight_dict = dict(zip(column_names, new_flight))
     timezone = pytz.timezone("Etc/GMT-3")
     current_time = datetime.now(tz=timezone)
-    departure_time = datetime.strptime(
-        new_flight_dict["scheduled_departure"], "%Y-%m-%d %H:%M:%S.%f%z"
-    )
+    departure_time = datetime.strptime(new_flight_dict["scheduled_departure"], "%Y-%m-%d %H:%M:%S.%f%z")
     time_until = (departure_time - current_time).total_seconds()
     if time_until < (3 * 3600):
         return f"Not permitted to reschedule to a flight that is less than 3 hours from the current time. Selected flight is at {departure_time}."
 
-    cursor.execute(
-        "SELECT flight_id FROM ticket_flights WHERE ticket_no = ?", (ticket_no,)
-    )
+    cursor.execute("SELECT flight_id FROM ticket_flights WHERE ticket_no = ?", (ticket_no,))
     current_flight = cursor.fetchone()
     if not current_flight:
         cursor.close()
@@ -176,9 +170,7 @@ def cancel_ticket(ticket_no: str, *, config: RunnableConfig) -> str:
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT flight_id FROM ticket_flights WHERE ticket_no = ?", (ticket_no,)
-    )
+    cursor.execute("SELECT flight_id FROM ticket_flights WHERE ticket_no = ?", (ticket_no,))
     existing_ticket = cursor.fetchone()
     if not existing_ticket:
         cursor.close()

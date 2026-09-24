@@ -113,9 +113,7 @@ def _record_llm_call_otel(
         span.add_event("gen_ai.assistant.message", {"content": str(response_redacted)})
 
     if status_val == "error":
-        span.set_status(
-            Status(StatusCode.ERROR, error_obj.get("message", "") if error_obj else "")
-        )
+        span.set_status(Status(StatusCode.ERROR, error_obj.get("message", "") if error_obj else ""))
     else:
         span.set_status(Status(StatusCode.OK))
     span.end()
@@ -173,9 +171,7 @@ def _record_tool_call_otel(
         )
 
     if status_val == "error":
-        span.set_status(
-            Status(StatusCode.ERROR, error_obj.get("message", "") if error_obj else "")
-        )
+        span.set_status(Status(StatusCode.ERROR, error_obj.get("message", "") if error_obj else ""))
     else:
         span.set_status(Status(StatusCode.OK))
     span.end()
@@ -230,9 +226,7 @@ def _maybe_emit_loop_warning(
 
     pattern = payload.get("pattern", "loop_warning")
     max_name_len = 80
-    name = (
-        pattern if len(pattern) <= max_name_len else pattern[: max_name_len - 1] + "..."
-    )
+    name = pattern if len(pattern) <= max_name_len else pattern[: max_name_len - 1] + "..."
 
     ev = new_event(EventType.LOOP_WARNING, run_id, name, payload_redacted)
     emitted.add(key)
@@ -343,9 +337,7 @@ def record_state(
     event_attrs = {}
     if state is not None:
         state_redacted = _redact_and_truncate(state, config)
-        event_attrs["state"] = json.dumps(
-            state_redacted, ensure_ascii=False, default=str
-        )
+        event_attrs["state"] = json.dumps(state_redacted, ensure_ascii=False, default=str)
     if diff is not None:
         diff_redacted = _redact_and_truncate(diff, config)
         event_attrs["diff"] = json.dumps(diff_redacted, ensure_ascii=False, default=str)
