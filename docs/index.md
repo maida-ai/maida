@@ -63,7 +63,7 @@ machine.
 | [Overview](integrations.md) | How adapters work and what they guarantee |
 | [LangChain / LangGraph](integrations/langchain-langgraph.md) | Callback handler |
 | [OpenAI Agents SDK](integrations/openai-agents.md) | Tracing adapter |
-| [CrewAI](integrations/crewai.md) | Execution-hook adapter |
+| [CrewAI](integrations/crewai.md) | Unsupported after v0.5.3 (adapter retained) |
 | [Langfuse import](langfuse.md) | Import completed Langfuse traces and gate them |
 
 ## Reference

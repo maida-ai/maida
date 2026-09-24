@@ -94,15 +94,20 @@ def _make_fake_crewai_hooks_import_error():
     return crewai_fake
 
 
-CREWAI_MISSING_MSG = "CrewAI integration requires optional deps. Install with `pip install maida-ai[crewai]`."
+CREWAI_MISSING_MSG = (
+    "CrewAI integration support was dropped after maida-ai 0.5.3 "
+    "(crewai dependency conflicts block Python 3.14 and openai upgrades). "
+    "Pin maida-ai==0.5.3 with the [crewai] extra, or wait until conflicts resolve. "
+    "The in-tree adapter remains for later restoration."
+)
 
 
 def test_import_crewai_without_extra_raises_clear_error():
     """If CrewAI is not installed, importing maida.integrations.crewai raises that friendly error string."""
     # Pop every crewai-related module (including already-cached real
-    # `crewai.hooks` submodules). When the crewai extra is installed, another
-    # test may have imported the real `crewai.hooks` first; leaving it cached
-    # would let `from crewai.hooks import ...` succeed and defeat the fake.
+    # `crewai.hooks` submodules). If another test imported real `crewai.hooks`
+    # first, leaving it cached would let `from crewai.hooks import ...`
+    # succeed and defeat the fake.
     to_restore_mods = []
     for mod in list(sys.modules.keys()):
         if (

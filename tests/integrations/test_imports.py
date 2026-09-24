@@ -13,7 +13,7 @@ def has_module(name):
 
 
 INTEGRATIONS = [  # name, dependency
-    ("crewai", "crewai"),
+    # ("crewai", "crewai"),  # CrewAI extra removed after v0.5.3
     ("langchain", "langchain_core"),
     ("langfuse", "json"),
     ("openai_agents", "agents"),

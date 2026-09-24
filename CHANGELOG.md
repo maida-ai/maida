@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changes
+
+- **CrewAI support paused after v0.5.3** - the optional `maida-ai[crewai]` extra
+  is removed because crewai dependency conflicts block enabling Python 3.14
+  (import-level incompatibility) and bumping `openai`. The
+  `maida.integrations.crewai` adapter remains in-tree for later restoration.
+  Pin `maida-ai[crewai]==0.5.3` to keep using the last supported release.
+
 ## v0.5.0
 
 First PyPI release of the synchronized cross-repository contract. Install with

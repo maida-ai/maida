@@ -194,13 +194,17 @@ def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
     example = (ROOT / "examples/crewai/minimal.py").read_text(encoding="utf-8")
 
     for snippet in (
-        'uv add "maida-ai[crewai]>=0.5"',
+        "unsupported after v0.5.3",
         "examples/crewai/minimal.py",
         "--regression",
     ):
         assert snippet in readme or snippet in integration_docs
 
     for snippet in (
+        "unsupported after v0.5.3",
+        "Python 3.14",
+        "openai",
+        "maida-ai[crewai]==0.5.3",
         "RUN_START -> LLM_CALL -> TOOL_CALL(search_docs) -> RUN_END",
         "three consecutive `search_docs` calls",
         "maida baseline --out crewai-baseline.json",
@@ -212,6 +216,7 @@ def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
         assert snippet in integration_docs
 
     for snippet in (
+        "dropped after maida-ai 0.5.3",
         "LLMCallHookContext",
         "ToolCallHookContext",
         "get_before_llm_call_hooks",

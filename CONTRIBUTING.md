@@ -89,7 +89,7 @@ Examples live under `examples/` and must stay runnable from the repo root:
 - **`examples/langchain/minimal.py`** – minimal LangChain chain; requires `[langchain]` extra.
 - **`examples/langchain/`** – advanced LangChain/LangGraph customer-support demo (`customer_support.py` + `_customer_support/`); requires installing the `examples/langchain` dependencies and API keys (see `_customer_support/README.md`).
 - **`examples/demo/`** – short demo scripts (`pure_python.py`, `langchain.py`).
-- **`examples/crewai/`** – CrewAI example stubs (no runnable script yet; see CHANGELOG for status).
+- **`examples/crewai/`** – historical CrewAI offline example; the `[crewai]` extra was removed after v0.5.3 (see CHANGELOG). Install `crewai[tools]` yourself only for local experimentation.
 
 When changing directory layout or run commands, update README, [docs/index.md](docs/index.md) (Demos section), and this list.
 
