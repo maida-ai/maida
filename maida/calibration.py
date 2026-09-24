@@ -82,14 +82,8 @@ def calibrate_decision_rule(
                     successes = sum(rng.random() < true_rate for _ in range(trials))
                     verdicts.append(verdict_by_successes[successes])
                 inconclusive = verdicts.count(GateVerdict.INCONCLUSIVE)
-                false_fail = (
-                    verdicts.count(GateVerdict.FAIL) if true_rate >= threshold else None
-                )
-                missed = (
-                    sum(verdict is not GateVerdict.FAIL for verdict in verdicts)
-                    if true_rate < threshold
-                    else None
-                )
+                false_fail = verdicts.count(GateVerdict.FAIL) if true_rate >= threshold else None
+                missed = sum(verdict is not GateVerdict.FAIL for verdict in verdicts) if true_rate < threshold else None
                 cells.append(
                     CalibrationCell(
                         trials=trials,
@@ -97,15 +91,9 @@ def calibrate_decision_rule(
                         true_rate=true_rate,
                         replications=replications,
                         status="measured",
-                        false_fail_rate=(
-                            false_fail / replications
-                            if false_fail is not None
-                            else None
-                        ),
+                        false_fail_rate=(false_fail / replications if false_fail is not None else None),
                         inconclusive_rate=inconclusive / replications,
-                        missed_regression_rate=(
-                            missed / replications if missed is not None else None
-                        ),
+                        missed_regression_rate=(missed / replications if missed is not None else None),
                     )
                 )
     return cells

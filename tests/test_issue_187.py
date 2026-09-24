@@ -30,9 +30,7 @@ def _write_policy(tmp_path: Path, text: str) -> AssertionPolicy:
     ("threshold", "expected"),
     [(0.90, 25), (0.80, 11), (0.70, 7)],
 )
-def test_one_sided_minimum_trials_matches_documented_values(
-    threshold: float, expected: int
-) -> None:
+def test_one_sided_minimum_trials_matches_documented_values(threshold: float, expected: int) -> None:
     assert minimum_trials_for_pass(threshold, 0.95, MetricDirection.LOWER) == expected
 
 
@@ -109,9 +107,7 @@ def test_step_count_improvement_from_12_to_5_is_not_a_failure_and_is_reported() 
     step = next(result for result in results if result.check_name == "step_count")
     assert step.verdict is GateVerdict.PASS
     assert step.evidence["delta"] == -7.0
-    markdown = TrialRunReport(
-        trials_requested=1, aggregate_results=results
-    ).to_markdown()
+    markdown = TrialRunReport(trials_requested=1, aggregate_results=results).to_markdown()
     assert "delta -7" in markdown
 
 
@@ -170,9 +166,7 @@ def test_statistical_report_only_promotes_at_minimum_trial_boundary() -> None:
             trials_budgeted=trials,
             stopping_rule="fixed_n",
         )
-        task = next(
-            result for result in results if result.check_name == "task_pass_rate"
-        )
+        task = next(result for result in results if result.check_name == "task_pass_rate")
         assert task.mode == expected_mode
         assert task.verdict is expected_verdict
 

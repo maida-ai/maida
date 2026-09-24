@@ -23,16 +23,7 @@ from maida.trace_validation import validate_trace_path
 
 ROOT = Path(__file__).parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "traces" / "current"
-EXTERNAL_EMITTER_FIXTURE = (
-    ROOT
-    / "tests"
-    / "fixtures"
-    / "traces"
-    / "external"
-    / "emitter"
-    / "current"
-    / "multithread"
-)
+EXTERNAL_EMITTER_FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 runner = CliRunner()
 
 
@@ -63,9 +54,7 @@ def _copy_trace(
         assert span["trace_id"] == old_trace_id
         span["trace_id"] = trace_id
         spans.append(span)
-    spans_path.write_text(
-        "".join(json.dumps(span) + "\n" for span in spans), encoding="utf-8"
-    )
+    spans_path.write_text("".join(json.dumps(span) + "\n" for span in spans), encoding="utf-8")
     return destination
 
 
@@ -89,11 +78,7 @@ def _hash_tree(path: Path) -> dict[str, str]:
 
 
 def _read_tree(path: Path) -> dict[str, bytes]:
-    return {
-        item.relative_to(path).as_posix(): item.read_bytes()
-        for item in sorted(path.rglob("*"))
-        if item.is_file()
-    }
+    return {item.relative_to(path).as_posix(): item.read_bytes() for item in sorted(path.rglob("*")) if item.is_file()}
 
 
 def test_run_drift_filters_one_agent_and_does_not_modify_window(tmp_path: Path) -> None:
@@ -350,9 +335,7 @@ def test_run_drift_rejects_empty_and_corrupt_windows(tmp_path: Path) -> None:
             config=load_config(),
         )
 
-    trace_dir = _copy_trace(
-        "normal", runs_dir, trace_id="c" * 32, run_name="orders-agent"
-    )
+    trace_dir = _copy_trace("normal", runs_dir, trace_id="c" * 32, run_name="orders-agent")
     (trace_dir / "spans.jsonl").write_text("not json\n", encoding="utf-8")
     with pytest.raises(DriftWindowError, match="malformed JSON"):
         run_drift(
@@ -577,9 +560,7 @@ metrics:
     assert json.loads(inconclusive.stdout)["verdict"] == "inconclusive"
 
 
-def test_drift_cli_maps_unexpected_failures_to_internal_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drift_cli_maps_unexpected_failures_to_internal_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     baseline = _baseline(tmp_path)
     baseline_path = tmp_path / "baseline.json"
     save_baseline(baseline, baseline_path)
@@ -607,11 +588,7 @@ def test_drift_cli_maps_unexpected_failures_to_internal_error(
 
 
 def test_drift_report_schema_allows_stored_trace_status() -> None:
-    schema = json.loads(
-        (ROOT / "schemas" / "statistical-gate-report.schema.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    schema = json.loads((ROOT / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8"))
     trial_properties = schema["properties"]["trials"]["items"]["properties"]
 
     assert trial_properties["process_exit_code"]["type"] == ["integer", "null"]

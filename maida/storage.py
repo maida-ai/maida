@@ -262,13 +262,9 @@ def _load_legacy_events_jsonl(run_id: str, config: MaidaConfig) -> list[dict]:
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
-                raise UnsupportedTraceFormatError(
-                    run_id, f"{EVENTS_JSONL} line {line_no} is malformed JSON"
-                )
+                raise UnsupportedTraceFormatError(run_id, f"{EVENTS_JSONL} line {line_no} is malformed JSON")
             if not isinstance(event, dict):
-                raise UnsupportedTraceFormatError(
-                    run_id, f"{EVENTS_JSONL} line {line_no} must be a JSON object"
-                )
+                raise UnsupportedTraceFormatError(run_id, f"{EVENTS_JSONL} line {line_no} must be a JSON object")
             events.append(event)
     return events
 
@@ -278,9 +274,7 @@ def _normalize_legacy_events(run_id: str, events: list[dict]) -> list[dict]:
     for idx, event in enumerate(events, start=1):
         event_type = event.get("event_type")
         if not isinstance(event_type, str) or not event_type:
-            raise UnsupportedTraceFormatError(
-                run_id, f"{EVENTS_JSONL} event {idx} is missing event_type"
-            )
+            raise UnsupportedTraceFormatError(run_id, f"{EVENTS_JSONL} event {idx} is missing event_type")
 
         payload = event.get("payload")
         if payload is None:
@@ -312,9 +306,7 @@ def _normalize_legacy_events(run_id: str, events: list[dict]) -> list[dict]:
     return normalized
 
 
-def load_run_for_analysis(
-    run_id: str, config: MaidaConfig
-) -> tuple[str, dict, list[dict]]:
+def load_run_for_analysis(run_id: str, config: MaidaConfig) -> tuple[str, dict, list[dict]]:
     """Load a run as event-like records for baseline/diff/assert analysis.
 
     Current OTel traces are fully supported. Legacy ``run.json`` /
@@ -390,9 +382,7 @@ def create_run(run_name: str, config: MaidaConfig) -> dict:
     return meta
 
 
-def finalize_run(
-    run_id: str, status: str, counts: dict[str, int], config: MaidaConfig
-) -> dict:
+def finalize_run(run_id: str, status: str, counts: dict[str, int], config: MaidaConfig) -> dict:
     """Compatibility wrapper for legacy run finalization callers."""
     path = _legacy_run_dir(run_id, config) / RUN_JSON
     if not path.is_file():
@@ -417,9 +407,7 @@ def finalize_run(
     return meta
 
 
-def _trace_candidates(
-    config: MaidaConfig, prefix: str | None = None
-) -> list[tuple[datetime | None, str]]:
+def _trace_candidates(config: MaidaConfig, prefix: str | None = None) -> list[tuple[datetime | None, str]]:
     """Collect (started_at, trace_id) for runs, newest first.
 
     When *prefix* is given, only trace IDs matching it are included.
@@ -510,9 +498,7 @@ def resolve_latest_trace_id(config: MaidaConfig) -> str:
     except FileNotFoundError:
         candidates = []
     if not candidates:
-        raise FileNotFoundError(
-            "No runs found. Run your traced agent first (or try `maida demo`)."
-        )
+        raise FileNotFoundError("No runs found. Run your traced agent first (or try `maida demo`).")
     return candidates[0][1]
 
 
@@ -520,14 +506,10 @@ def resolve_latest_run_id(config: MaidaConfig) -> str:
     """Return the most recent run identifier, whether current trace or legacy run."""
     runs = list_runs(limit=1, config=config)
     if not runs:
-        raise FileNotFoundError(
-            "No runs found. Run your traced agent first (or try `maida demo`)."
-        )
+        raise FileNotFoundError("No runs found. Run your traced agent first (or try `maida demo`).")
     run_id = runs[0].get("trace_id") or runs[0].get("run_id")
     if not run_id:
-        raise FileNotFoundError(
-            "No runs found. Run your traced agent first (or try `maida demo`)."
-        )
+        raise FileNotFoundError("No runs found. Run your traced agent first (or try `maida demo`).")
     return str(run_id)
 
 
@@ -541,17 +523,11 @@ def load_validated_run(trace_id: str, config: MaidaConfig) -> tuple[dict, list[d
     try:
         validated = validate_trace_path(run_dir)
     except TraceInputError as exc:
-        raise RunValidationError(
-            trace_id, format_diagnostic_problem(exc.diagnostic)
-        ) from exc
+        raise RunValidationError(trace_id, format_diagnostic_problem(exc.diagnostic)) from exc
     except TraceValidationError as exc:
-        raise RunValidationError(
-            trace_id, format_diagnostic_problem(exc.diagnostics[0])
-        ) from exc
+        raise RunValidationError(trace_id, format_diagnostic_problem(exc.diagnostics[0])) from exc
     if validated.trace_id != trace_id:
-        raise RunValidationError(
-            trace_id, "meta.json trace_id does not match run directory"
-        )
+        raise RunValidationError(trace_id, "meta.json trace_id does not match run directory")
     return validated.meta, validated.spans
 
 
@@ -566,9 +542,7 @@ def install_validated_run(meta: dict, spans: list[dict], config: MaidaConfig) ->
     try:
         validated = validate_trace_payload(meta, spans)
     except TraceValidationError as exc:
-        raise RunValidationError(
-            trace_id, format_diagnostic_problem(exc.diagnostics[0])
-        ) from exc
+        raise RunValidationError(trace_id, format_diagnostic_problem(exc.diagnostics[0])) from exc
     meta = validated.meta
     spans = validated.spans
 

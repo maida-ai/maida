@@ -106,9 +106,7 @@ def detect_loop(
         # Check tail == block repeated 'repetitions' times
         if all(tail[i * m : (i + 1) * m] == block for i in range(repetitions)):
             evidence_events = events_window[-L:]
-            evidence_event_ids = [
-                e.get("event_id") or MISSING_EVENT_ID for e in evidence_events
-            ]
+            evidence_event_ids = [e.get("event_id") or MISSING_EVENT_ID for e in evidence_events]
             pattern = " -> ".join(block)
             return {
                 "pattern": pattern,

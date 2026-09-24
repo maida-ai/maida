@@ -151,18 +151,14 @@ def _sanitize_attribute_mapping(
     return safe
 
 
-def span_to_dict(
-    span: ReadableSpan, config: MaidaConfig | None = None
-) -> dict[str, Any]:
+def span_to_dict(span: ReadableSpan, config: MaidaConfig | None = None) -> dict[str, Any]:
     """Serialize a ReadableSpan to a JSON-safe dict for local storage."""
     config = config or load_config()
     sc = span.context
     parent_sc = span.parent
     start_nanos = span.start_time or 0
     end_nanos = span.end_time or 0
-    duration_ms = (
-        nanos_to_ms(end_nanos - start_nanos) if end_nanos > start_nanos else None
-    )
+    duration_ms = nanos_to_ms(end_nanos - start_nanos) if end_nanos > start_nanos else None
 
     attrs = _sanitize_attribute_mapping(
         span.attributes,
@@ -189,9 +185,7 @@ def span_to_dict(
     status_desc = ""
     if span.status:
         status_code = (
-            span.status.status_code.name
-            if hasattr(span.status.status_code, "name")
-            else str(span.status.status_code)
+            span.status.status_code.name if hasattr(span.status.status_code, "name") else str(span.status.status_code)
         )
         status_desc = span.status.description or ""
     status_desc = _redact_and_truncate(status_desc, config)
@@ -241,10 +235,7 @@ class MaidaLocalSpanExporter(SpanExporter):
                 spans_path = run_dir / "spans.jsonl"
                 with self._lock:
                     with open(spans_path, "a", encoding="utf-8") as f:
-                        f.write(
-                            json.dumps(span_dict, ensure_ascii=False, default=str)
-                            + "\n"
-                        )
+                        f.write(json.dumps(span_dict, ensure_ascii=False, default=str) + "\n")
                         f.flush()
                         os.fsync(f.fileno())
 
@@ -289,9 +280,7 @@ class MaidaLocalSpanExporter(SpanExporter):
                 },
             )
 
-    def _update_meta(
-        self, run_dir: Path, span_dict: dict, raw_span: ReadableSpan
-    ) -> None:
+    def _update_meta(self, run_dir: Path, span_dict: dict, raw_span: ReadableSpan) -> None:
         attrs = span_dict.get("attributes", {})
         meta_path = run_dir / "meta.json"
         status = "running"

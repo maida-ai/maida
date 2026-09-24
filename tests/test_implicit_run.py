@@ -59,9 +59,7 @@ def test_implicit_run_creates_run_with_run_start_and_tool_call():
             assert EventType.TOOL_CALL.value in event_types, "expected TOOL_CALL"
 
             run_json = load_run_meta(run_id, config)
-            assert run_json["status"] in ("ok", "running"), (
-                "run should be finalized or still running"
-            )
+            assert run_json["status"] in ("ok", "running"), "run should be finalized or still running"
             assert run_json["counts"]["tool_calls"] == 1
         finally:
             os.environ.pop("MAIDA_DATA_DIR", None)

@@ -27,15 +27,9 @@ from maida._tracing._redact import _redact_and_truncate, _redact_argv
 _run_id_var: ContextVar[str | None] = ContextVar("maida_run_id", default=None)
 _counts_var: ContextVar[dict | None] = ContextVar("maida_counts", default=None)
 _config_var: ContextVar[MaidaConfig | None] = ContextVar("maida_config", default=None)
-_event_window_var: ContextVar[list[dict] | None] = ContextVar(
-    "maida_event_window", default=None
-)
-_loop_emitted_var: ContextVar[set[str] | None] = ContextVar(
-    "maida_loop_emitted", default=None
-)
-_guardrail_params_var: ContextVar[GuardrailParams | None] = ContextVar(
-    "maida_guardrail_params", default=None
-)
+_event_window_var: ContextVar[list[dict] | None] = ContextVar("maida_event_window", default=None)
+_loop_emitted_var: ContextVar[set[str] | None] = ContextVar("maida_loop_emitted", default=None)
+_guardrail_params_var: ContextVar[GuardrailParams | None] = ContextVar("maida_guardrail_params", default=None)
 _started_at_var: ContextVar[str | None] = ContextVar("maida_started_at", default=None)
 _event_count_var: ContextVar[int] = ContextVar("maida_event_count", default=0)
 
@@ -95,16 +89,8 @@ def _resolve_run_name(explicit_name: str | None, func: Any | None) -> str:
 def _finalize_implicit_run() -> None:
     """Atexit hook: finalize the implicit run if one exists (legacy support)."""
     global _implicit_run_id, _implicit_counts, _implicit_config, _implicit_started_at
-    global \
-        _implicit_event_window, \
-        _implicit_loop_emitted, \
-        _implicit_root_span, \
-        _implicit_otel_token
-    if (
-        _implicit_run_id is None
-        or _implicit_config is None
-        or _implicit_started_at is None
-    ):
+    global _implicit_event_window, _implicit_loop_emitted, _implicit_root_span, _implicit_otel_token
+    if _implicit_run_id is None or _implicit_config is None or _implicit_started_at is None:
         return
     counts = _implicit_counts or default_counts()
     _implicit_run_id = None
@@ -115,16 +101,10 @@ def _finalize_implicit_run() -> None:
     _implicit_loop_emitted = set()
     try:
         if _implicit_root_span is not None:
-            _implicit_root_span.set_attribute(
-                "maida.llm_calls", counts.get("llm_calls", 0)
-            )
-            _implicit_root_span.set_attribute(
-                "maida.tool_calls", counts.get("tool_calls", 0)
-            )
+            _implicit_root_span.set_attribute("maida.llm_calls", counts.get("llm_calls", 0))
+            _implicit_root_span.set_attribute("maida.tool_calls", counts.get("tool_calls", 0))
             _implicit_root_span.set_attribute("maida.errors", counts.get("errors", 0))
-            _implicit_root_span.set_attribute(
-                "maida.loop_warnings", counts.get("loop_warnings", 0)
-            )
+            _implicit_root_span.set_attribute("maida.loop_warnings", counts.get("loop_warnings", 0))
             _implicit_root_span.set_status(Status(StatusCode.OK))
             _implicit_root_span.end()
         if _implicit_otel_token is not None:
@@ -141,9 +121,7 @@ def _finalize_implicit_run() -> None:
 atexit.register(_finalize_implicit_run)
 
 
-def _append_event_and_check_guardrails(
-    run_id: str, event: dict, config: MaidaConfig, counts: dict
-) -> None:
+def _append_event_and_check_guardrails(run_id: str, event: dict, config: MaidaConfig, counts: dict) -> None:
     """
     Append event to storage (if storage backend supports it), then check guardrails.
 
@@ -219,11 +197,7 @@ def _ensure_run() -> tuple[str, dict, MaidaConfig, list[dict], set[str]] | None:
             return (run_id, counts, config, window, emitted)
 
     if os.environ.get("MAIDA_IMPLICIT_RUN", "").strip() == "1":
-        if (
-            _implicit_run_id is not None
-            and _implicit_counts is not None
-            and _implicit_config is not None
-        ):
+        if _implicit_run_id is not None and _implicit_counts is not None and _implicit_config is not None:
             return (
                 _implicit_run_id,
                 _implicit_counts,
@@ -238,9 +212,7 @@ def _ensure_run() -> tuple[str, dict, MaidaConfig, list[dict], set[str]] | None:
         tracer = _get_tracer()
         run_name = _resolve_run_name("implicit", None)
         counts = default_counts()
-        started_at = (
-            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        )
+        started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         # Create a root OTel span and activate it so recorder child spans
         # are nested under this trace rather than becoming orphaned traces.
         from opentelemetry import context as _ot_context
@@ -252,9 +224,7 @@ def _ensure_run() -> tuple[str, dict, MaidaConfig, list[dict], set[str]] | None:
             kind=trace.SpanKind.INTERNAL,
             attributes={"maida.run_name": run_name},
         )
-        _implicit_otel_token = _ot_context.attach(
-            set_span_in_context(_implicit_root_span)
-        )
+        _implicit_otel_token = _ot_context.attach(set_span_in_context(_implicit_root_span))
         sc = _implicit_root_span.get_span_context()
         run_id = format(sc.trace_id, "032x")
         _implicit_run_id = run_id

@@ -54,9 +54,7 @@ def _make_run(config, *, name="test_run", events=None, status="ok"):
                         result=payload.get("result"),
                     )
                 elif ev_type == EventType.LLM_CALL:
-                    record_llm_call(
-                        ev_name, prompt="p", response="r", usage=payload.get("usage")
-                    )
+                    record_llm_call(ev_name, prompt="p", response="r", usage=payload.get("usage"))
                 elif ev_type == EventType.ERROR:
                     record_tool_call(
                         ev_name,

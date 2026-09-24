@@ -99,9 +99,7 @@ def _guardrails_from_dict(data: dict[str, Any] | None) -> GuardrailParams:
     stop_on_loop = bool(data.get("stop_on_loop", False))
     stop_on_loop_min_repetitions = 3
     try:
-        stop_on_loop_min_repetitions = max(
-            2, int(data.get("stop_on_loop_min_repetitions", 3))
-        )
+        stop_on_loop_min_repetitions = max(2, int(data.get("stop_on_loop_min_repetitions", 3)))
     except (TypeError, ValueError):
         pass
     max_llm_calls = None
@@ -146,8 +144,7 @@ def _apply_env_to_guardrails(params: GuardrailParams) -> GuardrailParams:
     """Override guardrail params from environment variables."""
     if "MAIDA_STOP_ON_LOOP" in os.environ:
         params = GuardrailParams(
-            stop_on_loop=os.environ["MAIDA_STOP_ON_LOOP"].strip().lower()
-            in ("1", "true", "yes"),
+            stop_on_loop=os.environ["MAIDA_STOP_ON_LOOP"].strip().lower() in ("1", "true", "yes"),
             stop_on_loop_min_repetitions=params.stop_on_loop_min_repetitions,
             max_llm_calls=params.max_llm_calls,
             max_tool_calls=params.max_tool_calls,
@@ -280,9 +277,7 @@ def load_config(project_root: Path | None = None) -> MaidaConfig:
 
     if "MAIDA_MAX_FIELD_BYTES" in os.environ:
         try:
-            max_field_bytes = max(
-                _MIN_MAX_FIELD_BYTES, int(os.environ["MAIDA_MAX_FIELD_BYTES"])
-            )
+            max_field_bytes = max(_MIN_MAX_FIELD_BYTES, int(os.environ["MAIDA_MAX_FIELD_BYTES"]))
         except ValueError:
             pass
 
@@ -294,9 +289,7 @@ def load_config(project_root: Path | None = None) -> MaidaConfig:
 
     if "MAIDA_LOOP_REPETITIONS" in os.environ:
         try:
-            loop_repetitions = max(
-                _MIN_LOOP_REPETITIONS, int(os.environ["MAIDA_LOOP_REPETITIONS"])
-            )
+            loop_repetitions = max(_MIN_LOOP_REPETITIONS, int(os.environ["MAIDA_LOOP_REPETITIONS"]))
         except ValueError:
             pass
 

@@ -112,13 +112,10 @@ class LangfuseClient:
             or parsed.fragment
         ):
             raise LangfuseInputError(
-                "Langfuse base URL must be an http(s) origin without credentials, "
-                "a query, or a fragment"
+                "Langfuse base URL must be an http(s) origin without credentials, a query, or a fragment"
             )
         if not public_key or not secret_key:
-            raise LangfuseInputError(
-                "Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY before importing"
-            )
+            raise LangfuseInputError("Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY before importing")
         if timeout <= 0:
             raise LangfuseInputError("LANGFUSE_TIMEOUT must be greater than zero")
         self.base_url = base_url.rstrip("/")
@@ -143,26 +140,18 @@ class LangfuseClient:
             data = payload.get("data")
             meta = payload.get("meta")
             if not isinstance(data, list) or not isinstance(meta, dict):
-                raise LangfuseImportError(
-                    "Langfuse observations response must contain data[] and meta{}"
-                )
+                raise LangfuseImportError("Langfuse observations response must contain data[] and meta{}")
             for item in data:
                 if not isinstance(item, dict):
-                    raise LangfuseImportError(
-                        "Langfuse observations response contains a non-object row"
-                    )
+                    raise LangfuseImportError("Langfuse observations response contains a non-object row")
                 rows.append(item)
             next_cursor = meta.get("cursor")
             if next_cursor is None or next_cursor == "":
                 break
             if not isinstance(next_cursor, str):
-                raise LangfuseImportError(
-                    "Langfuse observations cursor must be a string"
-                )
+                raise LangfuseImportError("Langfuse observations cursor must be a string")
             if next_cursor in seen_cursors:
-                raise LangfuseImportError(
-                    "Langfuse returned a repeated pagination cursor"
-                )
+                raise LangfuseImportError("Langfuse returned a repeated pagination cursor")
             seen_cursors.add(next_cursor)
             cursor = next_cursor
         return _deduplicate_observations(rows)
@@ -170,9 +159,7 @@ class LangfuseClient:
     def _get_json(self, params: dict[str, Any]) -> dict[str, Any]:
         query = urlencode(params, doseq=True)
         url = f"{self.base_url}/api/public/v2/observations?{query}"
-        credentials = base64.b64encode(
-            f"{self.public_key}:{self.secret_key}".encode("utf-8")
-        ).decode("ascii")
+        credentials = base64.b64encode(f"{self.public_key}:{self.secret_key}".encode("utf-8")).decode("ascii")
         request = Request(
             url,
             headers={
@@ -188,22 +175,14 @@ class LangfuseClient:
                 raw = response.read()
         except HTTPError as exc:
             if exc.code in {401, 403}:
-                raise LangfuseImportError(
-                    f"Langfuse authentication failed at {host} (HTTP {exc.code})"
-                ) from exc
-            raise LangfuseImportError(
-                f"Langfuse request failed at {host} (HTTP {exc.code})"
-            ) from exc
+                raise LangfuseImportError(f"Langfuse authentication failed at {host} (HTTP {exc.code})") from exc
+            raise LangfuseImportError(f"Langfuse request failed at {host} (HTTP {exc.code})") from exc
         except (URLError, TimeoutError, OSError) as exc:
-            raise LangfuseImportError(
-                f"Could not reach Langfuse at {host}: {type(exc).__name__}"
-            ) from exc
+            raise LangfuseImportError(f"Could not reach Langfuse at {host}: {type(exc).__name__}") from exc
         try:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise LangfuseImportError(
-                f"Langfuse returned malformed JSON from {host}"
-            ) from exc
+            raise LangfuseImportError(f"Langfuse returned malformed JSON from {host}") from exc
         if not isinstance(payload, dict):
             raise LangfuseImportError("Langfuse response root must be an object")
         return payload
@@ -218,9 +197,7 @@ def _deduplicate_observations(rows: list[dict[str, Any]]) -> list[dict[str, Any]
             raise LangfuseImportError("Langfuse observation is missing a string id")
         previous = by_id.get(observation_id)
         if previous is not None and previous != row:
-            raise LangfuseImportError(
-                f"Langfuse returned conflicting rows for observation {observation_id!r}"
-            )
+            raise LangfuseImportError(f"Langfuse returned conflicting rows for observation {observation_id!r}")
         if previous is None:
             order.append(observation_id)
             by_id[observation_id] = row
@@ -234,19 +211,13 @@ def _hash_id(*parts: str, length: int) -> str:
 
 def _parse_timestamp(value: object, *, field_name: str) -> datetime:
     if not isinstance(value, str) or not value.strip():
-        raise LangfuseImportError(
-            f"Langfuse observation field {field_name!r} must be an ISO-8601 timestamp"
-        )
+        raise LangfuseImportError(f"Langfuse observation field {field_name!r} must be an ISO-8601 timestamp")
     try:
         parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError as exc:
-        raise LangfuseImportError(
-            f"Langfuse observation field {field_name!r} must be an ISO-8601 timestamp"
-        ) from exc
+        raise LangfuseImportError(f"Langfuse observation field {field_name!r} must be an ISO-8601 timestamp") from exc
     if parsed.tzinfo is None:
-        raise LangfuseImportError(
-            f"Langfuse observation field {field_name!r} must include a timezone"
-        )
+        raise LangfuseImportError(f"Langfuse observation field {field_name!r} must include a timezone")
     return parsed.astimezone(timezone.utc)
 
 
@@ -265,9 +236,7 @@ def _safe_source_value(value: Any, config: MaidaConfig) -> Any:
 
 
 def _json_event_value(value: Any, config: MaidaConfig) -> str:
-    return json.dumps(
-        _safe_source_value(value, config), ensure_ascii=False, default=str
-    )
+    return json.dumps(_safe_source_value(value, config), ensure_ascii=False, default=str)
 
 
 def _meta_attribute(payload: dict[str, Any], config: MaidaConfig) -> str:
@@ -337,16 +306,12 @@ def _normalized_observation_span(
     raw_end = row.get("endTime")
     if raw_end is None:
         if observation_type != "EVENT":
-            raise IncompleteLangfuseTrace(
-                f"incomplete observation {row.get('id')!r} has no endTime"
-            )
+            raise IncompleteLangfuseTrace(f"incomplete observation {row.get('id')!r} has no endTime")
         end = start
     else:
         end = _parse_timestamp(raw_end, field_name="endTime")
     if end < start:
-        raise LangfuseImportError(
-            f"Langfuse observation {row.get('id')!r} ends before it starts"
-        )
+        raise LangfuseImportError(f"Langfuse observation {row.get('id')!r} ends before it starts")
     duration_ms = max(0, int((end - start).total_seconds() * 1000))
     level = str(row.get("level") or "DEFAULT").upper()
     is_error = level == "ERROR"
@@ -357,12 +322,7 @@ def _normalized_observation_span(
     action_event: dict[str, Any] | None = None
 
     if observation_type == "GENERATION":
-        model = str(
-            row.get("providedModelName")
-            or row.get("model")
-            or row.get("name")
-            or "unknown"
-        )
+        model = str(row.get("providedModelName") or row.get("model") or row.get("name") or "unknown")
         attrs.update(
             {
                 GEN_AI_OPERATION_NAME: "chat",
@@ -381,9 +341,7 @@ def _normalized_observation_span(
                 break
         if isinstance(model_parameters, dict):
             temperature = model_parameters.get("temperature")
-            if isinstance(temperature, (int, float)) and not isinstance(
-                temperature, bool
-            ):
+            if isinstance(temperature, (int, float)) and not isinstance(temperature, bool):
                 attrs[GEN_AI_REQUEST_TEMPERATURE] = temperature
         input_tokens = _token_value(
             row,
@@ -408,9 +366,7 @@ def _normalized_observation_span(
             "totalTokens",
             "totalUsage",
         )
-        if total_tokens is None and (
-            input_tokens is not None or output_tokens is not None
-        ):
+        if total_tokens is None and (input_tokens is not None or output_tokens is not None):
             total_tokens = (input_tokens or 0) + (output_tokens or 0)
         if input_tokens is not None:
             attrs[GEN_AI_USAGE_INPUT_TOKENS] = input_tokens
@@ -423,9 +379,7 @@ def _normalized_observation_span(
                 {
                     "name": "gen_ai.user.message",
                     "timestamp": _iso_utc(start),
-                    "attributes": {
-                        "content": _safe_source_value(row.get("input"), config)
-                    },
+                    "attributes": {"content": _safe_source_value(row.get("input"), config)},
                 }
             )
         if row.get("output") is not None:
@@ -433,9 +387,7 @@ def _normalized_observation_span(
                 {
                     "name": "gen_ai.assistant.message",
                     "timestamp": _iso_utc(end),
-                    "attributes": {
-                        "content": _safe_source_value(row.get("output"), config)
-                    },
+                    "attributes": {"content": _safe_source_value(row.get("output"), config)},
                 }
             )
         name = model
@@ -463,9 +415,7 @@ def _normalized_observation_span(
                 {
                     "name": "maida.tool.result",
                     "timestamp": _iso_utc(end),
-                    "attributes": {
-                        "result": _json_event_value(row.get("output"), config)
-                    },
+                    "attributes": {"result": _json_event_value(row.get("output"), config)},
                 }
             )
         kind = "INTERNAL"
@@ -506,9 +456,7 @@ def _normalized_observation_span(
     return span, action_event
 
 
-def normalize_langfuse_trace(
-    observations: list[dict[str, Any]], config: MaidaConfig
-) -> NormalizedLangfuseRun:
+def normalize_langfuse_trace(observations: list[dict[str, Any]], config: MaidaConfig) -> NormalizedLangfuseRun:
     """Normalize one complete Langfuse trace into a strict Maida local run."""
     observations = _deduplicate_observations(observations)
     if not observations:
@@ -516,13 +464,9 @@ def normalize_langfuse_trace(
 
     source_trace_ids = {row.get("traceId") for row in observations}
     project_ids = {row.get("projectId") for row in observations}
-    if len(source_trace_ids) != 1 or not all(
-        isinstance(item, str) and item for item in source_trace_ids
-    ):
+    if len(source_trace_ids) != 1 or not all(isinstance(item, str) and item for item in source_trace_ids):
         raise LangfuseImportError("Observations must belong to one Langfuse trace")
-    if len(project_ids) != 1 or not all(
-        isinstance(item, str) and item for item in project_ids
-    ):
+    if len(project_ids) != 1 or not all(isinstance(item, str) and item for item in project_ids):
         raise LangfuseImportError("Observations must belong to one Langfuse project")
     source_trace_id = next(iter(source_trace_ids))
     project_id = next(iter(project_ids))
@@ -581,9 +525,7 @@ def normalize_langfuse_trace(
         current: str | None = observation_id
         while current is not None and current not in resolved:
             if current in chain:
-                raise LangfuseImportError(
-                    f"Langfuse trace contains a parent cycle at observation {current!r}"
-                )
+                raise LangfuseImportError(f"Langfuse trace contains a parent cycle at observation {current!r}")
             chain.add(current)
             current = parent_observation_ids[current]
         resolved.update(chain)
@@ -597,11 +539,7 @@ def normalize_langfuse_trace(
     for row in ordered:
         observation_id = str(row["id"])
         parent_observation_id = parent_observation_ids[observation_id]
-        parent_span_id = (
-            span_ids[parent_observation_id]
-            if parent_observation_id is not None
-            else root_span_id
-        )
+        parent_span_id = span_ids[parent_observation_id] if parent_observation_id is not None else root_span_id
         span, action_event = _normalized_observation_span(
             row,
             maida_trace_id=maida_trace_id,
@@ -631,9 +569,7 @@ def normalize_langfuse_trace(
         action_window.append(action_event)
         if len(action_window) > config.loop_window:
             action_window = action_window[-config.loop_window :]
-        payload = detect_loop(
-            action_window, config.loop_window, config.loop_repetitions
-        )
+        payload = detect_loop(action_window, config.loop_window, config.loop_repetitions)
         if payload is None:
             continue
         key = pattern_key(payload)
@@ -671,16 +607,10 @@ def normalize_langfuse_trace(
 
     root_start = min(starts)
     root_end = max(ends)
-    llm_calls = sum(
-        1 for row in ordered if str(row.get("type")).upper() == "GENERATION"
-    )
+    llm_calls = sum(1 for row in ordered if str(row.get("type")).upper() == "GENERATION")
     tool_calls = sum(1 for row in ordered if str(row.get("type")).upper() == "TOOL")
     session_ids = sorted(
-        {
-            str(row["sessionId"])
-            for row in ordered
-            if isinstance(row.get("sessionId"), str) and row["sessionId"]
-        }
+        {str(row["sessionId"]) for row in ordered if isinstance(row.get("sessionId"), str) and row["sessionId"]}
     )
     root_source_meta = {
         "langfuse": {
@@ -712,9 +642,7 @@ def normalize_langfuse_trace(
         "attributes": root_attrs,
         "events": [],
         "status_code": "ERROR" if errors else "OK",
-        "status_description": (
-            "Langfuse trace contains error observations" if errors else ""
-        ),
+        "status_description": ("Langfuse trace contains error observations" if errors else ""),
     }
     spans = [
         root_span,
@@ -765,9 +693,7 @@ def _discovery_filter(
 ) -> str:
     from_iso = _parse_selection_time(from_time, option="--from")
     to_iso = _parse_selection_time(to_time, option="--to")
-    if _parse_timestamp(from_iso, field_name="--from") >= _parse_timestamp(
-        to_iso, field_name="--to"
-    ):
+    if _parse_timestamp(from_iso, field_name="--from") >= _parse_timestamp(to_iso, field_name="--to"):
         raise LangfuseInputError("--from must be earlier than --to")
     filters: list[dict[str, Any]] = [
         {
@@ -819,28 +745,17 @@ def _existing_source_matches(run: NormalizedLangfuseRun, config: MaidaConfig) ->
     except FileNotFoundError:
         return False
     except Exception as exc:
-        raise LangfuseImportError(
-            f"Existing destination run {run.trace_id} is invalid"
-        ) from exc
+        raise LangfuseImportError(f"Existing destination run {run.trace_id} is invalid") from exc
     root = next((span for span in spans if span.get("parent_span_id") is None), None)
     if root is None:
-        raise LangfuseImportError(
-            f"Existing destination run {run.trace_id} has no root span"
-        )
+        raise LangfuseImportError(f"Existing destination run {run.trace_id} has no root span")
     raw_meta = root.get("attributes", {}).get(MAIDA_META)
     try:
         source = json.loads(raw_meta)["langfuse"]
     except (TypeError, KeyError, json.JSONDecodeError) as exc:
-        raise LangfuseImportError(
-            f"Existing destination run {run.trace_id} is not the same Langfuse import"
-        ) from exc
-    if (
-        source.get("trace_id") != run.source_trace_id
-        or source.get("project_id") != run.project_id
-    ):
-        raise LangfuseImportError(
-            f"Deterministic trace ID collision at destination {run.trace_id}"
-        )
+        raise LangfuseImportError(f"Existing destination run {run.trace_id} is not the same Langfuse import") from exc
+    if source.get("trace_id") != run.source_trace_id or source.get("project_id") != run.project_id:
+        raise LangfuseImportError(f"Deterministic trace ID collision at destination {run.trace_id}")
     if (
         source.get("mapping_version") != _MAPPING_VERSION
         or source.get("observation_fingerprint") != run.source_fingerprint
@@ -866,18 +781,12 @@ def import_langfuse_traces(
     """Fetch, normalize, validate, and locally install selected Langfuse traces."""
     if source_trace_id:
         if any((from_time, to_time, trace_name, session_id, environments)):
-            raise LangfuseInputError(
-                "--trace-id cannot be combined with range or grouping filters"
-            )
+            raise LangfuseInputError("--trace-id cannot be combined with range or grouping filters")
         source_ids = [source_trace_id]
-        hydrated = {
-            source_trace_id: client.fetch_observations({"traceId": source_trace_id})
-        }
+        hydrated = {source_trace_id: client.fetch_observations({"traceId": source_trace_id})}
     else:
         if from_time is None or to_time is None:
-            raise LangfuseInputError(
-                "Pass --trace-id or both timezone-aware --from and --to values"
-            )
+            raise LangfuseInputError("Pass --trace-id or both timezone-aware --from and --to values")
         filter_json = _discovery_filter(
             from_time=from_time,
             to_time=to_time,
@@ -887,16 +796,9 @@ def import_langfuse_traces(
         )
         discovery_rows = client.fetch_observations({"filter": filter_json})
         source_ids = sorted(
-            {
-                str(row["traceId"])
-                for row in discovery_rows
-                if isinstance(row.get("traceId"), str) and row["traceId"]
-            }
+            {str(row["traceId"]) for row in discovery_rows if isinstance(row.get("traceId"), str) and row["traceId"]}
         )
-        hydrated = {
-            trace_id: client.fetch_observations({"traceId": trace_id})
-            for trace_id in source_ids
-        }
+        hydrated = {trace_id: client.fetch_observations({"traceId": trace_id}) for trace_id in source_ids}
     if not source_ids:
         raise LangfuseInputError(
             "No Langfuse observations matched the selection. Check the time range "
@@ -908,9 +810,7 @@ def import_langfuse_traces(
     for trace_id in source_ids:
         rows = hydrated.get(trace_id) or []
         if not rows:
-            summary.skipped.append(
-                {"source_trace_id": trace_id, "reason": "no observations"}
-            )
+            summary.skipped.append({"source_trace_id": trace_id, "reason": "no observations"})
             continue
         try:
             run = normalize_langfuse_trace(rows, config)
@@ -939,8 +839,7 @@ def import_langfuse_traces(
             install_validated_run(run.meta, run.spans, config)
         except FileExistsError as exc:
             raise LangfuseImportError(
-                f"Destination run {run.trace_id} was created concurrently; rerun "
-                "the import to verify it"
+                f"Destination run {run.trace_id} was created concurrently; rerun the import to verify it"
             ) from exc
         summary.imported.append(
             {

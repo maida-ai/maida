@@ -86,11 +86,7 @@ def _redact_and_truncate(
     if isinstance(obj, (list, tuple)):
         return [_redact_and_truncate(item, config, depth + 1) for item in obj]
     s = str(obj)
-    return (
-        _truncate_string(s, config.max_field_bytes)
-        if len(s.encode("utf-8")) > config.max_field_bytes
-        else s
-    )
+    return _truncate_string(s, config.max_field_bytes) if len(s.encode("utf-8")) > config.max_field_bytes else s
 
 
 def _normalize_usage(usage: Any) -> dict[str, int | None] | None:
@@ -120,9 +116,7 @@ def _normalize_usage(usage: Any) -> dict[str, int | None] | None:
     }
 
 
-def _apply_redaction_truncation(
-    payload: Any, meta: Any, config: MaidaConfig
-) -> tuple[Any, Any]:
+def _apply_redaction_truncation(payload: Any, meta: Any, config: MaidaConfig) -> tuple[Any, Any]:
     """Apply redaction and truncation to payload and meta; returns (payload, meta)."""
     return (
         _redact_and_truncate(payload, config),
@@ -160,8 +154,7 @@ def _build_error_payload(
     elif isinstance(exc_or_message, dict):
         # Accept both error_type and type for backward compatibility when building from dict
         err = {
-            "error_type": exc_or_message.get("error_type")
-            or exc_or_message.get("type", "Error"),
+            "error_type": exc_or_message.get("error_type") or exc_or_message.get("type", "Error"),
             "message": exc_or_message.get("message", ""),
             "details": exc_or_message.get("details"),
             "stack": exc_or_message.get("stack") if include_stack else None,

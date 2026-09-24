@@ -29,9 +29,7 @@ if _PY_VERSION < (3, 13):
             stacklevel: int = 1,
         ) -> None:
             if not isinstance(message, str):
-                raise TypeError(
-                    f"Expected an object of type str for 'message', not {type(message).__name__!r}"
-                )
+                raise TypeError(f"Expected an object of type str for 'message', not {type(message).__name__!r}")
             self.message = message
             self.category = category
             self.stacklevel = stacklevel
@@ -94,8 +92,7 @@ if _PY_VERSION < (3, 13):
                 return wrapper
             else:
                 raise TypeError(
-                    "@deprecated decorator with non-None category must be applied to "
-                    f"a class or callable, not {arg!r}"
+                    f"@deprecated decorator with non-None category must be applied to a class or callable, not {arg!r}"
                 )
 else:
     from warnings import deprecated as _deprecated

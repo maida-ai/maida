@@ -25,9 +25,7 @@ def handle_tool_error(state) -> dict:
 
 
 def create_tool_node_with_fallback(tools: list):
-    inner = ToolNode(tools).with_fallbacks(
-        [RunnableLambda(handle_tool_error)], exception_key="error"
-    )
+    inner = ToolNode(tools).with_fallbacks([RunnableLambda(handle_tool_error)], exception_key="error")
 
     def logged_invoke(state, config):
         messages = state.get("messages", [])

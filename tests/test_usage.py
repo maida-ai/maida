@@ -71,9 +71,7 @@ def test_receiver_disabled_and_append_only(tmp_path):
     assert len(log.read_text().splitlines()) == 2
     assert client.get("/usage").status_code == 405
     assert client.delete("/usage").status_code == 405
-    assert (
-        client.post("/usage", json={**payload, "prompt": "secret"}).status_code == 422
-    )
+    assert client.post("/usage", json={**payload, "prompt": "secret"}).status_code == 422
     assert len(log.read_text().splitlines()) == 2
 
 
@@ -98,9 +96,7 @@ def test_network_failure_is_nonfatal(monkeypatch):
 
 
 @pytest.mark.parametrize("max_steps,exit_code", [(10, 0), (0, 1)])
-def test_gate_state_on_stderr_and_json_clean(
-    temp_data_dir, monkeypatch, max_steps, exit_code
-):
+def test_gate_state_on_stderr_and_json_clean(temp_data_dir, monkeypatch, max_steps, exit_code):
     from maida import traced_run, record_tool_call
     from maida.cli import app
     from typer.testing import CliRunner
@@ -108,9 +104,7 @@ def test_gate_state_on_stderr_and_json_clean(
     monkeypatch.delenv("MAIDA_USAGE_OPT_IN", raising=False)
     with traced_run(name="usage-test"):
         record_tool_call("test", args={}, result=None)
-    result = CliRunner().invoke(
-        app, ["assert", "--max-steps", str(max_steps), "--format", "json"]
-    )
+    result = CliRunner().invoke(app, ["assert", "--max-steps", str(max_steps), "--format", "json"])
     assert result.exit_code == exit_code
     assert json.loads(result.stdout)["passed"] is (exit_code == 0)
     assert "Usage ping: disabled" in result.stderr
@@ -142,9 +136,7 @@ def test_published_schema_matches_payloads():
     from pathlib import Path
     from jsonschema import Draft202012Validator, FormatChecker
 
-    schema = json.loads(
-        (Path(__file__).parents[1] / "schemas/usage-ping.v1.schema.json").read_text()
-    )
+    schema = json.loads((Path(__file__).parents[1] / "schemas/usage-ping.v1.schema.json").read_text())
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     for verdict in ("pass", "fail", "inconclusive"):
         payload = usage.make_payload(verdict, "a" * 64, False)
@@ -153,9 +145,4 @@ def test_published_schema_matches_payloads():
 
 
 def test_redirects_are_rejected():
-    assert (
-        usage._NoRedirect().redirect_request(
-            None, None, 302, "redirect", {}, "https://other.example"
-        )
-        is None
-    )
+    assert usage._NoRedirect().redirect_request(None, None, 302, "redirect", {}, "https://other.example") is None

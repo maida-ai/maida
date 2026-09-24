@@ -100,16 +100,9 @@ def test_hook_capture_sanitizes_before_persistence(temp_data_dir, monkeypatch):
     )
 
     capture_dir = _capture_dir(temp_data_dir)
-    persisted = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in capture_dir.parent.rglob("*")
-        if path.is_file()
-    )
+    persisted = "\n".join(path.read_text(encoding="utf-8") for path in capture_dir.parent.rglob("*") if path.is_file())
     assert SESSION_ID not in persisted
-    records = [
-        json.loads(line)
-        for line in (capture_dir / "logs.jsonl").read_text().splitlines()
-    ]
+    records = [json.loads(line) for line in (capture_dir / "logs.jsonl").read_text().splitlines()]
     tool_input = records[-1]["record"]["attributes"]["tool_input"]
     assert tool_input["nested"] == {"api_token": REDACTED_MARKER, "safe": "yes"}
     assert tool_input["content"].endswith(TRUNCATED_MARKER)
@@ -139,33 +132,13 @@ def test_segments_rotate_on_session_boundaries_but_not_compaction(temp_data_dir)
 
     config = load_config()
     assert capture_claude_hook(_payload("SessionStart"), config).segment == "0001"
-    assert (
-        capture_claude_hook(_payload("SessionStart", source="compact"), config).segment
-        == "0001"
-    )
-    assert (
-        capture_claude_hook(_payload("SessionStart", source="resume"), config).segment
-        == "0002"
-    )
+    assert capture_claude_hook(_payload("SessionStart", source="compact"), config).segment == "0001"
+    assert capture_claude_hook(_payload("SessionStart", source="resume"), config).segment == "0002"
     # An exact delivery retry belongs to the already-active segment.
-    assert (
-        capture_claude_hook(_payload("SessionStart", source="resume"), config).segment
-        == "0002"
-    )
-    assert (
-        capture_claude_hook(_payload("SessionStart", source="fork"), config).segment
-        == "0003"
-    )
-    assert (
-        capture_claude_hook(_payload("SessionStart", source="clear"), config).segment
-        == "0004"
-    )
-    assert (
-        json.loads((_capture_dir(temp_data_dir, "0003") / "manifest.json").read_text())[
-            "state"
-        ]
-        == "closed"
-    )
+    assert capture_claude_hook(_payload("SessionStart", source="resume"), config).segment == "0002"
+    assert capture_claude_hook(_payload("SessionStart", source="fork"), config).segment == "0003"
+    assert capture_claude_hook(_payload("SessionStart", source="clear"), config).segment == "0004"
+    assert json.loads((_capture_dir(temp_data_dir, "0003") / "manifest.json").read_text())["state"] == "closed"
 
 
 def test_concurrent_appends_and_duplicate_deliveries_are_safe(temp_data_dir):
@@ -182,9 +155,7 @@ def test_concurrent_appends_and_duplicate_deliveries_are_safe(temp_data_dir):
         for index in range(12)
     ]
     deliveries = [*unique, unique[0], unique[0], unique[1]]
-    with ProcessPoolExecutor(
-        max_workers=4, mp_context=multiprocessing.get_context("spawn")
-    ) as executor:
+    with ProcessPoolExecutor(max_workers=4, mp_context=multiprocessing.get_context("spawn")) as executor:
         segments = list(
             executor.map(
                 _capture_worker,
@@ -194,21 +165,10 @@ def test_concurrent_appends_and_duplicate_deliveries_are_safe(temp_data_dir):
         )
 
     assert set(segments) == {"0001"}
-    records = [
-        json.loads(line)
-        for line in (_capture_dir(temp_data_dir) / "logs.jsonl")
-        .read_text()
-        .splitlines()
-    ]
-    pre_records = [
-        record
-        for record in records
-        if record["record"]["event_name"] == "claude_code.hook.pre_tool_use"
-    ]
+    records = [json.loads(line) for line in (_capture_dir(temp_data_dir) / "logs.jsonl").read_text().splitlines()]
+    pre_records = [record for record in records if record["record"]["event_name"] == "claude_code.hook.pre_tool_use"]
     assert len(pre_records) == len(unique)
-    assert len(
-        {record["record"]["attributes"]["event.sequence"] for record in records}
-    ) == len(records)
+    assert len({record["record"]["attributes"]["event.sequence"] for record in records}) == len(records)
     manifest = json.loads((_capture_dir(temp_data_dir) / "manifest.json").read_text())
     assert manifest["signals"]["logs"] == len(records)
 
@@ -272,11 +232,7 @@ def test_hook_tools_pair_by_id_and_recover_incomplete_or_preless_calls(temp_data
 
     segment = load_capture_segment(_capture_dir(temp_data_dir))
     normalized = normalize_claude_capture(segment, config)
-    tools = [
-        event
-        for event in spans_to_events(normalized.spans)
-        if event["event_type"] == "TOOL_CALL"
-    ]
+    tools = [event for event in spans_to_events(normalized.spans) if event["event_type"] == "TOOL_CALL"]
     by_name = {event["name"]: event for event in tools}
     assert set(by_name) == {"Write", "Bash", "Edit", "Read"}
     assert normalized.meta["counts"]["tool_calls"] == 4

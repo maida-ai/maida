@@ -52,11 +52,7 @@ RULES = INVARIANT_RULES + MEASURED_RULES
 
 
 def _trace(destination: Path, observation: str, trace_id=None) -> str:
-    fixture = (
-        "normal"
-        if observation.startswith(("new-tool", "known-tool", "tokens-", "duration-"))
-        else observation
-    )
+    fixture = "normal" if observation.startswith(("new-tool", "known-tool", "tokens-", "duration-")) else observation
     shutil.copytree(FIXTURES / fixture, destination)
     meta_path = destination / "meta.json"
     meta = json.loads(meta_path.read_text())
@@ -77,11 +73,7 @@ def _trace(destination: Path, observation: str, trace_id=None) -> str:
             meta["counts"]["tool_calls"] += 1
     elif observation.startswith("tokens-"):
         total = int(observation.split("-")[1])
-        usage = next(
-            span["attributes"]
-            for span in spans
-            if "gen_ai.usage.total_tokens" in span["attributes"]
-        )
+        usage = next(span["attributes"] for span in spans if "gen_ai.usage.total_tokens" in span["attributes"])
         usage["gen_ai.usage.total_tokens"] = total
         usage["gen_ai.usage.output_tokens"] = total - 10
     elif observation.startswith("duration-"):
@@ -122,9 +114,7 @@ def _invoke(
     captured = runner.invoke(app, ["baseline", "--out", str(baseline_path)])
     assert captured.exit_code == 0, captured.output
     policy = root / "policy.yaml"
-    policy.write_text(
-        f"version: {version}\ntrials: {trials}\nfail_fast: false\nmetrics:\n" + rules
-    )
+    policy.write_text(f"version: {version}\ntrials: {trials}\nfail_fast: false\nmetrics:\n" + rules)
     candidate = root / "candidate"
     _trace(candidate, observation)
     if violation is not None:
@@ -185,9 +175,7 @@ def _assert_contract(result, surface, expected_checks, expected_failed):
         process = checks.pop("agent_process")
         assert process["mode"] == "gating"
         assert process["verdict"] in {"pass", "fail"}
-    assert set(checks) == set(expected_checks), (
-        "a declared check disappeared or was substituted"
-    )
+    assert set(checks) == set(expected_checks), "a declared check disappeared or was substituted"
     failed = set()
     for name, item in checks.items():
         assert not item.get("ignored", False), f"{name} was silently ignored"
@@ -204,13 +192,9 @@ def _assert_contract(result, surface, expected_checks, expected_failed):
 
 
 @pytest.mark.parametrize("surface", ["assert", "run", "drift"])
-@pytest.mark.parametrize(
-    "metric, rule, violation", RULES, ids=[row[0] for row in RULES]
-)
+@pytest.mark.parametrize("metric, rule, violation", RULES, ids=[row[0] for row in RULES])
 @pytest.mark.parametrize("regression", [False, True], ids=["passes", "fails"])
-def test_each_declared_rule_enforces_its_behavior(
-    tmp_path, monkeypatch, surface, metric, rule, violation, regression
-):
+def test_each_declared_rule_enforces_its_behavior(tmp_path, monkeypatch, surface, metric, rule, violation, regression):
     result = _invoke(
         surface,
         tmp_path,
@@ -222,9 +206,7 @@ def test_each_declared_rule_enforces_its_behavior(
 
 
 @pytest.mark.parametrize("surface", ["assert", "run", "drift"])
-def test_composed_policy_reports_all_checks_and_all_violations(
-    tmp_path, monkeypatch, surface
-):
+def test_composed_policy_reports_all_checks_and_all_violations(tmp_path, monkeypatch, surface):
     result = _invoke(
         surface,
         tmp_path,
@@ -241,9 +223,7 @@ def test_composed_policy_reports_all_checks_and_all_violations(
 
 
 @pytest.mark.parametrize("surface", ["assert", "run", "drift"])
-def test_known_tool_repetition_preserves_identity_contract(
-    tmp_path, monkeypatch, surface
-):
+def test_known_tool_repetition_preserves_identity_contract(tmp_path, monkeypatch, surface):
     result = _invoke(
         surface,
         tmp_path,
@@ -265,9 +245,7 @@ def test_known_tool_repetition_preserves_identity_contract(
         ),
     ],
 )
-def test_baseline_dependent_contract_cannot_be_silently_omitted(
-    tmp_path, monkeypatch, surface, metric, rule
-):
+def test_baseline_dependent_contract_cannot_be_silently_omitted(tmp_path, monkeypatch, surface, metric, rule):
     result = _invoke(
         surface,
         tmp_path,
@@ -314,16 +292,12 @@ def test_measured_contract_preserves_both_tolerance_and_cap(
     observation = outside if scenario == "outside-tolerance" else boundary
     rules = f"  {metric}: {{kind: measured, direction: upper, limit: {cap}, tolerance: {{relative: {tolerance}}}}}\n"
     result = _invoke(surface, tmp_path, monkeypatch, rules, observation)
-    _assert_contract(
-        result, surface, {metric}, set() if scenario == "boundary" else {metric}
-    )
+    _assert_contract(result, surface, {metric}, set() if scenario == "boundary" else {metric})
 
 
 @pytest.mark.parametrize("surface", ["run", "drift"])
 @pytest.mark.parametrize("regression", [False, True])
-def test_statistical_policy_reaches_a_blocking_decision(
-    tmp_path, monkeypatch, surface, regression
-):
+def test_statistical_policy_reaches_a_blocking_decision(tmp_path, monkeypatch, surface, regression):
     rules = "  task_pass_rate: {kind: statistical, direction: lower, threshold: 0.5, confidence: 0.95, mode: gating}\n"
     result = _invoke(
         surface,
@@ -334,15 +308,9 @@ def test_statistical_policy_reaches_a_blocking_decision(
         trials=3,
         fail_process=regression,
     )
-    _assert_contract(
-        result, surface, {"task_pass_rate"}, {"task_pass_rate"} if regression else set()
-    )
+    _assert_contract(result, surface, {"task_pass_rate"}, {"task_pass_rate"} if regression else set())
     report = json.loads(result.stdout)
-    metric = next(
-        item
-        for item in report["aggregate_results"]
-        if item["check_name"] == "task_pass_rate"
-    )
+    metric = next(item for item in report["aggregate_results"] if item["check_name"] == "task_pass_rate")
     assert metric["decision_rule"] == "wilson_one_sided"
     assert metric["trials_used"] == 3
 
@@ -354,9 +322,7 @@ def test_statistical_policy_reaches_a_blocking_decision(
         "latency_ms: {kind: distributional, direction: upper, coverage: 0.95}",
     ],
 )
-def test_single_trace_cannot_claim_unsupported_tier_coverage(
-    tmp_path, monkeypatch, rule
-):
+def test_single_trace_cannot_claim_unsupported_tier_coverage(tmp_path, monkeypatch, rule):
     result = _invoke("assert", tmp_path, monkeypatch, "  " + rule + "\n", "normal")
     assert result.exit_code == 2, result.output
     assert "maida run" in result.stderr
@@ -365,9 +331,7 @@ def test_single_trace_cannot_claim_unsupported_tier_coverage(
 
 @pytest.mark.parametrize("surface", ["run", "drift"])
 @pytest.mark.parametrize("regression", [False, True])
-def test_distributional_rule_is_enforced_when_baseline_is_sufficient(
-    tmp_path, monkeypatch, surface, regression
-):
+def test_distributional_rule_is_enforced_when_baseline_is_sufficient(tmp_path, monkeypatch, surface, regression):
     # One reference observation certifies 50% one-sided coverage. The separate
     # 95% case below must reject that same baseline, not reduce the requirement.
     rule = "  latency_ms: {kind: distributional, direction: upper, coverage: 0.5, mode: gating}\n"
@@ -378,15 +342,11 @@ def test_distributional_rule_is_enforced_when_baseline_is_sufficient(
         rule,
         "latency-cost-envelope" if regression else "normal",
     )
-    _assert_contract(
-        result, surface, {"latency_ms"}, {"latency_ms"} if regression else set()
-    )
+    _assert_contract(result, surface, {"latency_ms"}, {"latency_ms"} if regression else set())
 
 
 @pytest.mark.parametrize("surface", ["run", "drift"])
-def test_insufficient_distributional_evidence_is_rejected_not_downgraded(
-    tmp_path, monkeypatch, surface
-):
+def test_insufficient_distributional_evidence_is_rejected_not_downgraded(tmp_path, monkeypatch, surface):
     rule = "  latency_ms: {kind: distributional, direction: upper, coverage: 0.95, mode: gating}\n"
     result = _invoke(surface, tmp_path, monkeypatch, rule, "normal")
     assert result.exit_code == 2, result.output
@@ -396,9 +356,7 @@ def test_insufficient_distributional_evidence_is_rejected_not_downgraded(
 
 
 @pytest.mark.parametrize("surface", ["run", "drift"])
-@pytest.mark.parametrize(
-    "metric, rule, violation", INVARIANT_RULES, ids=[row[0] for row in INVARIANT_RULES]
-)
+@pytest.mark.parametrize("metric, rule, violation", INVARIANT_RULES, ids=[row[0] for row in INVARIANT_RULES])
 def test_one_counterexample_fails_an_invariant_among_passing_trials(
     tmp_path, monkeypatch, surface, metric, rule, violation
 ):
@@ -413,18 +371,14 @@ def test_one_counterexample_fails_an_invariant_among_passing_trials(
     )
     _assert_contract(result, surface, {metric}, {metric})
     report = json.loads(result.stdout)
-    check = next(
-        item for item in report["aggregate_results"] if item["check_name"] == metric
-    )
+    check = next(item for item in report["aggregate_results"] if item["check_name"] == metric)
     # Drift sorts by recorded time; run sorts by execution order. The contract
     # requires exactly one counterexample and two passing observations either way.
     assert sorted(check["trial_outcomes"]) == [False, True, True]
     assert check["trials_used"] == 3
 
 
-def test_single_trace_rejects_plan_metrics_instead_of_dropping_them(
-    tmp_path, monkeypatch
-):
+def test_single_trace_rejects_plan_metrics_instead_of_dropping_them(tmp_path, monkeypatch):
     result = _invoke(
         "assert",
         tmp_path,
@@ -439,9 +393,7 @@ def test_single_trace_rejects_plan_metrics_instead_of_dropping_them(
 
 
 @pytest.mark.parametrize("surface", ["run", "drift"])
-def test_inconclusive_is_not_serialized_as_pass_despite_exit_zero(
-    tmp_path, monkeypatch, surface
-):
+def test_inconclusive_is_not_serialized_as_pass_despite_exit_zero(tmp_path, monkeypatch, surface):
     rule = "  latency_ms: {kind: distributional, direction: upper, coverage: 0.5, mode: gating}\n"
     result = _invoke(
         surface,
@@ -456,10 +408,6 @@ def test_inconclusive_is_not_serialized_as_pass_despite_exit_zero(
     report = json.loads(result.stdout)
     assert report["verdict"] == "inconclusive"
     assert report["passed"] is None
-    metric = next(
-        item
-        for item in report["aggregate_results"]
-        if item["check_name"] == "latency_ms"
-    )
+    metric = next(item for item in report["aggregate_results"] if item["check_name"] == "latency_ms")
     assert metric["mode"] == "gating"
     assert metric["verdict"] == "inconclusive"

@@ -37,22 +37,12 @@ _crewai_hooks_registered = False
 
 # Per-run pending: run_id -> { key: entry }. Keys are stable for before/after matching.
 # LLM: we use a stack per (run_id, executor_id, iterations) so after_hook pops the matching before.
-_pending_llm: dict[
-    str, dict[tuple[int, int, int], dict[str, Any]]
-] = {}  # run_id -> {(exec_id, it, seq): entry}
-_llm_stack: dict[
-    tuple[str, int, int], list[tuple[int, int, int]]
-] = {}  # (run_id, exec_id, it) -> [keys]
-_llm_next_seq: dict[
-    tuple[str, int, int], int
-] = {}  # (run_id, exec_id, it) -> next sequence number
+_pending_llm: dict[str, dict[tuple[int, int, int], dict[str, Any]]] = {}  # run_id -> {(exec_id, it, seq): entry}
+_llm_stack: dict[tuple[str, int, int], list[tuple[int, int, int]]] = {}  # (run_id, exec_id, it) -> [keys]
+_llm_next_seq: dict[tuple[str, int, int], int] = {}  # (run_id, exec_id, it) -> next sequence number
 
-_pending_tool: dict[
-    str, dict[tuple[str, int], dict[str, Any]]
-] = {}  # run_id -> {(tool_name, seq): entry}
-_tool_next_seq: dict[
-    tuple[str, str], int
-] = {}  # (run_id, tool_name) -> next sequence number
+_pending_tool: dict[str, dict[tuple[str, int], dict[str, Any]]] = {}  # run_id -> {(tool_name, seq): entry}
+_tool_next_seq: dict[tuple[str, str], int] = {}  # (run_id, tool_name) -> next sequence number
 
 # Per-run guardrail state. CrewAI catches Exception around hook execution, so
 # adapter callbacks escalate GuardrailExceeded to a private BaseException signal.
@@ -110,17 +100,9 @@ def _crewai_meta_llm(context: Any) -> dict[str, Any]:
             meta["crewai"]["executor_id"] = id(context.executor)
         if hasattr(context, "iterations"):
             meta.setdefault("crewai", {})["iterations"] = context.iterations
-        if (
-            hasattr(context, "agent")
-            and context.agent is not None
-            and getattr(context.agent, "role", None)
-        ):
+        if hasattr(context, "agent") and context.agent is not None and getattr(context.agent, "role", None):
             meta.setdefault("crewai", {})["agent_role"] = context.agent.role
-        if (
-            hasattr(context, "task")
-            and context.task is not None
-            and getattr(context.task, "description", None)
-        ):
+        if hasattr(context, "task") and context.task is not None and getattr(context.task, "description", None):
             meta.setdefault("crewai", {})["task_desc"] = context.task.description
         if hasattr(context, "crew") and context.crew is not None:
             meta.setdefault("crewai", {})["crew_id"] = id(context.crew)
@@ -133,17 +115,9 @@ def _crewai_meta_tool(context: Any) -> dict[str, Any]:
     """Build meta.crewai.* for TOOL_CALL."""
     meta: dict[str, Any] = {"framework": "crewai"}
     try:
-        if (
-            hasattr(context, "agent")
-            and context.agent is not None
-            and getattr(context.agent, "role", None)
-        ):
+        if hasattr(context, "agent") and context.agent is not None and getattr(context.agent, "role", None):
             meta.setdefault("crewai", {})["agent_role"] = context.agent.role
-        if (
-            hasattr(context, "task")
-            and context.task is not None
-            and getattr(context.task, "description", None)
-        ):
+        if hasattr(context, "task") and context.task is not None and getattr(context.task, "description", None):
             meta.setdefault("crewai", {})["task_desc"] = context.task.description
     except Exception:
         pass
@@ -192,11 +166,7 @@ def _before_llm_call(context: Any) -> bool | None:
         if run_id is None:
             return None
         _check_aborted(run_id)
-        executor_id = (
-            id(context.executor)
-            if getattr(context, "executor", None) is not None
-            else 0
-        )
+        executor_id = id(context.executor) if getattr(context, "executor", None) is not None else 0
         iterations = getattr(context, "iterations", 0)
         key_base = (run_id, executor_id, iterations)
         seq = _llm_next_seq.get(key_base, 0)
@@ -221,11 +191,7 @@ def _after_llm_call(context: Any) -> str | None:
         if run_id is None:
             return None
         _check_aborted(run_id)
-        executor_id = (
-            id(context.executor)
-            if getattr(context, "executor", None) is not None
-            else 0
-        )
+        executor_id = id(context.executor) if getattr(context, "executor", None) is not None else 0
         iterations = getattr(context, "iterations", 0)
         key_base = (run_id, executor_id, iterations)
         stack = _llm_stack.get(key_base, [])

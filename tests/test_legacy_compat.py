@@ -110,9 +110,7 @@ def test_legacy_02_run_projects_into_structural_paths(temp_data_dir):
     assert baseline["summary"]["tool_calls"] == 1
     assert diff.new_tools == ["parse"]
     assert not report.passed
-    assert [result.check_name for result in report.results if not result.passed] == [
-        "new_tools"
-    ]
+    assert [result.check_name for result in report.results if not result.passed] == ["new_tools"]
 
 
 def test_unsupported_legacy_trace_fails_with_upgrade_guidance(temp_data_dir):
@@ -147,9 +145,7 @@ def test_cli_reports_unsupported_legacy_trace_as_user_error(temp_data_dir):
     run_id = "legacy-cli-01"
     _write_legacy_run(config, run_id, spec_version="0.1")
 
-    result = runner.invoke(
-        app, ["baseline", run_id, "--out", str(temp_data_dir / "bl.json")]
-    )
+    result = runner.invoke(app, ["baseline", run_id, "--out", str(temp_data_dir / "bl.json")])
 
     assert result.exit_code == 2
     assert "unsupported trace format" in result.stderr

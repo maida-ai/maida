@@ -257,12 +257,8 @@ def test_malformed_golden_trace_fixtures_are_documented(name):
     assert (run_dir / "README.md").is_file()
 
 
-@pytest.mark.parametrize(
-    "source,name,trace_id", _external_cases(EXTERNAL_CURRENT_FIXTURES)
-)
-def test_external_current_trace_fixtures_are_documented_and_valid(
-    source, name, trace_id
-):
+@pytest.mark.parametrize("source,name,trace_id", _external_cases(EXTERNAL_CURRENT_FIXTURES))
+def test_external_current_trace_fixtures_are_documented_and_valid(source, name, trace_id):
     run_dir = FIXTURE_ROOT / "external" / source / "current" / name
 
     assert (run_dir / "README.md").is_file()
@@ -271,9 +267,7 @@ def test_external_current_trace_fixtures_are_documented_and_valid(
     _validate_fixture_shape(run_dir, trace_id)
 
 
-@pytest.mark.parametrize(
-    "source,name,trace_id", _external_cases(EXTERNAL_MALFORMED_FIXTURES)
-)
+@pytest.mark.parametrize("source,name,trace_id", _external_cases(EXTERNAL_MALFORMED_FIXTURES))
 def test_external_malformed_trace_fixtures_are_documented(source, name, trace_id):
     run_dir = FIXTURE_ROOT / "external" / source / "malformed" / name
 
@@ -315,9 +309,7 @@ def test_golden_loop_fixture_drives_signature_derivation(temp_data_dir):
     _install_fixture(config, "current", "loop")
     events = spans_to_events(load_spans(trace_id, config))
     action_events = [
-        event
-        for event in events
-        if event["event_type"] in {EventType.LLM_CALL.value, EventType.TOOL_CALL.value}
+        event for event in events if event["event_type"] in {EventType.LLM_CALL.value, EventType.TOOL_CALL.value}
     ]
 
     assert [compute_signature(event) for event in action_events] == [
@@ -440,21 +432,15 @@ def test_malformed_golden_fixtures_cover_expected_failure_modes():
     assert meta["spec_version"] != SPEC_VERSION
 
 
-@pytest.mark.parametrize(
-    "source,expected", sorted(EXTERNAL_NORMAL_EXPECTATIONS.items())
-)
-def test_external_normal_run_reads_and_projects_for_analysis(
-    temp_data_dir, source, expected
-):
+@pytest.mark.parametrize("source,expected", sorted(EXTERNAL_NORMAL_EXPECTATIONS.items()))
+def test_external_normal_run_reads_and_projects_for_analysis(temp_data_dir, source, expected):
     config = load_config()
     trace_id, _ = _install_external_fixture(config, source, "current", "normal")
 
     meta, spans = load_validated_run(trace_id, config)
     loaded_spans = load_spans(trace_id, config)
     events = spans_to_events(spans)
-    resolved_id, analysis_meta, analysis_events = load_run_for_analysis(
-        trace_id[:12], config
-    )
+    resolved_id, analysis_meta, analysis_events = load_run_for_analysis(trace_id[:12], config)
 
     assert trace_id == expected["trace_id"]
     assert resolved_id == trace_id
@@ -483,20 +469,14 @@ def test_external_normal_run_reads_and_projects_for_analysis(
 
 
 @pytest.mark.parametrize("source,expected", sorted(EXTERNAL_LOOP_EXPECTATIONS.items()))
-def test_external_tool_loop_run_projects_loop_structure(
-    temp_data_dir, source, expected
-):
+def test_external_tool_loop_run_projects_loop_structure(temp_data_dir, source, expected):
     config = load_config()
     trace_id, _ = _install_external_fixture(config, source, "current", "tool-loop")
 
     meta, spans = load_validated_run(trace_id, config)
     events = spans_to_events(spans)
-    resolved_id, analysis_meta, analysis_events = load_run_for_analysis(
-        trace_id, config
-    )
-    tool_events = [
-        event for event in events if event["event_type"] == EventType.TOOL_CALL.value
-    ]
+    resolved_id, analysis_meta, analysis_events = load_run_for_analysis(trace_id, config)
+    tool_events = [event for event in events if event["event_type"] == EventType.TOOL_CALL.value]
 
     assert trace_id == expected["trace_id"]
     assert resolved_id == trace_id
@@ -534,9 +514,7 @@ def test_external_tool_loop_run_projects_loop_structure(
     assert loop is not None
     assert loop["pattern"] == expected["signature"]
 
-    loop_warning = next(
-        event for event in events if event["event_type"] == EventType.LOOP_WARNING.value
-    )
+    loop_warning = next(event for event in events if event["event_type"] == EventType.LOOP_WARNING.value)
     assert loop_warning["payload"]["pattern"] == expected["stored_pattern"]
     assert loop_warning["payload"]["repetitions"] == 3
     if "pattern_type" in expected:
@@ -544,22 +522,14 @@ def test_external_tool_loop_run_projects_loop_structure(
         assert loop_warning["payload"]["pattern_length"] == expected["pattern_length"]
 
 
-@pytest.mark.parametrize(
-    "source,expected", sorted(EXTERNAL_RUNNING_EXPECTATIONS.items())
-)
-def test_external_running_trace_allows_missing_terminal_state(
-    temp_data_dir, source, expected
-):
+@pytest.mark.parametrize("source,expected", sorted(EXTERNAL_RUNNING_EXPECTATIONS.items()))
+def test_external_running_trace_allows_missing_terminal_state(temp_data_dir, source, expected):
     config = load_config()
-    trace_id, _ = _install_external_fixture(
-        config, source, "current", "missing-terminal-state"
-    )
+    trace_id, _ = _install_external_fixture(config, source, "current", "missing-terminal-state")
 
     meta, spans = load_validated_run(trace_id, config)
     events = spans_to_events(load_spans(trace_id, config))
-    resolved_id, analysis_meta, analysis_events = load_run_for_analysis(
-        trace_id, config
-    )
+    resolved_id, analysis_meta, analysis_events = load_run_for_analysis(trace_id, config)
 
     assert trace_id == expected["trace_id"]
     assert resolved_id == trace_id
@@ -595,9 +565,7 @@ def test_external_running_trace_allows_missing_terminal_state(
         ),
     ],
 )
-def test_external_malformed_traces_are_rejected_by_python_validator(
-    temp_data_dir, source, name, expected_problem
-):
+def test_external_malformed_traces_are_rejected_by_python_validator(temp_data_dir, source, name, expected_problem):
     config = load_config()
     trace_id, _ = _install_external_fixture(config, source, "malformed", name)
 

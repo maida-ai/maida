@@ -27,9 +27,7 @@ from maida.storage import install_validated_run, list_runs, load_validated_run
 
 
 runner = CliRunner()
-FIXTURE_PATH = (
-    Path(__file__).parents[1] / "fixtures" / "langfuse" / "api-v2" / "observations.json"
-)
+FIXTURE_PATH = Path(__file__).parents[1] / "fixtures" / "langfuse" / "api-v2" / "observations.json"
 
 
 def _observation(
@@ -55,11 +53,7 @@ def _observation(
         "type": observation_type,
         "name": name,
         "startTime": f"2026-01-01T00:00:{start_second:02d}.000Z",
-        "endTime": (
-            f"2026-01-01T00:00:{end_second:02d}.000Z"
-            if end_second is not None
-            else None
-        ),
+        "endTime": (f"2026-01-01T00:00:{end_second:02d}.000Z" if end_second is not None else None),
         "level": level,
         "statusMessage": "source failure" if level == "ERROR" else None,
         "input": input_value,
@@ -159,10 +153,7 @@ def test_normalize_preserves_tree_maps_calls_and_redacts(temp_data_dir):
             source_id = json.loads(raw_meta).get("langfuse", {}).get("observation_id")
             if source_id:
                 spans_by_source_id[source_id] = span
-    assert (
-        spans_by_source_id["generation-1"]["parent_span_id"]
-        == spans_by_source_id["agent-1"]["span_id"]
-    )
+    assert spans_by_source_id["generation-1"]["parent_span_id"] == spans_by_source_id["agent-1"]["span_id"]
 
 
 def test_normalize_maps_legacy_camel_case_usage_fields(temp_data_dir):
@@ -170,11 +161,7 @@ def test_normalize_maps_legacy_camel_case_usage_fields(temp_data_dir):
     row.update({"promptTokens": 8, "completionTokens": 3, "totalTokens": 11})
 
     normalized = normalize_langfuse_trace([row], load_config())
-    llm = next(
-        event
-        for event in spans_to_events(normalized.spans)
-        if event["event_type"] == "LLM_CALL"
-    )
+    llm = next(event for event in spans_to_events(normalized.spans) if event["event_type"] == "LLM_CALL")
 
     assert llm["payload"]["usage"] == {
         "prompt_tokens": 8,
@@ -184,9 +171,7 @@ def test_normalize_maps_legacy_camel_case_usage_fields(temp_data_dir):
 
 
 def test_normalize_attaches_missing_parent_to_synthetic_root(temp_data_dir):
-    normalized = normalize_langfuse_trace(
-        [_observation("tool-1", parent_id="not-in-export")], load_config()
-    )
+    normalized = normalize_langfuse_trace([_observation("tool-1", parent_id="not-in-export")], load_config())
     root = next(span for span in normalized.spans if span["parent_span_id"] is None)
     tool = next(span for span in normalized.spans if span["name"] == "lookup")
     assert tool["parent_span_id"] == root["span_id"]
@@ -195,9 +180,7 @@ def test_normalize_attaches_missing_parent_to_synthetic_root(temp_data_dir):
 def test_normalize_preserves_physical_parent_for_logical_subagent_root(
     temp_data_dir,
 ):
-    parent = _observation(
-        "agent-1", observation_type="AGENT", name="supervisor", end_second=4
-    )
+    parent = _observation("agent-1", observation_type="AGENT", name="supervisor", end_second=4)
     child = _observation(
         "agent-2",
         observation_type="AGENT",
@@ -211,9 +194,7 @@ def test_normalize_preserves_physical_parent_for_logical_subagent_root(
     normalized = normalize_langfuse_trace([parent, child], load_config())
     by_name = {span["name"]: span for span in normalized.spans}
 
-    assert (
-        by_name["runtime-worker"]["parent_span_id"] == by_name["supervisor"]["span_id"]
-    )
+    assert by_name["runtime-worker"]["parent_span_id"] == by_name["supervisor"]["span_id"]
 
 
 def test_normalize_rejects_parent_cycles(temp_data_dir):
@@ -246,14 +227,8 @@ def test_normalize_detects_historical_tool_loop(temp_data_dir):
 
 
 def test_normalize_preserves_completed_source_error(temp_data_dir):
-    normalized = normalize_langfuse_trace(
-        [_observation("tool-1", level="ERROR")], load_config()
-    )
-    tool = next(
-        event
-        for event in spans_to_events(normalized.spans)
-        if event["event_type"] == "TOOL_CALL"
-    )
+    normalized = normalize_langfuse_trace([_observation("tool-1", level="ERROR")], load_config())
+    tool = next(event for event in spans_to_events(normalized.spans) if event["event_type"] == "TOOL_CALL")
 
     assert normalized.meta["status"] == "error"
     assert normalized.meta["counts"]["errors"] == 1
@@ -263,9 +238,7 @@ def test_normalize_preserves_completed_source_error(temp_data_dir):
 
 def test_normalize_rejects_incomplete_non_event_trace(temp_data_dir):
     with pytest.raises(IncompleteLangfuseTrace, match="incomplete observation"):
-        normalize_langfuse_trace(
-            [_observation("tool-1", end_second=None)], load_config()
-        )
+        normalize_langfuse_trace([_observation("tool-1", end_second=None)], load_config())
 
 
 def test_normalize_allows_instantaneous_event_without_end_time(temp_data_dir):
@@ -445,9 +418,7 @@ def test_sanitized_fixture_imports_baselines_and_fails_regression_gate(
 ):
     rows = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))["data"]
     config = load_config()
-    good = normalize_langfuse_trace(
-        [row for row in rows if row["traceId"] == "fixture-good-trace"], config
-    )
+    good = normalize_langfuse_trace([row for row in rows if row["traceId"] == "fixture-good-trace"], config)
     regression = normalize_langfuse_trace(
         [row for row in rows if row["traceId"] == "fixture-regression-trace"],
         config,
@@ -522,9 +493,7 @@ def test_changed_source_trace_refuses_to_overwrite_import(temp_data_dir):
         import_langfuse_traces(client, config, source_trace_id="source-trace-good")
 
     _meta, spans = load_validated_run(first.imported[0]["trace_id"], config)
-    tool_event = next(
-        event for event in spans_to_events(spans) if event["event_type"] == "TOOL_CALL"
-    )
+    tool_event = next(event for event in spans_to_events(spans) if event["event_type"] == "TOOL_CALL")
     assert tool_event["payload"]["result"] == {"version": 1}
 
 

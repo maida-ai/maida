@@ -53,12 +53,8 @@ def test_langchain_integration_raises_clear_error_when_deps_missing():
             from maida.integrations import LangChainCallbackHandler  # noqa: F401
         msg = str(exc_info.value)
         assert "langchain" in msg.lower(), f"message should mention langchain: {msg!r}"
-        assert "pip install" in msg.lower(), (
-            f"message should mention pip install: {msg!r}"
-        )
-        assert 'pip install "maida-ai[langchain]"' in msg, (
-            f"message should name the public package extra: {msg!r}"
-        )
+        assert "pip install" in msg.lower(), f"message should mention pip install: {msg!r}"
+        assert 'pip install "maida-ai[langchain]"' in msg, f"message should name the public package extra: {msg!r}"
     finally:
         for key in (
             "langchain_core",
@@ -208,9 +204,7 @@ def test_langchain_handler_llm_error_is_normalized_on_call(temp_data_dir):
 
 
 @pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")
-def test_langchain_handler_calls_outside_run_do_not_create_or_contaminate_run(
-    temp_data_dir, monkeypatch
-):
+def test_langchain_handler_calls_outside_run_do_not_create_or_contaminate_run(temp_data_dir, monkeypatch):
     """Callbacks outside a run are no-ops and cannot leak into a later run."""
     monkeypatch.delenv("MAIDA_IMPLICIT_RUN", raising=False)
     handler = LangChainCallbackHandler()
@@ -273,23 +267,18 @@ def test_langchain_handler_tool_error_emits_error_status(temp_data_dir):
     error_tools = [
         e
         for e in events
-        if e.get("event_type") == EventType.TOOL_CALL.value
-        and (e.get("payload") or {}).get("status") == "error"
+        if e.get("event_type") == EventType.TOOL_CALL.value and (e.get("payload") or {}).get("status") == "error"
     ]
 
     assert len(error_tools) >= 1, "expected at least one TOOL_CALL with status=error"
     err = error_tools[0].get("payload", {}).get("error")
-    assert err is not None and isinstance(err, dict), (
-        "error should be structured object"
-    )
+    assert err is not None and isinstance(err, dict), "error should be structured object"
     assert err.get("error_type") == "ValueError"
     assert "simulated failure" in str(err.get("message", ""))
 
 
 @pytest.mark.skipif(LANGCHAIN_MISSING, reason="langchain_core not installed")
-def test_langchain_payloads_are_sanitized_before_persistence(
-    temp_data_dir, monkeypatch
-):
+def test_langchain_payloads_are_sanitized_before_persistence(temp_data_dir, monkeypatch):
     """Adapter payloads use Maida's redaction/truncation storage boundary."""
     secret = secrets.token_hex(24)
     oversized = "public-" + ("x" * 200)
@@ -301,20 +290,12 @@ def test_langchain_payloads_are_sanitized_before_persistence(
     def _run():
         handler.on_chat_model_start(
             {"id": ["langchain", "PrivateChatModel"]},
-            [
-                [
-                    SimpleNamespace(
-                        type="human", content={"api_key": secret, "text": oversized}
-                    )
-                ]
-            ],
+            [[SimpleNamespace(type="human", content={"api_key": secret, "text": oversized})]],
             run_id="llm-private",
         )
         handler.on_llm_end(
             SimpleNamespace(
-                generations=[
-                    [SimpleNamespace(text={"api_key": secret, "text": oversized})]
-                ],
+                generations=[[SimpleNamespace(text={"api_key": secret, "text": oversized})]],
                 llm_output=None,
             ),
             run_id="llm-private",
@@ -330,9 +311,7 @@ def test_langchain_payloads_are_sanitized_before_persistence(
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(
-        encoding="utf-8"
-    )
+    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(encoding="utf-8")
     assert secret not in raw
 
     _, _, events = load_run_for_analysis(run_id, config)

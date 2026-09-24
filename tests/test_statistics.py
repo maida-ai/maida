@@ -31,9 +31,7 @@ from maida.statistics import (
 def test_default_verdicts_cover_supported_small_trial_counts(
     successes: int, trials: int, expected: GateVerdict
 ) -> None:
-    result = aggregate_outcomes(
-        "check", [True] * successes + [False] * (trials - successes)
-    )
+    result = aggregate_outcomes("check", [True] * successes + [False] * (trials - successes))
 
     assert result.verdict is expected
     assert result.trials == trials
@@ -41,9 +39,7 @@ def test_default_verdicts_cover_supported_small_trial_counts(
 
 
 def test_wilson_pass_when_lower_bound_meets_threshold() -> None:
-    result = aggregate_outcomes(
-        "check", [True] * 10, pass_rate_threshold=0.70, confidence_level=0.95
-    )
+    result = aggregate_outcomes("check", [True] * 10, pass_rate_threshold=0.70, confidence_level=0.95)
 
     assert result.verdict is GateVerdict.PASS
     assert result.confidence_interval[0] >= 0.70

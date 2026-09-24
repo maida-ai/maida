@@ -45,9 +45,7 @@ def _published_schema(name: str) -> dict:
 def _published_validator(name: str) -> Draft202012Validator:
     schema = _published_schema(name)
     plan_schema = _published_schema("plan-artifact.schema.json")
-    registry = Registry().with_resource(
-        plan_schema["$id"], Resource.from_contents(plan_schema)
-    )
+    registry = Registry().with_resource(plan_schema["$id"], Resource.from_contents(plan_schema))
     return Draft202012Validator(schema, registry=registry)
 
 
@@ -145,9 +143,7 @@ def test_real_resolved_signature_normalizes_to_versioned_plan_artifact() -> None
         "plan_budget_tool_calls": 2.0,
         "plan_budget_wall_time_ms": 4000.0,
     }
-    schema = json.loads(
-        (ROOT / "schemas" / "plan-artifact.schema.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads((ROOT / "schemas" / "plan-artifact.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     Draft202012Validator(schema).validate(payload)
 
@@ -191,23 +187,15 @@ def test_plan_artifact_fails_closed_on_grant_escalation_and_tampering() -> None:
         lambda value: value["resolved_nodes"][0].update(module_id="unknown.module"),
         lambda value: value["resolved_nodes"][0].update(effects=None),
         lambda value: value["resolved_nodes"][0].update(effects=[{}]),
-        lambda value: value["module_composition"].append(
-            copy.deepcopy(value["module_composition"][0])
-        ),
+        lambda value: value["module_composition"].append(copy.deepcopy(value["module_composition"][0])),
         lambda value: value["required_grant"].update(capabilities=[""]),
         lambda value: value["aggregate_budget"].update(cost_usd=-1),
         lambda value: value.update(max_depth=True),
         lambda value: value.update(topology_digest="not-a-digest"),
         lambda value: value.update(alias_provenance=None),
-        lambda value: value["alias_provenance"].append(
-            copy.deepcopy(value["alias_provenance"][0])
-        ),
+        lambda value: value["alias_provenance"].append(copy.deepcopy(value["alias_provenance"][0])),
         lambda value: value.update(approval_requirements=None),
-        lambda value: value.update(
-            approval_requirements=[
-                {"effect_name": "admin.delete", "node_key": "deliver"}
-            ]
-        ),
+        lambda value: value.update(approval_requirements=[{"effect_name": "admin.delete", "node_key": "deliver"}]),
     ],
 )
 def test_plan_artifact_rejects_malformed_resolved_signatures(mutate) -> None:
@@ -362,8 +350,7 @@ metrics:
 
     false_path = tmp_path / "false-shape-policy.yaml"
     false_path.write_text(
-        "version: 2.1\nmetrics:\n"
-        "  plan_shape_seen: {kind: invariant, require: false}\n",
+        "version: 2.1\nmetrics:\n  plan_shape_seen: {kind: invariant, require: false}\n",
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="plan_shape_seen.require must be true"):
@@ -405,8 +392,7 @@ def test_policy_2_0_rejects_plan_metrics_that_require_2_1(tmp_path) -> None:
 def test_numeric_plan_metrics_require_evidence_from_every_trial(tmp_path) -> None:
     path = tmp_path / "policy.yaml"
     path.write_text(
-        "version: 2.1\ntrials: 2\nmetrics:\n"
-        "  plan_depth: {kind: measured, direction: upper, limit: 4}\n",
+        "version: 2.1\ntrials: 2\nmetrics:\n  plan_depth: {kind: measured, direction: upper, limit: 4}\n",
         encoding="utf-8",
     )
     policy = load_policy(path)
@@ -489,8 +475,7 @@ def test_distributional_plan_metric_reads_plan_baseline_population(tmp_path) -> 
 def test_empty_plan_allowlist_is_fail_closed_and_preserved(tmp_path) -> None:
     path = tmp_path / "policy.yaml"
     path.write_text(
-        "version: 2.1\nmetrics:\n"
-        "  plan_effectful_modules: {kind: invariant, allowed: []}\n",
+        "version: 2.1\nmetrics:\n  plan_effectful_modules: {kind: invariant, allowed: []}\n",
         encoding="utf-8",
     )
     policy = load_policy(path)
@@ -503,16 +488,16 @@ def test_empty_plan_allowlist_is_fail_closed_and_preserved(tmp_path) -> None:
             "metrics": {"plan_effectful_modules": {"kind": "invariant", "allowed": []}},
         }
     )
-    assert plan_invariant_outcomes(
-        plan_artifact_from_resolved_signature(_resolved_signature()), policy
-    ) == {"plan_effectful_modules": False}
+    assert plan_invariant_outcomes(plan_artifact_from_resolved_signature(_resolved_signature()), policy) == {
+        "plan_effectful_modules": False
+    }
 
     effect_free = _resolved_signature()
     effect_free["required_grant"]["effects"] = []
     effect_free["resolved_nodes"][2]["effects"] = []
-    assert plan_invariant_outcomes(
-        plan_artifact_from_resolved_signature(effect_free), policy
-    ) == {"plan_effectful_modules": True}
+    assert plan_invariant_outcomes(plan_artifact_from_resolved_signature(effect_free), policy) == {
+        "plan_effectful_modules": True
+    }
 
 
 @pytest.mark.parametrize(
@@ -523,9 +508,7 @@ def test_empty_plan_allowlist_is_fail_closed_and_preserved(tmp_path) -> None:
         ("plan_grants", "approval_required_for"),
     ],
 )
-def test_plan_invariant_rejects_all_empty_no_op_clauses(
-    tmp_path, name: str, field: str
-) -> None:
+def test_plan_invariant_rejects_all_empty_no_op_clauses(tmp_path, name: str, field: str) -> None:
     path = tmp_path / "policy.yaml"
     path.write_text(
         f"version: 2.1\nmetrics:\n  {name}:\n    kind: invariant\n    {field}: []\n",
@@ -557,21 +540,13 @@ def test_approval_rules_apply_only_to_effects_requested_by_the_plan(tmp_path) ->
     harmless = _resolved_signature()
     harmless["required_grant"]["effects"] = []
     harmless["resolved_nodes"][2]["effects"] = []
-    assert plan_invariant_outcomes(
-        plan_artifact_from_resolved_signature(harmless), policy
-    ) == {"plan_grants": True}
+    assert plan_invariant_outcomes(plan_artifact_from_resolved_signature(harmless), policy) == {"plan_grants": True}
 
     requested = _resolved_signature()
-    assert plan_invariant_outcomes(
-        plan_artifact_from_resolved_signature(requested), policy
-    ) == {"plan_grants": False}
+    assert plan_invariant_outcomes(plan_artifact_from_resolved_signature(requested), policy) == {"plan_grants": False}
 
-    requested["approval_requirements"] = [
-        {"effect_name": "messages.deliver", "node_key": "deliver"}
-    ]
-    assert plan_invariant_outcomes(
-        plan_artifact_from_resolved_signature(requested), policy
-    ) == {"plan_grants": True}
+    requested["approval_requirements"] = [{"effect_name": "messages.deliver", "node_key": "deliver"}]
+    assert plan_invariant_outcomes(plan_artifact_from_resolved_signature(requested), policy) == {"plan_grants": True}
 
 
 def test_report_carries_typed_plan_validation_and_graph_diff_evidence() -> None:
@@ -603,9 +578,7 @@ def test_report_carries_typed_plan_validation_and_graph_diff_evidence() -> None:
     assert payload["report_version"] == REPORT_SCHEMA_VERSION
     assert payload["plan_evidence"] == [evidence.to_dict()]
     assert payload["plan_evidence"][0]["checked_before_execution"] is True
-    assert payload["plan_evidence"][0]["graph_changes"][0]["kind"] == (
-        "TOPOLOGY_CHANGED"
-    )
+    assert payload["plan_evidence"][0]["graph_changes"][0]["kind"] == ("TOPOLOGY_CHANGED")
     payload["metadata"]["trials_used"] = 1
     validator = _published_validator("statistical-gate-report.schema.json")
     validator.check_schema(validator.schema)
@@ -668,13 +641,8 @@ def test_plan_evidence_rejects_inconsistent_or_post_execution_claims() -> None:
     with pytest.raises(PlanContractError, match="resolvable must be boolean"):
         PlanEvidence.from_dict(serialized)
 
-    issue_with_location = PlanValidationIssue(
-        code="PLAN_REJECTED", message="Rejected.", location="signature.max_depth"
-    )
-    assert (
-        PlanValidationIssue.from_dict(issue_with_location.to_dict())
-        == issue_with_location
-    )
+    issue_with_location = PlanValidationIssue(code="PLAN_REJECTED", message="Rejected.", location="signature.max_depth")
+    assert PlanValidationIssue.from_dict(issue_with_location.to_dict()) == issue_with_location
 
     unknown_issue = issue_with_location.to_dict()
     unknown_issue["unknown"] = True
@@ -733,9 +701,7 @@ def test_baseline_adds_a_deduplicated_plan_population() -> None:
         "artifact_ids": [artifact.artifact_id, artifact.artifact_id],
         "artifact_counts": {artifact.artifact_id: 2},
         "artifacts": {artifact.artifact_id: artifact.to_dict()},
-        "metrics": {
-            name: [value, value] for name, value in plan_metric_values(artifact).items()
-        },
+        "metrics": {name: [value, value] for name, value in plan_metric_values(artifact).items()},
         "sets": {
             "plan_effectful_modules": [["demo.deliver"], ["demo.deliver"]],
             "plan_grants": [
@@ -749,8 +715,6 @@ def test_baseline_adds_a_deduplicated_plan_population() -> None:
     validator.validate(baseline)
 
     malformed = copy.deepcopy(baseline)
-    malformed["plan_sample"]["artifacts"][artifact.artifact_id] = {
-        "not": "a plan artifact"
-    }
+    malformed["plan_sample"]["artifacts"][artifact.artifact_id] = {"not": "a plan artifact"}
     with pytest.raises(ValidationError):
         validator.validate(malformed)

@@ -17,13 +17,9 @@ def _make_run(config, *, name="test_run", events=None):
     with traced_run(name=name):
         for ev_type, ev_name, payload in events or []:
             if ev_type == EventType.TOOL_CALL:
-                record_tool_call(
-                    ev_name, args=payload.get("args", {}), result=payload.get("result")
-                )
+                record_tool_call(ev_name, args=payload.get("args", {}), result=payload.get("result"))
             elif ev_type == EventType.LLM_CALL:
-                record_llm_call(
-                    ev_name, prompt="p", response="r", usage=payload.get("usage")
-                )
+                record_llm_call(ev_name, prompt="p", response="r", usage=payload.get("usage"))
     return get_latest_run_id(config)
 
 

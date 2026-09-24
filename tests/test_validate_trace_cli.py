@@ -8,16 +8,7 @@ from maida.cli import app
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE = (
-    ROOT
-    / "tests"
-    / "fixtures"
-    / "traces"
-    / "external"
-    / "emitter"
-    / "current"
-    / "multithread"
-)
+FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 runner = CliRunner()
 
 
@@ -52,9 +43,7 @@ def test_validate_trace_invalid_content_exits_one_without_leaking(
 ) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()
-    (run_dir / "meta.json").write_text(
-        '{"secret":"sk-test-DO-NOT-LEAK"', encoding="utf-8"
-    )
+    (run_dir / "meta.json").write_text('{"secret":"sk-test-DO-NOT-LEAK"', encoding="utf-8")
     (run_dir / "spans.jsonl").write_text("{}\n", encoding="utf-8")
 
     result = runner.invoke(app, ["validate-trace", str(run_dir)])

@@ -43,10 +43,7 @@ def merge_guardrail_params(base: GuardrailParams, **overrides: Any) -> Guardrail
             max_events=out.max_events,
             max_duration_s=out.max_duration_s,
         )
-    if (
-        "stop_on_loop_min_repetitions" in overrides
-        and overrides["stop_on_loop_min_repetitions"] is not None
-    ):
+    if "stop_on_loop_min_repetitions" in overrides and overrides["stop_on_loop_min_repetitions"] is not None:
         n = overrides["stop_on_loop_min_repetitions"]
         try:
             out = GuardrailParams(

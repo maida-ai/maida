@@ -242,9 +242,7 @@ def test_generation_span_records_llm_call_event(openai_agents_module):
     assert meta["openai_agents"]["model_config"] == {"temperature": 0.2}
 
 
-def test_openai_agents_success_path_persists_structural_signature(
-    openai_agents_module, temp_data_dir
-):
+def test_openai_agents_success_path_persists_structural_signature(openai_agents_module, temp_data_dir):
     """The offline success path persists the exact normalized signature."""
     _, tracing_module, span_data = openai_agents_module
 
@@ -275,11 +273,7 @@ def test_openai_agents_success_path_persists_structural_signature(
             )
         )
         tracing_module.emit_span(
-            _fake_span(
-                span_data.HandoffSpanData(
-                    from_agent="router_agent", to_agent="search_agent"
-                )
-            )
+            _fake_span(span_data.HandoffSpanData(from_agent="router_agent", to_agent="search_agent"))
         )
 
     run_success_path()
@@ -342,14 +336,10 @@ def test_function_and_handoff_spans_record_tool_call_events(openai_agents_module
         ),
         parent_id="span_parent",
     )
-    handoff_span = _fake_span(
-        span_data.HandoffSpanData(from_agent="router_agent", to_agent="search_agent")
-    )
+    handoff_span = _fake_span(span_data.HandoffSpanData(from_agent="router_agent", to_agent="search_agent"))
 
     with patch.object(openai_agents, "has_active_run", return_value=True):
-        with patch.object(
-            openai_agents, "record_tool_call", MagicMock()
-        ) as record_tool:
+        with patch.object(openai_agents, "record_tool_call", MagicMock()) as record_tool:
             tracing_module.emit_span(function_span)
             tracing_module.emit_span(handoff_span)
 
@@ -468,9 +458,7 @@ def test_openai_agents_errors_persist_on_normalized_calls(
     assert events[-1]["payload"] == {"status": "ok"}
 
 
-def test_openai_agents_payloads_are_sanitized_before_persistence(
-    openai_agents_module, temp_data_dir, monkeypatch
-):
+def test_openai_agents_payloads_are_sanitized_before_persistence(openai_agents_module, temp_data_dir, monkeypatch):
     """Adapter payloads use Maida's redaction/truncation storage boundary."""
     openai_agents, _, span_data = openai_agents_module
     secret = secrets.token_hex(24)
@@ -509,9 +497,7 @@ def test_openai_agents_payloads_are_sanitized_before_persistence(
 
     config = load_config()
     run_id = get_latest_run_id(config)
-    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(
-        encoding="utf-8"
-    )
+    raw = (config.data_dir / "runs" / run_id / "spans.jsonl").read_text(encoding="utf-8")
     assert secret not in raw
 
     _, _, events = load_run_for_analysis(run_id, config)
@@ -526,9 +512,7 @@ def test_openai_agents_payloads_are_sanitized_before_persistence(
     assert tool["payload"]["error"]["message"] == REDACTED_MARKER
 
 
-def test_calls_outside_run_do_not_create_or_contaminate_run(
-    openai_agents_module, temp_data_dir, monkeypatch
-):
+def test_calls_outside_run_do_not_create_or_contaminate_run(openai_agents_module, temp_data_dir, monkeypatch):
     _, tracing_module, span_data = openai_agents_module
     monkeypatch.delenv("MAIDA_IMPLICIT_RUN", raising=False)
 
@@ -586,17 +570,13 @@ def test_guardrail_exception_captured_on_abort_exception(openai_agents_module):
 
     exc = LoopAbort(threshold=3, actual=3, message="stop_on_loop test")
 
-    span = _fake_span(
-        span_data.GenerationSpanData(input="hello", output="world", model="gpt-4o-mini")
-    )
+    span = _fake_span(span_data.GenerationSpanData(input="hello", output="world", model="gpt-4o-mini"))
 
     def fake_record_llm_call(**kwargs):
         raise exc
 
     with patch.object(openai_agents, "has_active_run", return_value=True):
-        with patch.object(
-            openai_agents, "record_llm_call", side_effect=fake_record_llm_call
-        ):
+        with patch.object(openai_agents, "record_llm_call", side_effect=fake_record_llm_call):
             with pytest.raises(_MaidaAbortSignal) as sig_info:
                 tracing_module.emit_span(span)
 
@@ -623,9 +603,7 @@ def test_abort_exception_resets_on_new_trace(openai_agents_module):
 # ---------------------------------------------------------------------------
 
 
-def test_loop_warning_dedup_with_openai_agents_adapter(
-    openai_agents_module, temp_data_dir
-):
+def test_loop_warning_dedup_with_openai_agents_adapter(openai_agents_module, temp_data_dir):
     """When stop_on_loop fires inside the OpenAI Agents adapter, the
     _MaidaAbortSignal (BaseException) bypasses the SDK's except Exception
     and propagates to _run_context, which records ERROR + RUN_END and
@@ -675,17 +653,14 @@ def test_loop_warning_dedup_with_openai_agents_adapter(
         run_openai_agents_looping()
 
     assert iterations_completed < 10, (
-        f"loop should have been stopped by guardrail, but completed "
-        f"{iterations_completed}/10 iterations"
+        f"loop should have been stopped by guardrail, but completed {iterations_completed}/10 iterations"
     )
 
     config = load_config()
     run_id = get_latest_run_id(config)
     _, run_meta, events = load_run_for_analysis(run_id, config)
 
-    loop_warnings = [
-        e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value
-    ]
+    loop_warnings = [e for e in events if e.get("event_type") == EventType.LOOP_WARNING.value]
     patterns = {e["payload"]["pattern"] for e in loop_warnings}
     assert len(loop_warnings) == len(patterns), (
         f"each distinct pattern should emit exactly one LOOP_WARNING; "

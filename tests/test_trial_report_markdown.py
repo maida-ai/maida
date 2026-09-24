@@ -364,21 +364,13 @@ def test_trial_report_baseline_acceptance_is_additive_json() -> None:
 
     assert "baseline_acceptance" not in legacy_payload
     assert current_payload["baseline_acceptance"] == acceptance
-    assert (
-        current_payload["report_version"]
-        == legacy_payload["report_version"]
-        == REPORT_SCHEMA_VERSION
-    )
+    assert current_payload["report_version"] == legacy_payload["report_version"] == REPORT_SCHEMA_VERSION
     assert current_payload["verdict"] == legacy_payload["verdict"] == "pass"
 
 
 def test_statistical_report_schema_accepts_optional_baseline_acceptance() -> None:
     schema = json.loads(
-        (
-            Path(__file__).parents[1]
-            / "schemas"
-            / "statistical-gate-report.schema.json"
-        ).read_text(encoding="utf-8")
+        (Path(__file__).parents[1] / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8")
     )
 
     assert "baseline_acceptance" not in schema["required"]

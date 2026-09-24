@@ -52,9 +52,7 @@ def search_car_rentals(
 
     conn.close()
 
-    return [
-        dict(zip([column[0] for column in cursor.description], row)) for row in results
-    ]
+    return [dict(zip([column[0] for column in cursor.description], row)) for row in results]
 
 
 @tool
@@ -108,9 +106,7 @@ def update_car_rental(
             (start_date, rental_id),
         )
     if end_date:
-        cursor.execute(
-            "UPDATE car_rentals SET end_date = ? WHERE id = ?", (end_date, rental_id)
-        )
+        cursor.execute("UPDATE car_rentals SET end_date = ? WHERE id = ?", (end_date, rental_id))
 
     conn.commit()
 

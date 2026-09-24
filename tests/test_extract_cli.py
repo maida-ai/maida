@@ -147,9 +147,7 @@ def test_extract_cli_human_summary_is_compact(tmp_path: Path) -> None:
         ),
     ],
 )
-def test_extract_cli_invalid_selection_exits_two_without_output(
-    tmp_path: Path, extra: list[str], message: str
-) -> None:
+def test_extract_cli_invalid_selection_exits_two_without_output(tmp_path: Path, extra: list[str], message: str) -> None:
     runs_dir = _cli_window(tmp_path)
     out_dir = tmp_path / "draft"
 

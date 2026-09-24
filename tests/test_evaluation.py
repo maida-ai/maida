@@ -38,13 +38,9 @@ def test_evaluate_stored_run_returns_report_diff_and_formatter_parity(temp_data_
     assert evaluation.passed is False
     assert evaluation.report.run_id == current_id
     assert evaluation.diff.run_a_id == current_id
-    assert evaluation.render("text") == format_report_text(
-        evaluation.report, diff=evaluation.diff
-    )
+    assert evaluation.render("text") == format_report_text(evaluation.report, diff=evaluation.diff)
     assert evaluation.render("json") == format_report_json(evaluation.report)
-    assert evaluation.render(
-        "markdown", baseline_path="baseline.json"
-    ) == format_report_markdown(
+    assert evaluation.render("markdown", baseline_path="baseline.json") == format_report_markdown(
         evaluation.report,
         diff=evaluation.diff,
         baseline_path="baseline.json",

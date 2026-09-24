@@ -14,9 +14,7 @@ from maida.policy import load_policy, merge_policy
 @pytest.mark.parametrize("version", ["2", "2.0", "2.1", '"2"', '"2.1"'])
 def test_load_policy_valid_yaml(tmp_path, version):
     p = tmp_path / "policy.yaml"
-    p.write_text(
-        f"version: {version}\nmetrics:\n  no_loops: {{kind: invariant, require: true}}\n"
-    )
+    p.write_text(f"version: {version}\nmetrics:\n  no_loops: {{kind: invariant, require: true}}\n")
     policy = load_policy(p)
     assert policy.source_format == "v2"
     assert policy.policy_version[0] == 2
@@ -83,9 +81,7 @@ def test_load_policy_missing_file(tmp_path):
 
 
 def test_merge_cli_overrides_win(tmp_path):
-    file_policy = AssertionPolicy(
-        no_loops=True, step_tolerance=0.3, max_steps=50, trials=3
-    )
+    file_policy = AssertionPolicy(no_loops=True, step_tolerance=0.3, max_steps=50, trials=3)
     cli = {
         "max_steps": 100,
         "step_tolerance": None,
@@ -170,9 +166,7 @@ def test_merge_ignored_checks_union_with_cli():
     file_policy = AssertionPolicy(ignored_checks=["step_count", "no_loops"])
     cli = {"ignored_checks": ["cost_tokens"]}
     merged = merge_policy(file_policy, cli)
-    assert sorted(merged.ignored_checks) == sorted(
-        ["step_count", "no_loops", "cost_tokens"]
-    )
+    assert sorted(merged.ignored_checks) == sorted(["step_count", "no_loops", "cost_tokens"])
 
 
 def test_merge_ignored_checks_file_only():
@@ -196,9 +190,7 @@ def test_merge_ignored_checks_dedup():
     assert merged.ignored_checks == ["no_loops", "step_count"]
 
 
-@pytest.mark.parametrize(
-    "kwargs", [{"policy_version": (1, 0)}, {"source_format": "v1"}]
-)
+@pytest.mark.parametrize("kwargs", [{"policy_version": (1, 0)}, {"source_format": "v1"}])
 def test_programmatic_policy_cannot_select_removed_format(kwargs):
     with pytest.raises(ValueError):
         AssertionPolicy(**kwargs)
@@ -217,35 +209,22 @@ def test_no_new_tools_checks_every_candidate_tool(tmp_path, baseline, tools, exp
     from maida.gate import invariant_outcomes
 
     p = tmp_path / "policy.yaml"
-    p.write_text(
-        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
-    )
+    p.write_text("version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n")
     policy = load_policy(p)
-    assert (
-        invariant_outcomes({"summary": {}, "tool_path": tools}, policy, baseline)[
-            "no_new_tools"
-        ]
-        is expected
-    )
+    assert invariant_outcomes({"summary": {}, "tool_path": tools}, policy, baseline)["no_new_tools"] is expected
 
 
-@pytest.mark.parametrize(
-    "baseline", [None, {}, {"tool_path": None}, {"tool_path": "lookup"}]
-)
+@pytest.mark.parametrize("baseline", [None, {}, {"tool_path": None}, {"tool_path": "lookup"}])
 def test_no_new_tools_requires_an_explicit_baseline_tool_path(tmp_path, baseline):
     from maida.baseline_bind import validate_policy_against_baseline
 
     p = tmp_path / "policy.yaml"
-    p.write_text(
-        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
-    )
+    p.write_text("version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n")
     with pytest.raises(ValueError, match="baseline tool_path"):
         validate_policy_against_baseline(load_policy(p), baseline)
 
 
-@pytest.mark.parametrize(
-    "rule", ["require: false", "none_of: [known_bad]", "all_of: [lookup]"]
-)
+@pytest.mark.parametrize("rule", ["require: false", "none_of: [known_bad]", "all_of: [lookup]"])
 def test_no_new_tools_rejects_non_enforcing_configuration(tmp_path, rule):
     p = tmp_path / "policy.yaml"
     p.write_text(f"version: 2\nmetrics:\n  no_new_tools: {{kind: invariant, {rule}}}\n")
@@ -258,9 +237,7 @@ def test_no_new_tools_is_enforced_in_every_trial(tmp_path):
     from maida.statistics import GateVerdict
 
     path = tmp_path / "policy.yaml"
-    path.write_text(
-        "version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n"
-    )
+    path.write_text("version: 2\nmetrics:\n  no_new_tools: {kind: invariant, require: true}\n")
     policy = load_policy(path)
     baseline = {"tool_path": ["lookup"]}
     outcomes = [
@@ -276,12 +253,7 @@ def test_no_new_tools_is_enforced_in_every_trial(tmp_path):
         trials_budgeted=3,
         stopping_rule="fixed_n",
     )
-    assert (
-        next(
-            result for result in results if result.check_name == "no_new_tools"
-        ).verdict
-        is GateVerdict.FAIL
-    )
+    assert next(result for result in results if result.check_name == "no_new_tools").verdict is GateVerdict.FAIL
 
 
 def test_no_new_tools_schema_matches_loader(tmp_path):
@@ -289,9 +261,7 @@ def test_no_new_tools_schema_matches_loader(tmp_path):
     from pathlib import Path
     import jsonschema
 
-    schema = json.loads(
-        (Path(__file__).parents[1] / "schemas/policy.schema.json").read_text()
-    )
+    schema = json.loads((Path(__file__).parents[1] / "schemas/policy.schema.json").read_text())
     valid = {
         "version": 2,
         "metrics": {"no_new_tools": {"kind": "invariant", "require": True}},

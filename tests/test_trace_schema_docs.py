@@ -5,9 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_emitter_guide_documents_complete_external_contract() -> None:
-    text = (ROOT / "docs" / "reference" / "trace-emitter.md").read_text(
-        encoding="utf-8"
-    )
+    text = (ROOT / "docs" / "reference" / "trace-emitter.md").read_text(encoding="utf-8")
 
     for snippet in (
         "maida validate-trace",
@@ -26,12 +24,8 @@ def test_emitter_guide_documents_complete_external_contract() -> None:
 
 
 def test_schema_changelog_and_trace_reference_define_version_policy() -> None:
-    changelog = (ROOT / "schemas" / "trace" / "CHANGELOG.md").read_text(
-        encoding="utf-8"
-    )
-    reference = (ROOT / "docs" / "reference" / "trace-format.md").read_text(
-        encoding="utf-8"
-    )
+    changelog = (ROOT / "schemas" / "trace" / "CHANGELOG.md").read_text(encoding="utf-8")
+    reference = (ROOT / "docs" / "reference" / "trace-format.md").read_text(encoding="utf-8")
 
     assert "## 0.2.0" in changelog
     for snippet in (

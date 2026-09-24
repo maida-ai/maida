@@ -26,9 +26,7 @@ def weekly_rows(payload: dict, ending: date, weeks: int) -> list[dict]:
         raise ValueError("Choose a Sunday and between 1 and 25 weeks")
     if not isinstance(payload, dict) or payload.get("package") != "maida-ai":
         raise ValueError("Unexpected package in PyPI response")
-    if payload.get("type") != "overall_downloads" or not isinstance(
-        payload.get("data"), list
-    ):
+    if payload.get("type") != "overall_downloads" or not isinstance(payload.get("data"), list):
         raise ValueError("Unexpected PyPI response shape")
     daily = {}
     for entry in payload["data"]:
@@ -57,9 +55,7 @@ def summarize_days(daily: dict, ending: date, weeks: int, registry: str) -> list
             {
                 "week_start": start.isoformat(),
                 "week_end": end.isoformat(),
-                f"{registry}_downloads": sum(daily[d] for d in days)
-                if observed == 7
-                else "",
+                f"{registry}_downloads": sum(daily[d] for d in days) if observed == 7 else "",
                 f"{registry}_observed_days": observed,
                 f"{registry}_status": "complete" if observed == 7 else "incomplete",
             }
@@ -103,9 +99,7 @@ def npm_weekly_rows(payload: dict, ending: date, weeks: int) -> list[dict]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=Path("_ai_report/weekly-downloads.csv")
-    )
+    parser.add_argument("--output", type=Path, default=Path("_ai_report/weekly-downloads.csv"))
     parser.add_argument(
         "--week-ending",
         type=date.fromisoformat,
@@ -159,8 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         writer.writerows(rows)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.with_suffix(".source.json").write_text(
-            json.dumps({"collected_at": collected, "sources": evidence}, indent=2)
-            + "\n",
+            json.dumps({"collected_at": collected, "sources": evidence}, indent=2) + "\n",
             encoding="utf-8",
         )
         args.output.write_text(buffer.getvalue(), encoding="utf-8")
@@ -175,11 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         f"Wrote {args.output}. PyPI and npm downloads are separate counts, not installs.",
         file=sys.stderr,
     )
-    if any(
-        row[f"{registry}_status"] != "complete"
-        for row in rows
-        for registry in ("pypi", "npm")
-    ):
+    if any(row[f"{registry}_status"] != "complete" for row in rows for registry in ("pypi", "npm")):
         print(
             "Some weeks have missing daily observations; retry after the source updates or choose an earlier period.",
             file=sys.stderr,

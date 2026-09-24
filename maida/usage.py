@@ -29,9 +29,7 @@ def make_payload(verdict: str, repo_id: str, pr: bool) -> dict:
         "repo_id": repo_id,
         "date": datetime.now(timezone.utc).date().isoformat(),
         "pr": pr,
-        "verdict_counts": {
-            key: int(key == verdict) for key in ("pass", "fail", "inconclusive")
-        },
+        "verdict_counts": {key: int(key == verdict) for key in ("pass", "fail", "inconclusive")},
     }
 
 
@@ -54,8 +52,7 @@ def report_usage(verdict: str) -> str:
         payload = make_payload(
             verdict,
             os.environ.get("MAIDA_USAGE_REPO_ID", ""),
-            os.environ.get("GITHUB_EVENT_NAME")
-            in {"pull_request", "pull_request_target"},
+            os.environ.get("GITHUB_EVENT_NAME") in {"pull_request", "pull_request_target"},
         )
         request = Request(
             endpoint,
@@ -64,9 +61,7 @@ def report_usage(verdict: str) -> str:
             method="POST",
         )
         # Avoid proxy credentials and redirects to an unintended recipient.
-        with build_opener(ProxyHandler({}), _NoRedirect()).open(
-            request, timeout=1
-        ) as response:
+        with build_opener(ProxyHandler({}), _NoRedirect()).open(request, timeout=1) as response:
             response.read(1)
         return "Usage ping: opted in; sent"
     except Exception:
@@ -86,10 +81,7 @@ def _validate_payload(payload: object) -> bool:
         return False
     counts = payload["verdict_counts"]
     try:
-        if (
-            not isinstance(payload["date"], str)
-            or re.fullmatch(r"\d{4}-\d{2}-\d{2}", payload["date"]) is None
-        ):
+        if not isinstance(payload["date"], str) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", payload["date"]) is None:
             return False
         date.fromisoformat(payload["date"])
         return (

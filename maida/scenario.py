@@ -211,9 +211,7 @@ class ScenarioRunReport:
                     details.append(f"reason={item.failure_reason}")
                 lines.append(f"[{item.scenario_id}] " + " ".join(details))
                 if item.evaluation is not None:
-                    lines.append(
-                        item.evaluation.render("text", baseline_path=item.baseline_path)
-                    )
+                    lines.append(item.evaluation.render("text", baseline_path=item.baseline_path))
             return "\n".join(lines)
         if output_format == "markdown":
             lines = [
@@ -237,9 +235,7 @@ class ScenarioRunReport:
                         "",
                         f"### `{item.scenario_id}`",
                         "",
-                        item.evaluation.render(
-                            "markdown", baseline_path=item.baseline_path
-                        ),
+                        item.evaluation.render("markdown", baseline_path=item.baseline_path),
                     ]
                 )
             return "\n".join(lines)
@@ -255,9 +251,7 @@ def _mapping(value: object, field: str) -> dict[str, Any]:
 def _reject_unknown(value: Mapping[str, Any], allowed: set[str], field: str) -> None:
     unknown = sorted(set(value) - allowed)
     if unknown:
-        raise ScenarioInputError(
-            f"{field} contains unknown field(s): {', '.join(unknown)}"
-        )
+        raise ScenarioInputError(f"{field} contains unknown field(s): {', '.join(unknown)}")
 
 
 def _required_string(value: object, field: str) -> str:
@@ -267,12 +261,7 @@ def _required_string(value: object, field: str) -> str:
 
 
 def _positive_number(value: object, field: str) -> float:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value <= 0
-    ):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
         raise ScenarioInputError(f"{field} must be a positive number")
     return float(value)
 
@@ -310,9 +299,7 @@ def _require_tracked(project_root: Path, path: Path, field: str) -> None:
             text=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise ScenarioInputError(
-            "scenario project must be a readable Git worktree"
-        ) from exc
+        raise ScenarioInputError("scenario project must be a readable Git worktree") from exc
     if completed.returncode != 0 or not path.is_file() or path.is_symlink():
         raise ScenarioInputError(f"{field} must be a tracked file")
 
@@ -330,18 +317,14 @@ def _read_json_object(path: Path, field: str) -> dict[str, Any]:
 def _validate_settings(path: Path) -> None:
     settings = _read_json_object(path, "claude.settings")
     permissions = settings.get("permissions")
-    if isinstance(permissions, dict) and permissions.get("defaultMode") == (
-        "bypassPermissions"
-    ):
+    if isinstance(permissions, dict) and permissions.get("defaultMode") == ("bypassPermissions"):
         raise ScenarioInputError("claude.settings must not bypass permissions")
     if settings.get("dangerouslySkipPermissions"):
         raise ScenarioInputError("claude.settings must not bypass permissions")
     if "hooks" in settings:
         raise ScenarioInputError("claude.settings must not install undeclared hooks")
     if "env" in settings:
-        raise ScenarioInputError(
-            "claude.settings must not override the runner environment"
-        )
+        raise ScenarioInputError("claude.settings must not override the runner environment")
 
 
 def _validate_mcp(path: Path) -> None:
@@ -357,9 +340,7 @@ def _load_manifest_yaml(path: Path) -> dict[str, Any]:
     except FileNotFoundError as exc:
         raise ScenarioInputError(f"scenario manifest not found: {path}") from exc
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise ScenarioInputError(
-            f"scenario manifest is not valid YAML: {path}"
-        ) from exc
+        raise ScenarioInputError(f"scenario manifest is not valid YAML: {path}") from exc
     return _mapping(value, "manifest")
 
 
@@ -409,9 +390,7 @@ def load_scenario_manifest(
         },
         "claude",
     )
-    executable = _required_string(
-        claude_data.get("executable", "claude"), "claude.executable"
-    )
+    executable = _required_string(claude_data.get("executable", "claude"), "claude.executable")
     if Path(executable).name != executable:
         raise ScenarioInputError("claude.executable must be a command name")
     version = _required_string(claude_data.get("version"), "claude.version")
@@ -422,21 +401,13 @@ def load_scenario_manifest(
         raise ScenarioInputError("claude.model must be a full Claude model ID")
     settings = _relative_path(claude_data.get("settings"), "claude.settings")
     mcp_config = _relative_path(claude_data.get("mcp_config"), "claude.mcp_config")
-    timeout_seconds = _positive_number(
-        claude_data.get("timeout_seconds"), "claude.timeout_seconds"
-    )
-    max_budget_usd = _positive_number(
-        claude_data.get("max_budget_usd"), "claude.max_budget_usd"
-    )
+    timeout_seconds = _positive_number(claude_data.get("timeout_seconds"), "claude.timeout_seconds")
+    max_budget_usd = _positive_number(claude_data.get("max_budget_usd"), "claude.max_budget_usd")
     max_turns = claude_data.get("max_turns")
     if isinstance(max_turns, bool) or not isinstance(max_turns, int) or max_turns < 1:
         raise ScenarioInputError("claude.max_turns must be a positive integer")
     tools = claude_data.get("allowed_tools")
-    if (
-        not isinstance(tools, list)
-        or not tools
-        or not all(isinstance(item, str) and item.strip() for item in tools)
-    ):
+    if not isinstance(tools, list) or not tools or not all(isinstance(item, str) and item.strip() for item in tools):
         raise ScenarioInputError("claude.allowed_tools must be a nonempty string list")
     allowed_tools = tuple(item.strip() for item in tools)
     if len(set(allowed_tools)) != len(allowed_tools):
@@ -463,21 +434,15 @@ def load_scenario_manifest(
         ids.append(scenario_id)
         fixture_data = _mapping(scenario.get("fixture"), f"{field}.fixture")
         _reject_unknown(fixture_data, {"root", "files"}, f"{field}.fixture")
-        fixture_root = _relative_path(
-            fixture_data.get("root"), f"{field}.fixture.root", allow_dot=True
-        )
+        fixture_root = _relative_path(fixture_data.get("root"), f"{field}.fixture.root", allow_dot=True)
         files_data = fixture_data.get("files")
         if not isinstance(files_data, list) or not files_data:
             raise ScenarioInputError(f"{field}.fixture.files must be a nonempty list")
-        files = tuple(
-            _relative_path(value, f"{field}.fixture.files") for value in files_data
-        )
+        files = tuple(_relative_path(value, f"{field}.fixture.files") for value in files_data)
         if len(set(files)) != len(files):
             raise ScenarioInputError(f"{field}.fixture.files contains duplicates")
         if settings not in files or mcp_config not in files:
-            raise ScenarioInputError(
-                f"{field}.fixture.files must declare Claude settings and MCP config"
-            )
+            raise ScenarioInputError(f"{field}.fixture.files must declare Claude settings and MCP config")
         source_root = _inside(root, fixture_root, f"{field}.fixture.root")
         for relative in files:
             _require_tracked(
@@ -490,9 +455,7 @@ def load_scenario_manifest(
         _validate_settings(settings_source)
         _validate_mcp(mcp_source)
 
-        baseline_relative = _relative_path(
-            scenario.get("baseline"), f"{field}.baseline"
-        )
+        baseline_relative = _relative_path(scenario.get("baseline"), f"{field}.baseline")
         baseline_path = _inside(root, baseline_relative, f"{field}.baseline")
         _require_tracked(root, baseline_path, f"{field}.baseline")
         policy_path: Path | None = None
@@ -537,11 +500,7 @@ def _filtered_environment(
     source: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     environment = source if source is not None else os.environ
-    filtered = {
-        key: value
-        for key, value in environment.items()
-        if key.upper() in _SAFE_ENVIRONMENT_KEYS
-    }
+    filtered = {key: value for key, value in environment.items() if key.upper() in _SAFE_ENVIRONMENT_KEYS}
     filtered.update(
         {
             "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
@@ -577,12 +536,7 @@ def _parse_cost(stdout: str) -> float | None:
     if not isinstance(value, dict):
         return None
     cost = value.get("total_cost_usd", value.get("cost_usd"))
-    if (
-        isinstance(cost, bool)
-        or not isinstance(cost, (int, float))
-        or not math.isfinite(cost)
-        or cost < 0
-    ):
+    if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not math.isfinite(cost) or cost < 0:
         return None
     return float(cost)
 
@@ -608,9 +562,7 @@ def _run_claude_process(
     timeout_seconds: float,
 ) -> ClaudeProcessOutcome:
     """Run one process group and discard its streams after parsing cost."""
-    creationflags = (
-        getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
-    )
+    creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
     process = subprocess.Popen(
         list(argv),
         cwd=cwd,
@@ -745,15 +697,12 @@ def _preflight_version(
             timeout=min(10.0, manifest.claude.timeout_seconds),
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise ScenarioInputError(
-            f"Claude Code executable is unavailable: {manifest.claude.executable}"
-        ) from exc
+        raise ScenarioInputError(f"Claude Code executable is unavailable: {manifest.claude.executable}") from exc
     match = _SEMVER_RE.search(completed.stdout or "")
     actual = match.group(1) if match else None
     if completed.returncode != 0 or actual != manifest.claude.version:
         raise ScenarioInputError(
-            f"manifest requires Claude Code {manifest.claude.version}; "
-            f"installed version is {actual or 'unknown'}"
+            f"manifest requires Claude Code {manifest.claude.version}; installed version is {actual or 'unknown'}"
         )
 
 
@@ -772,9 +721,7 @@ def run_scenario_manifest(
 ) -> ScenarioRunReport:
     """Preflight and execute selected scenarios without retaining agent streams."""
     selected = [
-        scenario
-        for scenario in manifest.scenarios
-        if scenario_id is None or scenario.scenario_id == scenario_id
+        scenario for scenario in manifest.scenarios if scenario_id is None or scenario.scenario_id == scenario_id
     ]
     if not selected:
         raise ScenarioInputError(f"scenario ID was not found: {scenario_id}")
@@ -815,10 +762,7 @@ def run_scenario_manifest(
                     )
                 )
                 continue
-            if (
-                outcome.cost_usd is not None
-                and outcome.cost_usd > manifest.claude.max_budget_usd
-            ):
+            if outcome.cost_usd is not None and outcome.cost_usd > manifest.claude.max_budget_usd:
                 results.append(
                     ScenarioResult(
                         scenario_id=scenario.scenario_id,
@@ -862,11 +806,7 @@ def run_scenario_manifest(
             results.append(
                 ScenarioResult(
                     scenario_id=scenario.scenario_id,
-                    status=(
-                        ScenarioStatus.PASS
-                        if evaluation.passed
-                        else ScenarioStatus.ASSERTION_FAILED
-                    ),
+                    status=(ScenarioStatus.PASS if evaluation.passed else ScenarioStatus.ASSERTION_FAILED),
                     trace_id=imported.trace_id,
                     cost_usd=outcome.cost_usd,
                     process_exit_code=outcome.returncode,

@@ -97,10 +97,7 @@ from maida.trace_validation import (
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
-_PLAN_BACKEND_INSTALL_COMMAND = (
-    "uv tool install --force --python 3.12 --with "
-    '"maida-workflows>=0.2" "maida-ai>=0.5"'
-)
+_PLAN_BACKEND_INSTALL_COMMAND = 'uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.5"'
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
 capture_app = typer.Typer(help="Capture external agent behavior locally.")
@@ -300,11 +297,7 @@ def validate_trace_cmd(
 
 def _acceptance_source_from_environment() -> AcceptanceSource:
     """Build acceptance provenance from local or GitHub write-back context."""
-    accepted_by = (
-        os.environ.get("MAIDA_ACCEPTED_BY")
-        or os.environ.get("GITHUB_ACTOR")
-        or getpass.getuser()
-    ).strip()
+    accepted_by = (os.environ.get("MAIDA_ACCEPTED_BY") or os.environ.get("GITHUB_ACTOR") or getpass.getuser()).strip()
     repository = os.environ.get("GITHUB_REPOSITORY", "").strip() or None
     commit_sha = os.environ.get("MAIDA_EXPECTED_HEAD_SHA", "").strip() or None
     pull_request_text = os.environ.get("MAIDA_PR_NUMBER", "").strip()
@@ -319,9 +312,7 @@ def _acceptance_source_from_environment() -> AcceptanceSource:
 
     pull_request_url = None
     if repository and pull_request is not None:
-        server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip(
-            "/"
-        )
+        server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
         pull_request_url = f"{server_url}/{repository}/pull/{pull_request}"
 
     return AcceptanceSource(
@@ -343,9 +334,7 @@ def _exit_run_validation_error(error: storage.RunValidationError) -> None:
     raise Exit(EXIT_NOT_FOUND)
 
 
-def _emit_langfuse_error(
-    *, kind: str, prefix: str, error: Exception, json_out: bool
-) -> None:
+def _emit_langfuse_error(*, kind: str, prefix: str, error: Exception, json_out: bool) -> None:
     if json_out:
         print(
             json.dumps(
@@ -357,9 +346,7 @@ def _emit_langfuse_error(
         typer.echo(f"{prefix}: {error}", err=True)
 
 
-def _emit_claude_capture_error(
-    *, kind: str, prefix: str, error: Exception, json_out: bool
-) -> None:
+def _emit_claude_capture_error(*, kind: str, prefix: str, error: Exception, json_out: bool) -> None:
     if json_out:
         print(
             json.dumps(
@@ -574,9 +561,7 @@ def import_langfuse_cmd(
         if (
             not summary.imported
             and summary.skipped
-            and not any(
-                item.get("reason") == "already imported" for item in summary.skipped
-            )
+            and not any(item.get("reason") == "already imported" for item in summary.skipped)
         ):
             raise Exit(EXIT_NOT_FOUND)
     except Exit:
@@ -610,9 +595,7 @@ def import_langfuse_cmd(
 @app.command(name="run")
 def run_cmd(
     agent_script: Path = typer.Argument(..., help="Traced Python agent script to run"),
-    trials: int | None = typer.Option(
-        None, "--trials", min=1, help="Number of isolated trials (policy default: 3)"
-    ),
+    trials: int | None = typer.Option(None, "--trials", min=1, help="Number of isolated trials (policy default: 3)"),
     confidence_level: float | None = typer.Option(
         None,
         "--confidence-level",
@@ -623,21 +606,15 @@ def run_cmd(
         "--pass-rate-threshold",
         help="Required underlying pass rate (policy default: 0.90)",
     ),
-    baseline_path: Path | None = typer.Option(
-        None, "--baseline", "-b", help="Baseline JSON file to compare against"
-    ),
+    baseline_path: Path | None = typer.Option(None, "--baseline", "-b", help="Baseline JSON file to compare against"),
     policy_path: Path | None = typer.Option(None, "--policy", help="Policy YAML file"),
-    max_steps: int | None = typer.Option(
-        None, "--max-steps", help="Max total events allowed"
-    ),
+    max_steps: int | None = typer.Option(None, "--max-steps", help="Max total events allowed"),
     fail_fast: bool | None = typer.Option(
         None,
         "--fail-fast/--no-fail-fast",
         help="Stop once a blocking failure is irreversible",
     ),
-    output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, or markdown"
-    ),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, or markdown"),
     json_out: Path | None = typer.Option(
         None, "--json-out", help="Also write the machine-readable report to this path"
     ),
@@ -697,9 +674,7 @@ def run_cmd(
         if output_format == "json":
             rendered = report.to_json()
         elif output_format == "markdown":
-            rendered = report.to_markdown(
-                baseline_path=str(baseline_path) if baseline_path is not None else None
-            )
+            rendered = report.to_markdown(baseline_path=str(baseline_path) if baseline_path is not None else None)
         else:
             rendered = report.to_text()
         typer.echo(rendered)
@@ -721,21 +696,15 @@ def run_cmd(
 
 @app.command(name="drift")
 def drift_cmd(
-    window: Path = typer.Option(
-        ..., "--window", help="Native Maida runs directory to evaluate"
-    ),
-    baseline_path: Path = typer.Option(
-        ..., "--baseline", "-b", help="Baseline JSON file for one agent"
-    ),
+    window: Path = typer.Option(..., "--window", help="Native Maida runs directory to evaluate"),
+    baseline_path: Path = typer.Option(..., "--baseline", "-b", help="Baseline JSON file for one agent"),
     policy_path: Path | None = typer.Option(None, "--policy", help="Policy YAML file"),
     agent_name: str | None = typer.Option(
         None,
         "--agent",
         help="Agent run name; required when the baseline does not record one",
     ),
-    output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, or markdown"
-    ),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, or markdown"),
     json_out: Path | None = typer.Option(
         None, "--json-out", help="Also write the machine-readable report to this path"
     ),
@@ -800,20 +769,14 @@ def drift_cmd(
 
 @app.command(name="extract")
 def extract_cmd(
-    window: Path = typer.Option(
-        ..., "--window", help="Native Maida runs directory to extract"
-    ),
-    out_dir: Path = typer.Option(
-        ..., "--out", help="New directory for the inactive gate draft"
-    ),
+    window: Path = typer.Option(..., "--window", help="Native Maida runs directory to extract"),
+    out_dir: Path = typer.Option(..., "--out", help="New directory for the inactive gate draft"),
     workflow: list[str] | None = typer.Option(
         None,
         "--workflow",
         help="Exact run_name to include; repeat to select multiple workflows",
     ),
-    json_out: bool = typer.Option(
-        False, "--json", help="Print the machine-readable draft manifest"
-    ),
+    json_out: bool = typer.Option(False, "--json", help="Print the machine-readable draft manifest"),
 ) -> None:
     """Extract review-required gate drafts from completed native traces."""
     try:
@@ -876,9 +839,7 @@ def _run_table_rows(runs: list[dict]) -> list[list[str]]:
         llm = counts.get("llm_calls", 0)
         tool = counts.get("tool_calls", 0)
         status = r.get("status") or ""
-        rows.append(
-            [run_id, run_name, started_at, duration_str, str(llm), str(tool), status]
-        )
+        rows.append([run_id, run_name, started_at, duration_str, str(llm), str(tool), status])
     return rows
 
 
@@ -895,12 +856,7 @@ def _format_text_table(rows: list[list[str]], headers: list[str]) -> str:
     sep = "\t"
     lines.append(sep.join(h.ljust(col_widths[i]) for i, h in enumerate(headers)))
     for row in rows:
-        lines.append(
-            sep.join(
-                str(row[i]).ljust(col_widths[i])
-                for i in range(min(len(row), len(col_widths)))
-            )
-        )
+        lines.append(sep.join(str(row[i]).ljust(col_widths[i]) for i in range(min(len(row), len(col_widths)))))
     return "\n".join(lines)
 
 
@@ -936,12 +892,8 @@ def list_cmd(
 
 @app.command("export")
 def export_cmd(
-    run_id: str | None = typer.Argument(
-        None, help="Run ID or trace ID prefix to export (default: latest run)"
-    ),
-    out: Path = typer.Option(
-        ..., "--out", "-o", path_type=Path, help="Output JSON file path"
-    ),
+    run_id: str | None = typer.Argument(None, help="Run ID or trace ID prefix to export (default: latest run)"),
+    out: Path = typer.Option(..., "--out", "-o", path_type=Path, help="Output JSON file path"),
 ) -> None:
     """Export a run to a single JSON file (run metadata + events array)."""
     try:
@@ -978,9 +930,7 @@ def view_cmd(
     host: str = typer.Option("127.0.0.1", "--host", "-H", help="Bind host"),
     port: int = typer.Option(8712, "--port", "-p", help="Bind port"),
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not open browser"),
-    json_out: bool = typer.Option(
-        False, "--json", help="Print run_id, url, status as JSON then start server"
-    ),
+    json_out: bool = typer.Option(False, "--json", help="Print run_id, url, status as JSON then start server"),
 ) -> None:
     """Start local viewer server and optionally open browser."""
     try:
@@ -1057,17 +1007,13 @@ def view_cmd(
 
 @app.command("baseline")
 def baseline_cmd(
-    run_id: str | None = typer.Argument(
-        None, help="Run ID or prefix to snapshot (default: latest run)"
-    ),
+    run_id: str | None = typer.Argument(None, help="Run ID or prefix to snapshot (default: latest run)"),
     from_report: Path | None = typer.Option(
         None,
         "--from-report",
         help="Capture the immutable trial sample from a report v2 JSON file",
     ),
-    out: Path | None = typer.Option(
-        None, "--out", "-o", help="Output path for baseline JSON"
-    ),
+    out: Path | None = typer.Option(None, "--out", "-o", help="Output path for baseline JSON"),
     force: bool = typer.Option(False, "--force", help="Overwrite an existing baseline"),
 ) -> None:
     """Capture a baseline snapshot from a completed run."""
@@ -1112,12 +1058,8 @@ def baseline_cmd(
 
 @app.command("accept")
 def accept_cmd(
-    run_id: str | None = typer.Argument(
-        None, help="Run ID or prefix to accept (default: latest run)"
-    ),
-    baseline_path: Path = typer.Option(
-        ..., "--baseline", "-b", help="Baseline JSON file to update"
-    ),
+    run_id: str | None = typer.Argument(None, help="Run ID or prefix to accept (default: latest run)"),
+    baseline_path: Path = typer.Option(..., "--baseline", "-b", help="Baseline JSON file to update"),
     reason: str | None = typer.Option(
         None,
         "--reason",
@@ -1169,15 +1111,11 @@ def accept_cmd(
         if result.updated:
             typer.echo(f"Baseline updated: {baseline_path}")
             typer.echo(f"Accepted run: {result.source_run_id[:8]}")
-            typer.echo(
-                f"Previous baseline: {str(result.previous_source_run_id or 'unknown')[:8]}"
-            )
+            typer.echo(f"Previous baseline: {str(result.previous_source_run_id or 'unknown')[:8]}")
             typer.echo("")
             typer.echo(format_diff_text(result.diff))
         else:
-            typer.echo(
-                f"Baseline already matches run; no update written: {baseline_path}"
-            )
+            typer.echo(f"Baseline already matches run; no update written: {baseline_path}")
             typer.echo(f"Matched run: {result.source_run_id[:8]}")
     except Exit:
         raise
@@ -1192,55 +1130,27 @@ def accept_cmd(
 
 @app.command(name="assert")
 def assert_cmd(
-    run_id: str | None = typer.Argument(
-        None, help="Run ID or prefix to check (default: latest run)"
-    ),
-    baseline_path: Path | None = typer.Option(
-        None, "--baseline", "-b", help="Baseline JSON file to compare against"
-    ),
+    run_id: str | None = typer.Argument(None, help="Run ID or prefix to check (default: latest run)"),
+    baseline_path: Path | None = typer.Option(None, "--baseline", "-b", help="Baseline JSON file to compare against"),
     policy_path: Path | None = typer.Option(None, "--policy", help="Policy YAML file"),
-    max_steps: int | None = typer.Option(
-        None, "--max-steps", help="Max total events allowed"
-    ),
-    step_tolerance: float | None = typer.Option(
-        None, "--step-tolerance", help="Fractional tolerance for step count"
-    ),
-    max_tool_calls: int | None = typer.Option(
-        None, "--max-tool-calls", help="Max tool calls allowed"
-    ),
+    max_steps: int | None = typer.Option(None, "--max-steps", help="Max total events allowed"),
+    step_tolerance: float | None = typer.Option(None, "--step-tolerance", help="Fractional tolerance for step count"),
+    max_tool_calls: int | None = typer.Option(None, "--max-tool-calls", help="Max tool calls allowed"),
     tool_call_tolerance: float | None = typer.Option(
         None, "--tool-call-tolerance", help="Fractional tolerance for tool calls"
     ),
-    no_new_tools: bool = typer.Option(
-        False, "--no-new-tools", help="Fail if run uses tools not in baseline"
-    ),
-    no_loops: bool = typer.Option(
-        False, "--no-loops", help="Fail if any LOOP_WARNING present"
-    ),
-    no_guardrails: bool = typer.Option(
-        False, "--no-guardrails", help="Fail if any guardrail was triggered"
-    ),
-    max_cost_tokens: int | None = typer.Option(
-        None, "--max-cost-tokens", help="Max total tokens allowed"
-    ),
-    cost_tolerance: float | None = typer.Option(
-        None, "--cost-tolerance", help="Fractional tolerance for token cost"
-    ),
-    max_duration_ms: int | None = typer.Option(
-        None, "--max-duration-ms", help="Max run duration in ms"
-    ),
+    no_new_tools: bool = typer.Option(False, "--no-new-tools", help="Fail if run uses tools not in baseline"),
+    no_loops: bool = typer.Option(False, "--no-loops", help="Fail if any LOOP_WARNING present"),
+    no_guardrails: bool = typer.Option(False, "--no-guardrails", help="Fail if any guardrail was triggered"),
+    max_cost_tokens: int | None = typer.Option(None, "--max-cost-tokens", help="Max total tokens allowed"),
+    cost_tolerance: float | None = typer.Option(None, "--cost-tolerance", help="Fractional tolerance for token cost"),
+    max_duration_ms: int | None = typer.Option(None, "--max-duration-ms", help="Max run duration in ms"),
     duration_tolerance: float | None = typer.Option(
         None, "--duration-tolerance", help="Fractional tolerance for duration"
     ),
-    expect_status: str | None = typer.Option(
-        None, "--expect-status", help="Expected run status (ok or error)"
-    ),
-    ignore_check: list[str] = typer.Option(
-        [], "--ignore-check", help="Skip a check (repeatable)"
-    ),
-    output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, markdown"
-    ),
+    expect_status: str | None = typer.Option(None, "--expect-status", help="Expected run status (ok or error)"),
+    ignore_check: list[str] = typer.Option([], "--ignore-check", help="Skip a check (repeatable)"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, markdown"),
 ) -> None:
     """Assert that a run meets behavioral policy checks. Exit 0 = pass, 1 = fail."""
     try:
@@ -1290,15 +1200,9 @@ def assert_cmd(
                 raise Exit(EXIT_NOT_FOUND)
 
         if bl is not None:
-            evaluation = evaluate_stored_run_against_baseline(
-                run_id, bl, policy, config
-            )
+            evaluation = evaluate_stored_run_against_baseline(run_id, bl, policy, config)
             report = evaluation.report
-            render_format = (
-                output_format
-                if output_format in {"text", "json", "markdown"}
-                else "text"
-            )
+            render_format = output_format if output_format in {"text", "json", "markdown"} else "text"
             typer.echo(evaluation.render(render_format, baseline_path=baseline_path))
         else:
             report = run_assertions(run_id, policy, config=config)
@@ -1370,9 +1274,7 @@ def _normalize_demo_trace_duration(
         spans.append(span)
 
     spans_path.write_text(
-        "".join(
-            json.dumps(span, ensure_ascii=False, default=str) + "\n" for span in spans
-        ),
+        "".join(json.dumps(span, ensure_ascii=False, default=str) + "\n" for span in spans),
         encoding="utf-8",
     )
 
@@ -1426,43 +1328,28 @@ def _demo_generated_plan(policy_path: Path | None) -> None:
     typer.echo("")
     typer.echo("── Step 1/2 | A simulated planner generates a runtime plan")
     typer.echo(f"   topology: {result['topology']}")
-    typer.echo(
-        f"   resolved: {result['node_count']} nodes | max fan-out {result['max_fanout']}"
-    )
-    typer.echo(
-        f"   schemas: policy {schemas['policy']} | plan {schemas['plan']} | "
-        f"report {schemas['report']}"
-    )
+    typer.echo(f"   resolved: {result['node_count']} nodes | max fan-out {result['max_fanout']}")
+    typer.echo(f"   schemas: policy {schemas['policy']} | plan {schemas['plan']} | report {schemas['report']}")
     typer.echo("")
     typer.echo("── Step 2/2 | Gate the trusted plan before execution")
-    policy_source = (
-        str(selected_policy)
-        if selected_policy is not None
-        else "bundled demo refusal policy"
-    )
+    policy_source = str(selected_policy) if selected_policy is not None else "bundled demo refusal policy"
     typer.echo(f"   policy source: {policy_source}")
     typer.echo("")
     typer.echo(result["rendered"])
     typer.echo("")
     if evidence.valid:
-        typer.echo(
-            "The supplied policy accepted this plan; the demo still does not execute it."
-        )
+        typer.echo("The supplied policy accepted this plan; the demo still does not execute it.")
     else:
         typer.echo("No generated module executed.")
         recovery_policy = selected_policy or POLICY_RELPATH
-        typer.echo(
-            f"Fix the plan or update {recovery_policy} after review, then gate again."
-        )
+        typer.echo(f"Fix the plan or update {recovery_policy} after review, then gate again.")
 
 
 def _demo_regression(config) -> None:
     """Baseline a good run, run a regressed one, and show the failing gate."""
     typer.echo("Maida regression demo: everything below is simulated and local.")
     typer.echo("Local-only canned data: no API keys, no network calls, no repo clone.")
-    typer.echo(
-        "Story: baseline -> regressed refactor -> failed gate -> PR-comment preview."
-    )
+    typer.echo("Story: baseline -> regressed refactor -> failed gate -> PR-comment preview.")
     typer.echo("")
 
     typer.echo("── Step 1/3 | Run the known-good agent and capture a baseline")
@@ -1481,9 +1368,7 @@ def _demo_regression(config) -> None:
     run_refactored_agent()
     bad_id = storage.resolve_latest_trace_id(config)
     _normalize_demo_trace_duration(bad_id, config)
-    typer.echo(
-        f"   ✓ new run {bad_id[:8]} | finished with status ok; behavior still changed"
-    )
+    typer.echo(f"   ✓ new run {bad_id[:8]} | finished with status ok; behavior still changed")
     typer.echo("")
 
     typer.echo("── Step 3/3 | Gate the new run against the baseline")
@@ -1506,9 +1391,7 @@ def _demo_regression(config) -> None:
         typer.echo("In CI this blocks the merge. The PR comment would read:")
         typer.echo("")
         typer.echo("┄┄┄ PR comment preview ┄┄┄")
-        typer.echo(
-            format_report_markdown(report, diff=diff, baseline_path=str(bl_path))
-        )
+        typer.echo(format_report_markdown(report, diff=diff, baseline_path=str(bl_path)))
         typer.echo("┄┄┄ end preview ┄┄┄")
     typer.echo("")
     typer.echo("Next steps:")
@@ -1518,9 +1401,7 @@ def _demo_regression(config) -> None:
 
 @app.command("init")
 def init_cmd(
-    github: bool = typer.Option(
-        False, "--github", help="Also scaffold a GitHub Actions workflow"
-    ),
+    github: bool = typer.Option(False, "--github", help="Also scaffold a GitHub Actions workflow"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing files"),
 ) -> None:
     """Scaffold .maida/policy.yaml (and optionally a CI workflow)."""
@@ -1538,12 +1419,8 @@ def init_cmd(
         typer.echo("")
         typer.echo("Next steps:")
         typer.echo("  1. Instrument your agent with @trace (see `maida demo`).")
-        typer.echo(
-            "  2. Run it, then: maida baseline --out .maida/baselines/<name>.json"
-        )
-        typer.echo(
-            "  3. Gate it:      maida assert --baseline .maida/baselines/<name>.json"
-        )
+        typer.echo("  2. Run it, then: maida baseline --out .maida/baselines/<name>.json")
+        typer.echo("  3. Gate it:      maida assert --baseline .maida/baselines/<name>.json")
         if github:
             typer.echo(f"  4. Edit {WORKFLOW_RELPATH} (set agent-script), then commit.")
         else:
@@ -1568,10 +1445,7 @@ def demo_cmd(
     policy: Path | None = typer.Option(
         None,
         "--policy",
-        help=(
-            "Core policy 2.1 file for --plan "
-            "(default: .maida/policy.yaml when present, otherwise bundled)."
-        ),
+        help=("Core policy 2.1 file for --plan (default: .maida/policy.yaml when present, otherwise bundled)."),
     ),
 ) -> None:
     """Run a bundled simulated agent and trace it. No network, no API keys."""
@@ -1605,13 +1479,9 @@ def demo_cmd(
 
 @app.command("diff")
 def diff_cmd(
-    run_a: str | None = typer.Argument(
-        None, help="First run ID or prefix (default: latest run)"
-    ),
+    run_a: str | None = typer.Argument(None, help="First run ID or prefix (default: latest run)"),
     run_b: str | None = typer.Argument(None, help="Second run ID (or use --baseline)"),
-    baseline_path: Path | None = typer.Option(
-        None, "--baseline", "-b", help="Baseline JSON file to compare against"
-    ),
+    baseline_path: Path | None = typer.Option(None, "--baseline", "-b", help="Baseline JSON file to compare against"),
     capture_session_id: str | None = typer.Option(
         None,
         "--capture",
@@ -1622,9 +1492,7 @@ def diff_cmd(
         "--policy",
         help="Policy YAML file for capture gate mode",
     ),
-    output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, markdown"
-    ),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, markdown"),
 ) -> None:
     """Inspect stored runs, or gate a Claude capture against a baseline."""
     try:

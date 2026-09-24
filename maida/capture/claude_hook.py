@@ -32,9 +32,7 @@ _EVENT_NAMES = {
     "PermissionDenied": "claude_code.hook.permission_denied",
     "SessionEnd": "claude_code.hook.session_end",
 }
-_TOOL_EVENTS = frozenset(
-    {"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied"}
-)
+_TOOL_EVENTS = frozenset({"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied"})
 _SESSION_SOURCES = frozenset({"startup", "resume", "clear", "compact", "fork"})
 _OMITTED_SOURCE_FIELDS = frozenset({"session_id", "transcript_path"})
 
@@ -108,11 +106,7 @@ def _validate_payload(payload: Any) -> tuple[str, str]:
         _require_string(payload, "reason")
 
     duration = payload.get("duration_ms")
-    if duration is not None and (
-        isinstance(duration, bool)
-        or not isinstance(duration, (int, float))
-        or duration < 0
-    ):
+    if duration is not None and (isinstance(duration, bool) or not isinstance(duration, (int, float)) or duration < 0):
         raise ClaudeHookInputError("duration_ms must be nonnegative")
     return session_id, event
 
@@ -131,9 +125,7 @@ def parse_claude_hook_json(
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ClaudeHookInputError(
-            "hook payload must contain exactly one JSON object"
-        ) from exc
+        raise ClaudeHookInputError("hook payload must contain exactly one JSON object") from exc
     return capture_claude_hook(payload, config)
 
 
@@ -151,11 +143,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _next_segment(session_dir: Path) -> str:
     numbers = (
-        [
-            int(entry.name)
-            for entry in session_dir.iterdir()
-            if entry.is_dir() and entry.name.isdigit()
-        ]
+        [int(entry.name) for entry in session_dir.iterdir() if entry.is_dir() and entry.name.isdigit()]
         if session_dir.is_dir()
         else []
     )
@@ -163,11 +151,7 @@ def _next_segment(session_dir: Path) -> str:
 
 
 def _safe_payload(payload: dict[str, Any], config: MaidaConfig) -> dict[str, Any]:
-    source = {
-        key: value
-        for key, value in payload.items()
-        if key not in _OMITTED_SOURCE_FIELDS
-    }
+    source = {key: value for key, value in payload.items() if key not in _OMITTED_SOURCE_FIELDS}
     sanitized = _sanitize(source, config)
     if not isinstance(sanitized, dict):  # pragma: no cover - source is always a dict
         raise ClaudeHookInputError("hook payload could not be sanitized")
@@ -189,16 +173,10 @@ def _delivery_id(event: str, payload: dict[str, Any]) -> str:
 
 
 def _iso_from_nanos(value: int) -> str:
-    return (
-        datetime.fromtimestamp(value / 1_000_000_000, timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.fromtimestamp(value / 1_000_000_000, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _find_delivery(
-    records: list[dict[str, Any]], delivery_id: str
-) -> dict[str, Any] | None:
+def _find_delivery(records: list[dict[str, Any]], delivery_id: str) -> dict[str, Any] | None:
     for record in records:
         attributes = record.get("record", {}).get("attributes", {})
         if attributes.get("hook.delivery_id") == delivery_id:
@@ -334,10 +312,7 @@ def capture_claude_hook(
             active = None
 
         if event == "SessionStart" and safe_payload["source"] != "compact":
-            if (
-                active is not None
-                and state.get("last_start_delivery_id") == delivery_id
-            ):
+            if active is not None and state.get("last_start_delivery_id") == delivery_id:
                 segment = active
             else:
                 if active is not None:
@@ -350,9 +325,7 @@ def capture_claude_hook(
             if isinstance(previous, str):
                 existing = _read_jsonl(session_dir / previous / "logs.jsonl")
                 duplicate = _find_delivery(existing, delivery_id)
-                segment = (
-                    previous if duplicate is not None else _next_segment(session_dir)
-                )
+                segment = previous if duplicate is not None else _next_segment(session_dir)
             else:
                 segment = _next_segment(session_dir)
             active = segment
@@ -370,25 +343,14 @@ def capture_claude_hook(
         previous = _find_delivery(existing, delivery_id)
         accepted = previous is None
         if previous is not None:
-            previous_fingerprint = previous["record"]["attributes"].get(
-                "hook.payload_fingerprint"
-            )
+            previous_fingerprint = previous["record"]["attributes"].get("hook.payload_fingerprint")
             if previous_fingerprint != fingerprint:
-                raise ClaudeHookConflictError(
-                    "conflicting duplicate Claude hook delivery identity"
-                )
+                raise ClaudeHookConflictError("conflicting duplicate Claude hook delivery identity")
         else:
-            sequences = [
-                record.get("record", {}).get("attributes", {}).get("event.sequence", 0)
-                for record in existing
-            ]
+            sequences = [record.get("record", {}).get("attributes", {}).get("event.sequence", 0) for record in existing]
             sequence = (
                 max(
-                    (
-                        value
-                        for value in sequences
-                        if isinstance(value, int) and not isinstance(value, bool)
-                    ),
+                    (value for value in sequences if isinstance(value, int) and not isinstance(value, bool)),
                     default=0,
                 )
                 + 1
@@ -435,9 +397,7 @@ def capture_claude_hook(
                     segment=segment,
                 )
             except Exception as exc:
-                raise ClaudeHookImportError(
-                    f"completed Claude hook capture could not be imported: {exc}"
-                ) from exc
+                raise ClaudeHookImportError(f"completed Claude hook capture could not be imported: {exc}") from exc
 
     return ClaudeHookCaptureResult(
         session_hash=session_hash,

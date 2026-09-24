@@ -78,37 +78,26 @@ def test_normalize_prefers_trace_topology_and_enriches_without_duplicates(
     assert tool["payload"]["args"] == {"file_path": "/workspace/README.md"}
 
     interaction = next(
-        span
-        for span in normalized.spans
-        if _source_meta(span).get("source_name") == "claude_code.interaction"
+        span for span in normalized.spans if _source_meta(span).get("source_name") == "claude_code.interaction"
     )
-    llm_span = next(
-        span for span in normalized.spans if span["name"] == "claude-haiku-test"
-    )
+    llm_span = next(span for span in normalized.spans if span["name"] == "claude-haiku-test")
     tool_span = next(span for span in normalized.spans if span["name"] == "Read")
     assert llm_span["parent_span_id"] == interaction["span_id"]
     assert tool_span["parent_span_id"] == interaction["span_id"]
     assert _source_meta(tool_span)["source_span_id"] == "cccccccccccccccc"
     assert _source_meta(tool_span)["mapping_version"] == 1
     assert _source_meta(tool_span)["service_version"] == "2.1.220"
-    assert (
-        _source_meta(tool_span)["source_attributes"]["file_path"]
-        == "/workspace/README.md"
-    )
+    assert _source_meta(tool_span)["source_attributes"]["file_path"] == "/workspace/README.md"
 
     unknown = next(
-        span
-        for span in normalized.spans
-        if _source_meta(span).get("source_name") == "claude_code.future_signal"
+        span for span in normalized.spans if _source_meta(span).get("source_name") == "claude_code.future_signal"
     )
     assert unknown["attributes"].get("maida.tool_name") is None
     assert unknown["attributes"].get("gen_ai.operation.name") is None
 
 
 def test_log_only_fallback_maps_failed_model_and_tool_calls(temp_data_dir):
-    normalized = normalize_claude_capture(
-        load_capture_segment(FIXTURES / "log-only"), load_config()
-    )
+    normalized = normalize_claude_capture(load_capture_segment(FIXTURES / "log-only"), load_config())
     events = spans_to_events(normalized.spans)
 
     assert normalized.meta["counts"] == {
@@ -125,9 +114,7 @@ def test_log_only_fallback_maps_failed_model_and_tool_calls(temp_data_dir):
 
 
 def test_regression_fixture_detects_historical_loop(temp_data_dir):
-    normalized = normalize_claude_capture(
-        load_capture_segment(FIXTURES / "regression"), load_config()
-    )
+    normalized = normalize_claude_capture(load_capture_segment(FIXTURES / "regression"), load_config())
     events = spans_to_events(normalized.spans)
 
     assert normalized.meta["counts"]["tool_calls"] == 3
@@ -143,11 +130,7 @@ def test_parent_cycle_is_broken_at_interaction_boundary(temp_data_dir):
     cycled = replace(segment, spans=spans)
 
     normalized = normalize_claude_capture(cycled, load_config())
-    repaired = [
-        span
-        for span in normalized.spans
-        if _source_meta(span).get("parent_cycle_broken")
-    ]
+    repaired = [span for span in normalized.spans if _source_meta(span).get("parent_cycle_broken")]
     assert len(repaired) == 2
     assert all(span["parent_span_id"] is not None for span in repaired)
 
@@ -174,9 +157,7 @@ def test_import_is_atomic_idempotent_and_refuses_changed_source(temp_data_dir):
     assert spans
 
     with (capture_dir / "logs.jsonl").open("a", encoding="utf-8") as stream:
-        changed = json.loads(
-            (FIXTURES / "normal" / "logs.jsonl").read_text().splitlines()[-1]
-        )
+        changed = json.loads((FIXTURES / "normal" / "logs.jsonl").read_text().splitlines()[-1])
         changed["record"]["attributes"]["event.sequence"] = 99
         stream.write(json.dumps(changed) + "\n")
     manifest = json.loads((capture_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -189,9 +170,7 @@ def test_import_is_atomic_idempotent_and_refuses_changed_source(temp_data_dir):
 def test_capture_to_baseline_to_assertions_round_trip(temp_data_dir):
     config = load_config()
     good = normalize_claude_capture(load_capture_segment(FIXTURES / "normal"), config)
-    regression = normalize_claude_capture(
-        load_capture_segment(FIXTURES / "regression"), config
-    )
+    regression = normalize_claude_capture(load_capture_segment(FIXTURES / "regression"), config)
     install_validated_run(good.meta, good.spans, config)
     install_validated_run(regression.meta, regression.spans, config)
     baseline = create_baseline(good.trace_id, config)

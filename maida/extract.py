@@ -38,9 +38,7 @@ class ExtractionInputError(ValueError):
 
 
 def _signature_id(signature: dict[str, Any]) -> str:
-    encoded = json.dumps(
-        signature, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    encoded = json.dumps(signature, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -70,27 +68,18 @@ def _select_workflows(
     if selectors:
         if any(not isinstance(item, str) or not item.strip() for item in selectors):
             raise ExtractionInputError("--workflow must not be empty")
-        duplicates = sorted(
-            name for name, count in Counter(selectors).items() if count > 1
-        )
+        duplicates = sorted(name for name, count in Counter(selectors).items() if count > 1)
         if duplicates:
-            raise ExtractionInputError(
-                f"duplicate --workflow selection: {', '.join(repr(x) for x in duplicates)}"
-            )
+            raise ExtractionInputError(f"duplicate --workflow selection: {', '.join(repr(x) for x in duplicates)}")
         missing = sorted(name for name in selectors if name not in groups)
         if missing:
-            raise ExtractionInputError(
-                "no traces for workflow selection: "
-                + ", ".join(repr(name) for name in missing)
-            )
+            raise ExtractionInputError("no traces for workflow selection: " + ", ".join(repr(name) for name in missing))
         selected_names = sorted(selectors)
     else:
         selected_names = sorted(groups)
 
     if not selected_names:
-        raise ExtractionInputError(
-            "trace window contains no completed traces with a nonempty run_name"
-        )
+        raise ExtractionInputError("trace window contains no completed traces with a nonempty run_name")
     return [(name, groups[name]) for name in selected_names]
 
 
@@ -138,9 +127,7 @@ def _workflow_summary(
         "run_name": run_name,
         "artifact_dir": artifact_dir,
         "trace_ids": [item["trace"].trace_id for item in evidence],
-        "representative_trace_ids": [
-            cluster["representative_trace_id"] for cluster in clusters
-        ],
+        "representative_trace_ids": [cluster["representative_trace_id"] for cluster in clusters],
         "clusters": clusters,
         "tools": {
             "intersection": sorted(intersection),
@@ -154,9 +141,7 @@ def _workflow_summary(
             "tool_calls": _as_number(max(tool_calls)),
             "tokens": _as_number(max(tokens)),
         },
-        "terminal_states": sorted(
-            {str(item["signature"].get("final_status") or "") for item in evidence}
-        ),
+        "terminal_states": sorted({str(item["signature"].get("final_status") or "") for item in evidence}),
     }
 
 
@@ -270,9 +255,7 @@ def _baseline_report(
                 "trace_id": trace.trace_id,
                 "run_name": run_name,
                 "metric_values": item["metrics"],
-                "invariant_outcomes": invariant_outcomes(
-                    item["extracted"], policy, None
-                ),
+                "invariant_outcomes": invariant_outcomes(item["extracted"], policy, None),
                 "structural_signature": item["signature"],
             }
         )
@@ -288,9 +271,7 @@ def _baseline_report(
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _verify_workflow(
@@ -310,9 +291,7 @@ def _verify_workflow(
         agent_name=run_name,
     )
     if report.verdict is not GateVerdict.PASS:
-        raise RuntimeError(
-            f"generated draft for workflow {run_name!r} did not pass its source window"
-        )
+        raise RuntimeError(f"generated draft for workflow {run_name!r} did not pass its source window")
 
 
 def extract_window(
@@ -331,9 +310,7 @@ def extract_window(
     if final_dir.exists() or final_dir.is_symlink():
         raise ExtractionInputError(f"output directory already exists: {out_dir}")
     if final_dir.is_relative_to(source_dir):
-        raise ExtractionInputError(
-            "output directory must not be inside the trace window"
-        )
+        raise ExtractionInputError("output directory must not be inside the trace window")
 
     try:
         source = NativeTraceWindowSource(runs_dir, config)
@@ -344,16 +321,10 @@ def extract_window(
 
     artifact_names = [_artifact_name(run_name) for run_name, _items in selected]
     if len(set(artifact_names)) != len(artifact_names):
-        raise ExtractionInputError(
-            "ambiguous workflow names produce the same artifact directory"
-        )
+        raise ExtractionInputError("ambiguous workflow names produce the same artifact directory")
 
     final_dir.parent.mkdir(parents=True, exist_ok=True)
-    staging_dir = Path(
-        tempfile.mkdtemp(
-            prefix=f".{final_dir.name}.", suffix=".tmp", dir=final_dir.parent
-        )
-    )
+    staging_dir = Path(tempfile.mkdtemp(prefix=f".{final_dir.name}.", suffix=".tmp", dir=final_dir.parent))
     try:
         draft: dict[str, Any] = {
             "draft_version": DRAFT_VERSION,
@@ -369,9 +340,7 @@ def extract_window(
 
             policy_path = artifact_dir / "policy.yaml"
             policy_path.write_text(_render_policy(summary, evidence), encoding="utf-8")
-            baseline = create_baseline_from_report(
-                _baseline_report(run_name, evidence, policy_path)
-            )
+            baseline = create_baseline_from_report(_baseline_report(run_name, evidence, policy_path))
             baseline["created_at"] = str(workflow_traces[-1].meta["ended_at"])
             _write_json(artifact_dir / "baseline.json", baseline)
             _verify_workflow(

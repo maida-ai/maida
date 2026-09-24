@@ -73,9 +73,7 @@ def run_graph(graph, questions: list[str], config: dict):
             i + 1,
             question[:60] + "..." if len(question) > 60 else question,
         )
-        events = graph.stream(
-            {"messages": ("user", question)}, config, stream_mode="values"
-        )
+        events = graph.stream({"messages": ("user", question)}, config, stream_mode="values")
         for event in events:
             _print_event(event, _printed)
 

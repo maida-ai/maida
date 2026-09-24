@@ -88,10 +88,8 @@ class BurnInReport:
         return "\n".join(
             [
                 f"Gates: {self.gates} ({self.trials_per_gate} trials each)",
-                f"False-fail rate: {self.false_fail_rate:.1%} "
-                f"({self.false_fail_count}/{self.gates})",
-                f"Inconclusive rate: {self.inconclusive_rate:.1%} "
-                f"({self.inconclusive_count}/{self.gates})",
+                f"False-fail rate: {self.false_fail_rate:.1%} ({self.false_fail_count}/{self.gates})",
+                f"Inconclusive rate: {self.inconclusive_rate:.1%} ({self.inconclusive_count}/{self.gates})",
                 "Model calls: 0",
                 f"Elapsed: {self.elapsed_seconds:.2f}s",
                 "Measurement complete (not an acceptance guarantee)",
@@ -152,20 +150,14 @@ def run_burn_in(
         raise ValueError("max_wall_time_seconds must be finite and positive")
 
     started = time.monotonic()
-    with tempfile.TemporaryDirectory(
-        prefix="maida-burn-in-", dir=workspace_parent
-    ) as temp:
+    with tempfile.TemporaryDirectory(prefix="maida-burn-in-", dir=workspace_parent) as temp:
         temp_root = Path(temp)
         project = temp_root / "fixed-agent-repo"
         project.mkdir()
         agent_script = project / "agent.py"
         agent_script.write_text(_SYNTHETIC_AGENT, encoding="utf-8")
-        subprocess.run(
-            ["git", "init", "--quiet"], cwd=project, check=True, capture_output=True
-        )
-        subprocess.run(
-            ["git", "add", "agent.py"], cwd=project, check=True, capture_output=True
-        )
+        subprocess.run(["git", "init", "--quiet"], cwd=project, check=True, capture_output=True)
+        subprocess.run(["git", "add", "agent.py"], cwd=project, check=True, capture_output=True)
 
         previous_data = os.environ.get("MAIDA_DATA_DIR")
         previous_seed = os.environ.get("MAIDA_BURN_IN_GATE_SEED")
@@ -184,9 +176,7 @@ def run_burn_in(
             for gate_index in range(gates):
                 elapsed = time.monotonic() - started
                 if elapsed >= max_wall_time_seconds:
-                    raise TimeoutError(
-                        f"burn-in exceeded {max_wall_time_seconds:g}s wall-time cap"
-                    )
+                    raise TimeoutError(f"burn-in exceeded {max_wall_time_seconds:g}s wall-time cap")
                 os.environ["MAIDA_BURN_IN_GATE_SEED"] = str(seed + gate_index * 10_000)
                 report = run_trials(
                     agent_script,
