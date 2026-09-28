@@ -1568,37 +1568,35 @@ def test_demo_regression_no_secret_on_disk(empty_data_dir, tmp_path, monkeypatch
 
 def test_init_writes_valid_policy(empty_data_dir, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["init"])
+    run_id = _make_run(load_config())
+    result = runner.invoke(app, ["init", "--from-run", run_id])
     assert result.exit_code == 0
-    policy_path = tmp_path / ".maida" / "policy.yaml"
+    policy_path = tmp_path / ".maida" / "starter" / "policy.yaml"
     assert policy_path.is_file()
-    assert "wrote" in result.output
-    assert "Next steps:" in result.output
+    assert "candidate invariants" in result.output
+    assert "Next:" in result.output
 
     # generated policy must load through the real policy loader
     policy_text = policy_path.read_text(encoding="utf-8")
     policy = load_policy(policy_path)
     assert policy.source_format == "v2"
     assert policy.policy_version == (2, 0)
-    assert policy.trials == 3
-    assert policy.fail_fast is True
+    assert policy.trials == 1
+    assert policy.fail_fast is False
     assert policy.metrics["stop_condition_reached"].kind.value == "invariant"
-    assert policy.metrics["step_count"].kind.value == "measured"
-    assert policy.metrics["step_count"].direction.value == "upper"
-    assert policy.metrics["step_count"].tolerance_relative == 0.5
-    assert policy.metrics["cost_tokens"].tolerance_relative == 0.25
-    task = policy.metrics["task_pass_rate"]
-    assert task.kind.value == "statistical"
-    assert task.direction.value == "lower"
-    assert task.mode.value == "report_only"
-    assert task.success_predicate == "all_invariants_passed"
+    assert set(policy.metrics) == {"stop_condition_reached", "no_loops", "no_guardrails"}
     assert "version: 2" in policy_text
-    assert "trials: 3" in policy_text
+    assert "trials: 1" in policy_text
 
 
 def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["init", "--github"])
+    run_id = _make_run(load_config())
+    assert runner.invoke(app, ["init", "--from-run", run_id]).exit_code == 0
+    (tmp_path / "agent.py").write_text("# Existing traced entrypoint\n")
+    result = runner.invoke(
+        app, ["init", "--reviewed", "--reason", "reviewed", "--github", "--agent-script", "agent.py"]
+    )
     assert result.exit_code == 0
     policy_path = tmp_path / ".maida" / "policy.yaml"
     wf_path = tmp_path / ".github" / "workflows" / "maida.yml"
@@ -1608,7 +1606,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     workflow_text = wf_path.read_text(encoding="utf-8")
     policy = load_policy(policy_path)
     assert policy.policy_version == (2, 0)
-    assert policy.metrics["step_count"].direction.value == "upper"
+    assert policy.metrics["stop_condition_reached"].kind.value == "invariant"
 
     wf = yaml.safe_load(workflow_text)
     triggers = wf.get("on", wf.get(True))
@@ -1617,9 +1615,9 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert triggers["repository_dispatch"]["types"] == ["maida_baseline_updated"]
     assert wf["permissions"] == {}
     assert wf["env"] == {
-        "MAIDA_AGENT_SCRIPT": "my_agent.py",
+        "MAIDA_AGENT_SCRIPT": "agent.py",
         "MAIDA_POLICY": ".maida/policy.yaml",
-        "MAIDA_BASELINE": "",
+        "MAIDA_BASELINE": ".maida/baselines/agent.json",
     }
 
     job = wf["jobs"]["agent-check"]
@@ -1632,7 +1630,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     }
     assert "repository_dispatch" in job["if"]
     context, checkout, gate, status = job["steps"]
-    assert context["uses"] == "maida-ai/maida-assert/pr-context@main"
+    assert context["uses"] == "maida-ai/maida-assert/pr-context@" + MAIDA_ASSERT_ACTION_REF.split("@")[1]
     assert checkout["uses"] == CHECKOUT_ACTION_REF
     assert checkout["with"] == {
         "ref": "${{ steps.pr.outputs.head-sha }}",
@@ -1642,7 +1640,7 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert gate["uses"] == MAIDA_ASSERT_ACTION_REF
     assert gate["with"]["configuration-acceptance"] == "${{ vars.MAIDA_CONFIGURATION_ACCEPTANCE }}"
     assert status["if"] == "always() && steps.pr.outcome == 'success'"
-    assert status["uses"] == "maida-ai/maida-assert/publish-status@main"
+    assert status["uses"] == "maida-ai/maida-assert/publish-status@" + MAIDA_ASSERT_ACTION_REF.split("@")[1]
     assert status["with"] == {
         "head-sha": "${{ steps.pr.outputs.head-sha }}",
         "base-sha": "${{ steps.pr.outputs.base-sha }}",
@@ -1662,25 +1660,26 @@ def test_init_github_writes_valid_workflow(empty_data_dir, tmp_path, monkeypatch
     assert write["needs"] == ["authorize", "capture"]
     assert write["steps"][-1]["with"]["context"] == "${{ needs.authorize.outputs.context }}"
     assert not any("checkout" in step.get("uses", "") or "run" in step for step in write["steps"])
-    assert "Replace this with the script that runs your traced agent." in workflow_text
-    assert "After committing a baseline" in workflow_text
+    assert "existing traced entrypoint" in workflow_text
+    assert "Reviewed baseline" in workflow_text
     assert "secrets." not in workflow_text.lower()
 
 
 def test_init_skips_existing_without_force(empty_data_dir, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    runner.invoke(app, ["init"])
-    policy_path = tmp_path / ".maida" / "policy.yaml"
+    run_id = _make_run(load_config())
+    runner.invoke(app, ["init", "--from-run", run_id])
+    policy_path = tmp_path / ".maida" / "starter" / "policy.yaml"
     policy_path.write_text("assert: {}\n", encoding="utf-8")
 
-    result = runner.invoke(app, ["init"])
-    assert result.exit_code == 0
-    assert "skipped" in result.output
+    result = runner.invoke(app, ["init", "--from-run", run_id])
+    assert result.exit_code == 2
+    assert "already exists" in result.output
     assert policy_path.read_text() == "assert: {}\n"  # untouched
 
-    result = runner.invoke(app, ["init", "--force"])
+    result = runner.invoke(app, ["init", "--from-run", run_id, "--force"])
     assert result.exit_code == 0
-    assert "wrote" in result.output
+    assert "Drafted" in result.output
     assert "version: 2" in policy_path.read_text()  # overwritten
 
 

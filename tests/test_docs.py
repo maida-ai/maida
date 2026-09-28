@@ -4,6 +4,7 @@ from maida.scaffold import (
     CHECKOUT_ACTION_REF,
     MAIDA_ACCEPT_ACTION_REF,
     MAIDA_ASSERT_ACTION_REF,
+    render_workflow,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,7 +88,7 @@ def test_trace_format_documents_current_storage_contract():
     assert missing == []
 
 
-def test_action_version_references_match_scaffold():
+def test_action_version_references_match_scaffold(tmp_path, monkeypatch):
     combined = read_docs(
         "CHANGELOG.md",
         "README.md",
@@ -96,7 +97,7 @@ def test_action_version_references_match_scaffold():
         "docs/regression-testing.md",
     )
 
-    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@main"
+    assert len(MAIDA_ASSERT_ACTION_REF.split("@")[1]) == 40
     assert MAIDA_ASSERT_ACTION_REF in combined
     assert MAIDA_ACCEPT_ACTION_REF in combined
     assert "maida-ai/maida-assert@v2" not in combined
@@ -104,7 +105,8 @@ def test_action_version_references_match_scaffold():
     assert "maida-ai/maida-assert@V4" not in combined
     assert "maida-ai/maida-assert@V5" not in combined
 
-    workflow_text = (ROOT / "maida/scaffold.py").read_text(encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    workflow_text = render_workflow("agent.py", ".maida/baselines/agent.json")
     assert CHECKOUT_ACTION_REF in workflow_text
     assert MAIDA_ASSERT_ACTION_REF in workflow_text
     assert MAIDA_ACCEPT_ACTION_REF in workflow_text

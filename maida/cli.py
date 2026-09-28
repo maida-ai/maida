@@ -8,6 +8,7 @@ Entrypoint: main() for console script maida.cli:main.
 import getpass
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -80,10 +81,18 @@ from maida.scenario import (
 from maida.statistics import GateVerdict
 from maida.scaffold import (
     POLICY_RELPATH,
-    POLICY_TEMPLATE,
     WORKFLOW_RELPATH,
-    WORKFLOW_TEMPLATE,
-    write_scaffold,
+    render_workflow,
+)
+from maida.starter import (
+    ACTIVE_BASELINE,
+    ACTIVE_POLICY,
+    STARTER_REVIEW,
+    draft_starter,
+    reviewed_starter,
+    validate_agent_script,
+    verify_active_starter,
+    write_files,
 )
 from maida.server import create_app
 from maida.usage import report_usage
@@ -1403,28 +1412,73 @@ def _demo_regression(config) -> None:
 def init_cmd(
     github: bool = typer.Option(False, "--github", help="Also scaffold a GitHub Actions workflow"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing files"),
+    from_run: list[str] = typer.Option(
+        [], "--from-run", help="Completed observation to draft from (repeatable; latest is explicit)"
+    ),
+    reviewed: bool = typer.Option(
+        False, "--reviewed", help="Activate candidates after you have reviewed and edited them"
+    ),
+    reason: str | None = typer.Option(None, "--reason", help="Record why the reviewed invariants fit this task"),
+    agent_script: Path | None = typer.Option(None, "--agent-script", help="Existing traced Python entrypoint for CI"),
 ) -> None:
-    """Scaffold .maida/policy.yaml (and optionally a CI workflow)."""
+    """Draft observed invariants, review them, then create a runnable gate."""
     try:
-        targets = [(POLICY_RELPATH, POLICY_TEMPLATE)]
-        if github:
-            targets.append((WORKFLOW_RELPATH, WORKFLOW_TEMPLATE))
-
-        for path, content in targets:
-            if write_scaffold(path, content, force=force):
-                typer.echo(f"✓ wrote {path}")
-            else:
-                typer.echo(f"  skipped {path} (exists; use --force to overwrite)")
-
-        typer.echo("")
-        typer.echo("Next steps:")
-        typer.echo("  1. Instrument your agent with @trace (see `maida demo`).")
-        typer.echo("  2. Run it, then: maida baseline --out .maida/baselines/<name>.json")
-        typer.echo("  3. Gate it:      maida assert --baseline .maida/baselines/<name>.json")
-        if github:
-            typer.echo(f"  4. Edit {WORKFLOW_RELPATH} (set agent-script), then commit.")
+        if from_run and (reviewed or github):
+            raise ValueError("Draft first with --from-run; review the candidates before --reviewed or --github")
+        if reason is not None and not reviewed:
+            raise ValueError("--reason requires --reviewed")
+        if agent_script is not None and not github:
+            raise ValueError("--agent-script requires --github")
+        config = load_config()
+        if from_run:
+            targets = draft_starter(from_run, config)
+            write_files(targets, force=force)
+            evidence = json.loads(targets[STARTER_REVIEW])
+            typer.echo(
+                f"Drafted {len(evidence['candidates'])} candidate invariants for {evidence['run_name']!r} from {evidence['observations']} observation(s)."
+            )
+            typer.echo(f"Selected traces: {', '.join(evidence['source_trace_ids'])}")
+            typer.echo("Review .maida/starter/policy.yaml: remove any rule your task does not require.")
+            typer.echo("These observations do not establish correctness or guarantees about future runs.")
+            typer.echo("Next: maida init --reviewed --reason 'why these rules fit this task'")
+            return
+        if not reviewed and not github:
+            raise ValueError(
+                "Choose a successful run from `maida list`, then run `maida init --from-run RUN_ID` "
+                "(or explicitly --from-run latest). Start with `maida demo --regression` to try the gate; "
+                "capture your own coding-agent task using https://maida.ai/docs/getting-started/."
+            )
+        script = validate_agent_script(agent_script) if github else None
+        targets = {}
+        review_record = None
+        if reviewed:
+            targets, review_record = reviewed_starter(reason or "", config)
         else:
-            typer.echo("  4. Add CI later: maida init --github")
+            verify_active_starter()
+        if github:
+            targets[WORKFLOW_RELPATH] = render_workflow(script, str(ACTIVE_BASELINE))
+        # Preflight active files together; an invalid workflow never partly activates a policy.
+        if review_record is not None:
+            targets[STARTER_REVIEW] = json.dumps(review_record, ensure_ascii=False, indent=2) + "\n"
+        write_files(targets, force=force, update={STARTER_REVIEW} if review_record else set())
+        for path in targets:
+            typer.echo(f"Wrote {path}")
+        typer.echo("Next: run the same task again, then gate the new observation:")
+        typer.echo(f"  maida assert --baseline {ACTIVE_BASELINE} --policy {ACTIVE_POLICY}")
+        typer.echo("This checks one observed execution; it does not certify a population pass rate.")
+        if script:
+            typer.echo(
+                f"For the traced Python entrypoint: maida run {shlex.quote(script)} --baseline {ACTIVE_BASELINE} --policy {ACTIVE_POLICY}"
+            )
+            typer.echo(
+                "Review and commit these files, then require the Maida / agent-check status in repository settings."
+            )
+            typer.echo(
+                "CI dependency installation and workflow protection remain part of your repository configuration."
+            )
+    except (ValueError, FileNotFoundError) as e:
+        typer.echo(f"Cannot initialize gate: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
