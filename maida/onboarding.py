@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from pathlib import Path
 
 import typer
 
+from maida import __version__
 from maida.config import load_config
 
 
@@ -24,8 +26,76 @@ app = typer.Typer(help="Measure onboarding attempts and effort locally; nothing 
 PHASES = ("setup", "trial", "investigation", "maintenance")
 ACTORS = ("user", "founder", "other")
 ASSISTANCE = ("none", "founder", "other", "unknown")
-MILESTONES = ("installed", "captured", "baseline-reviewed", "gate-pass", "regression-caught", "ci-verified")
-ACTIVATION = {"baseline-reviewed", "gate-pass", "regression-caught"}
+ACTIVATION_STEPS = ("captured", "baseline-reviewed", "gate-pass", "regression-caught", "repair-pass")
+MILESTONES = ("installed", *ACTIVATION_STEPS, "ci-verified")
+ACTIVATION = set(ACTIVATION_STEPS)
+TASK_KINDS = ("coding-agent", "python-agent", "other")
+
+
+def _require(condition: bool) -> None:
+    if not condition:
+        raise ValueError("Invalid local onboarding journal; preserve it and inspect the file before retrying")
+
+
+def _timestamp(value: object) -> datetime:
+    _require(isinstance(value, str))
+    parsed = datetime.fromisoformat(value)
+    _require(parsed.tzinfo is not None)
+    return parsed
+
+
+def _check_milestone(milestone: str | None, seen: set[str]) -> None:
+    if milestone in ACTIVATION_STEPS:
+        index = ACTIVATION_STEPS.index(milestone)
+        if index and ACTIVATION_STEPS[index - 1] not in seen:
+            raise ValueError(f"Record the completed {ACTIVATION_STEPS[index - 1]} milestone before {milestone}")
+
+
+def _validate_attempt(attempt: object) -> None:
+    _require(isinstance(attempt, dict))
+    required = {"id", "started_at", "engine_version", "task_kind", "assistance", "outcome", "events"}
+    _require(required <= attempt.keys() <= required | {"activated_at", "activation_assistance"})
+    _require(isinstance(attempt["id"], str) and re.fullmatch(r"[a-f0-9]{32}", attempt["id"]) is not None)
+    _require(
+        isinstance(attempt["engine_version"], str)
+        and re.fullmatch(r"[A-Za-z0-9.+_-]{1,128}", attempt["engine_version"]) is not None
+    )
+    _require(attempt["task_kind"] is None or attempt["task_kind"] in TASK_KINDS)
+    _require(attempt["assistance"] in ASSISTANCE)
+    _require(attempt["outcome"] in ("in-progress", "activated", "blocked", "abandoned"))
+    _require(isinstance(attempt["events"], list))
+    previous = _timestamp(attempt["started_at"])
+    seen = set()
+    helped = attempt["assistance"] in ("founder", "other")
+    activated_at = activation_assistance = None
+    for event in attempt["events"]:
+        _require(
+            isinstance(event, dict)
+            and {"at", "actor"} < event.keys() <= {"at", "actor", "phase", "minutes", "milestone", "outcome"}
+        )
+        _require(event["actor"] in ACTORS)
+        at = _timestamp(event["at"])
+        _require(at >= previous)
+        previous = at
+        _require(("phase" in event) == ("minutes" in event))
+        if "phase" in event:
+            _require(event["phase"] in PHASES)
+            value = event["minutes"]
+            _require(type(value) in (int, float) and math.isfinite(value) and value >= 0)
+        if "outcome" in event:
+            _require(event["outcome"] in ("blocked", "abandoned") and "milestone" not in event)
+        if "milestone" in event:
+            _require(event["milestone"] in MILESTONES)
+            _check_milestone(event["milestone"], seen)
+            seen.add(event["milestone"])
+        helped = helped or event["actor"] != "user"
+        if activated_at is None and ACTIVATION <= seen:
+            activated_at = event["at"]
+            activation_assistance = "assisted" if helped else attempt["assistance"]
+    _require(attempt.get("activated_at") == activated_at)
+    _require(attempt.get("activation_assistance") == activation_assistance)
+    _require(attempt["outcome"] != "activated" or activated_at is not None)
+    _require(activated_at is None or attempt["outcome"] != "in-progress")
 
 
 def _now() -> str:
@@ -41,9 +111,15 @@ def _path() -> Path:
 def _load(path: Path) -> dict:
     if not path.exists():
         return {"journal_version": 1, "attempts": []}
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("journal_version") != 1 or not isinstance(data.get("attempts"), list):
-        raise ValueError("Invalid local onboarding journal; preserve it and inspect the file before retrying")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        _require(isinstance(data, dict) and set(data) == {"journal_version", "attempts"})
+        _require(type(data["journal_version"]) is int and data["journal_version"] == 1)
+        _require(isinstance(data["attempts"], list))
+        for attempt in data["attempts"]:
+            _validate_attempt(attempt)
+    except (ValueError, TypeError, KeyError):
+        raise ValueError("Invalid local onboarding journal; preserve it and inspect the file before retrying") from None
     return data
 
 
@@ -68,11 +144,14 @@ def _invalid(error: Exception) -> None:
 @app.command("start")
 def start(
     assistance: str = typer.Option("unknown", "--assistance", help="none, founder, other, or unknown"),
+    task_kind: str | None = typer.Option(None, "--task-kind", help=", ".join(TASK_KINDS)),
 ) -> None:
     """Start an attempt before setup; unfinished previous attempts remain counted."""
     try:
         if assistance not in ASSISTANCE:
             raise ValueError("--assistance must be none, founder, other, or unknown")
+        if task_kind is not None and task_kind not in TASK_KINDS:
+            raise ValueError(f"--task-kind must be one of: {', '.join(TASK_KINDS)}")
         path = _path()
         data = _load(path)
         if data["attempts"] and data["attempts"][-1]["outcome"] == "in-progress":
@@ -80,6 +159,8 @@ def start(
         attempt = {
             "id": uuid.uuid4().hex,
             "started_at": _now(),
+            "engine_version": __version__,
+            "task_kind": task_kind,
             "assistance": assistance,
             "outcome": "in-progress",
             "events": [],
@@ -88,7 +169,7 @@ def start(
         _save(path, data)
         typer.echo("Started local onboarding attempt. Record actual work with maida onboarding record.")
         typer.echo(
-            "Activation requires a reviewed baseline, a passing own-task gate and a deliberately caught regression."
+            "Activation requires own-task capture, reviewed baseline, passing gate, caught regression and repaired PASS."
         )
     except (OSError, ValueError) as error:
         _invalid(error)
@@ -112,6 +193,8 @@ def record(
             raise ValueError(f"--actor must be one of: {', '.join(ACTORS)}")
         if outcome is not None and outcome not in {"blocked", "abandoned"}:
             raise ValueError("--outcome must be blocked or abandoned")
+        if outcome is not None and milestone is not None:
+            raise ValueError("Record a completed milestone or a stopped outcome, not both")
         if (minutes is None) != (phase is None):
             raise ValueError("Record effort with both --phase and --minutes")
         if minutes is not None and (not math.isfinite(minutes) or minutes < 0):
@@ -125,6 +208,7 @@ def record(
         attempt = data["attempts"][-1]
         if attempt["outcome"] in {"blocked", "abandoned"}:
             raise ValueError("This attempt has ended; run maida onboarding start for a new attempt")
+        _check_milestone(milestone, {e.get("milestone") for e in attempt["events"]})
         event = {"at": _now(), "actor": actor}
         if phase is not None:
             event.update({"phase": phase, "minutes": minutes})
@@ -163,6 +247,11 @@ def summarize(data: dict) -> dict:
     return {
         "measurement_version": 1,
         "evidence": "self-reported local workflow milestones",
+        "engine_versions": sorted({a["engine_version"] for a in attempts}),
+        "task_kinds": {
+            kind: sum((a["task_kind"] or "unknown") == kind for a in attempts)
+            for kind in sorted({a["task_kind"] or "unknown" for a in attempts})
+        },
         "attempts": len(attempts),
         "activated": len(activated),
         "activation_rate": len(activated) / len(attempts) if attempts else None,
