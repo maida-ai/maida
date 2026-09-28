@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from maida.cli import app
 from maida.loopdetect import detect_loop
@@ -53,19 +55,38 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
     assert contract["action_ref"] == "maida-ai/maida-assert@v5"
     assert contract["cli"]["primary_gate"] == "run"
     assert contract["cli"]["legacy_gate"] == "assert"
-    assert sorted(command.name for command in app.registered_commands) == contract["cli"]["top_level_commands"]
-    assert sorted(group.name for group in app.registered_groups) == contract["cli"]["command_groups"]
+    pending = _read_json(CONTRACTS / "unreleased-cli.json")
+    assert pending["based_on"] == contract["engine_ref"]
+    for field, registered in (
+        ("top_level_commands", app.registered_commands),
+        ("command_groups", app.registered_groups),
+    ):
+        released = set(contract["cli"][field])
+        added = {item["name"] for item in pending[field]}
+        assert len(added) == len(pending[field])
+        assert not released & added, "Released commands must be removed from the pending manifest"
+        assert {item.name for item in registered} == released | added
+        for item in pending[field]:
+            assert (ROOT / item["documentation"]).is_file()
 
 
 def test_primary_public_docs_use_the_released_channel() -> None:
     contract = _read_json(CONTRACTS / "current-main.json")
     for relative in ("README.md", "docs/index.md", "docs/getting-started.md"):
         text = (ROOT / relative).read_text(encoding="utf-8")
-        assert contract["install_requirement"] in text
+        installs = re.findall(r"maida-ai(?:==|>=)[0-9][0-9.a-z]*", text)
+        assert installs, f"No released install command in {relative}"
+        release = Version(contract["engine_ref"].removeprefix("v"))
+        assert release in Requirement(contract["install_requirement"]).specifier
+        for install in installs:
+            assert release in Requirement(install).specifier
         assert "git+https://github.com/maida-ai/maida.git@main" not in text
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "maida run my_agent.py" in readme
+    assert "https://maida.ai/docs/getting-started/" in readme
+    assert "docs/python-agent.md" in readme
+    python_guide = (ROOT / "docs/python-agent.md").read_text(encoding="utf-8")
+    assert f"maida {contract['cli']['primary_gate']} agent.py" in python_guide
     assert "maida assert --baseline" not in readme.split("## CLI reference", 1)[0]
 
 
