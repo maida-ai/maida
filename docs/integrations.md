@@ -16,9 +16,9 @@ details and the v0.5.3 pin.
 
 Download the deterministic offline examples directly:
 
-- <a href="/docs/assets/examples/langchain-minimal.py" download>LangChain and LangGraph example</a>
-- <a href="/docs/assets/examples/openai-agents-minimal.py" download>OpenAI Agents example</a>
-- <a href="/docs/assets/examples/crewai-minimal.py" download>CrewAI example</a> (historical; requires installing `crewai` yourself on post-v0.5.3 checkouts)
+- <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/langchain/minimal.py" download>LangChain and LangGraph example</a>
+- <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/openai_agents/minimal.py" download>OpenAI Agents example</a>
+- <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/crewai/minimal.py" download>CrewAI example</a> (historical; requires installing `crewai` yourself on post-v0.5.3 checkouts)
 
 ## Shared contract
 

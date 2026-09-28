@@ -41,10 +41,9 @@ The adapter captures:
 
 Framework-specific context (agent role, task description, executor ID) is stored in `meta.crewai.*`.
 
-The offline example -- <a href="/docs/assets/examples/crewai-minimal.py" download>download it</a>, or run
-[`examples/crewai/minimal.py`](https://github.com/maida-ai/maida/blob/main/examples/crewai/minimal.py)
-from a checkout -- sends fake data through CrewAI's public hook contexts, so it
-exercises the adapter without starting a crew, LLM, or API call. The
+The offline example -- <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/crewai/minimal.py" download>download it</a>, or run
+[`examples/crewai/minimal.py`](https://github.com/maida-ai/maida-tutorials/blob/main/examples/crewai/minimal.py)
+from a maida-tutorials checkout -- sends fake data through CrewAI's public hook contexts, so it exercises the adapter without starting a crew, LLM, or API call. Use the isolated historical environment described in the [examples catalog](https://github.com/maida-ai/maida-tutorials/blob/main/examples/README.md). The
 environment flag disables CrewAI's separate anonymous package telemetry for
 this deterministic run. On post-v0.5.3 checkouts the example requires installing
 `crewai[tools]` yourself; there is no Maida extra.

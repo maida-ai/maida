@@ -32,10 +32,10 @@ The handler captures:
 - **LLM calls** (`on_llm_start` / `on_chat_model_start` -> `on_llm_end`): records model name, prompt, response, and token usage via `record_llm_call`.
 - **Tool calls** (`on_tool_start` -> `on_tool_end` / `on_tool_error`): records tool name, args, result, and error status via `record_tool_call`.
 
-The <a href="/docs/assets/examples/langchain-minimal.py" download>offline LangChain example</a> uses `FakeListLLM` and a local tool, so it requires no API key or network call:
+The <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/langchain/minimal.py" download>offline LangChain example</a> uses `FakeListLLM` and a local tool, so it requires no API key or network call. From the maida-tutorials checkout, run `uv sync --locked --extra langchain`, then:
 
 ```bash
-python langchain-minimal.py
+uv run --extra langchain python examples/langchain/minimal.py
 maida view
 ```
 
@@ -55,11 +55,11 @@ extra tool call:
 
 ```bash
 # Capture the known-good behavior.
-python langchain-minimal.py
+uv run --extra langchain python examples/langchain/minimal.py
 maida baseline --out langchain-baseline.json
 
 # Simulate a code change that repeats the local lookup.
-python langchain-minimal.py --regression
+uv run --extra langchain python examples/langchain/minimal.py --regression
 maida assert --baseline langchain-baseline.json --tool-call-tolerance 0
 ```
 

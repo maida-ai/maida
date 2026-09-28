@@ -6,15 +6,6 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
 
-  # Standalone PEP 621 examples do not have uv lockfiles.
-  - package-ecosystem: pip
-    directories:
-      - /examples/langchain
-      - /examples/minimal
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-
   - package-ecosystem: github-actions
     directory: /
     schedule:
