@@ -96,6 +96,7 @@ from maida.starter import (
 )
 from maida.server import create_app
 from maida.usage import report_usage
+from maida.onboarding import app as onboarding_app
 from maida.trace_validation import (
     TraceDiagnostic,
     TraceInputError,
@@ -115,6 +116,7 @@ scenario_app = typer.Typer(help="Run isolated capture-backed agent scenarios.")
 app.add_typer(capture_app, name="capture")
 app.add_typer(import_app, name="import")
 app.add_typer(scenario_app, name="scenario")
+app.add_typer(onboarding_app, name="onboarding")
 
 
 def _version_callback(value: bool) -> None:
