@@ -200,9 +200,7 @@ check.
 
 ## Composition and stopping
 
-FAIL dominates. PASS requires every blocking tier to pass and no gating metric
-to be inconclusive. A gating INCONCLUSIVE produces the overall neutral
-INCONCLUSIVE result. `report_only` metrics never block and have no verdict.
+FAIL dominates. PASS requires every blocking tier to pass and no gating metric to be inconclusive. A gating INCONCLUSIVE produces the overall INCONCLUSIVE result. The CLI's exit `0` preserves that uncertainty; a blocking Action check must remain non-mergeable. `report_only` metrics never block and have no verdict.
 
 `fail_fast: true` is the default. The fixed budget stops when a blocking
 failure is irreversible, especially an invariant violation, and reports

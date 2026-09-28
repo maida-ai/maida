@@ -27,7 +27,7 @@ explicitly when you want to buy more baseline evidence.
 
 ## Policy
 
-Every metric says where its acceptance criterion comes from:
+A v2 policy states where each metric's acceptance criterion comes from:
 
 ```yaml
 version: 2
@@ -84,9 +84,7 @@ Report schema `2.0.1` includes the metric kind, direction, mode, named decision
 rule, stopping rule, trials used/budgeted, raw outcomes, and tier evidence.
 Report consumers must ignore unknown fields within a major.
 
-Markdown is verdict-first and always reports large improvements. Report-only
-metrics show observed values without a confidence verdict. INCONCLUSIVE is
-neutral and never a red check.
+Markdown is verdict-first and always reports large improvements. Report-only metrics show observed values without a confidence verdict. INCONCLUSIVE means the evidence did not settle a blocking claim. The CLI returns exit `0` for that result; a blocking GitHub Action check must publish a non-mergeable conclusion instead of treating process success as approval.
 
 | Exit | Meaning |
 | ---: | --- |

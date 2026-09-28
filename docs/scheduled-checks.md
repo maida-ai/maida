@@ -43,7 +43,7 @@ run status.
 
 | Exit | Meaning |
 | ---: | --- |
-| `0` | PASS or neutral INCONCLUSIVE |
+| `0` | PASS or INCONCLUSIVE; read the report verdict |
 | `1` | confirmed FAIL |
 | `2` | missing, invalid, incomplete, or ambiguous input |
 | `10` | internal execution error |
