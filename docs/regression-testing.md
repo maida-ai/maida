@@ -1,34 +1,26 @@
 # Regression testing
 
-Maida runs a traced agent in isolated workspace copies, evaluates an explicit
-policy taxonomy, and emits PASS, FAIL, or provider-neutral INCONCLUSIVE.
+Maida runs a traced agent in isolated workspace copies, evaluates an explicit policy taxonomy, and emits PASS, FAIL, or provider-neutral INCONCLUSIVE. Start with the [released coding-agent walkthrough](getting-started.md). This reference explains the Python trial runner after you have protected one task.
 
 ## Recommended workflow
 
+For the installed release, follow the [Python agent walkthrough](python-agent.md). Start with a reviewed invariant contract and one task; add sampling only when the metric requires it.
+
+The **next-release** [init workflow](cli/init.md) derives a small inactive starter from your own observations:
+
 ```bash
-# 1. Scaffold and edit the v2 policy.
-maida init --github
-
-# 2. Capture a complete reviewed trial sample.
-maida run my_agent.py \
-  --policy .maida/policy.yaml \
-  --trials 25 \
-  --no-fail-fast \
-  --json-out baseline-report.json
-maida baseline \
-  --from-report baseline-report.json \
-  --out .maida/baselines/my_agent.json
-
-# 3. Commit the policy and immutable baseline.
-git add .maida/policy.yaml .maida/baselines/my_agent.json
-
-# 4. Run the candidate gate.
-maida run my_agent.py \
-  --policy .maida/policy.yaml \
-  --baseline .maida/baselines/my_agent.json \
-  --format markdown \
-  --json-out maida-report.json
+uv run python my_agent.py
+maida init --from-run latest
 ```
+
+Confirm the displayed run belongs to the task you are protecting. Read `.maida/starter/policy.yaml`, remove rules outside your contract, then activate the reviewed draft:
+
+```bash
+maida init --reviewed --reason "This task must finish without loops"
+maida run my_agent.py --baseline .maida/baselines/agent.json --policy .maida/policy.yaml
+```
+
+Introduce a small intentional regression, confirm FAIL, repair it, and confirm PASS before adding CI. A reviewed invariant evaluates observed executions; it does not establish an underlying population pass rate.
 
 The gate never accumulates baseline observations across CI runs. Recapture
 explicitly when you want to buy more baseline evidence.
@@ -43,7 +35,6 @@ trials: 3
 fail_fast: true
 metrics:
   stop_condition_reached: {kind: invariant, require: true}
-  forbidden_tools: {kind: invariant, none_of: [admin_delete]}
   step_count:
     kind: measured
     direction: upper
@@ -132,8 +123,4 @@ history.
 
 ## GitHub Actions
 
-`maida init --github` generates a workflow that tracks
-`maida-ai/maida-assert@main` until you pin a reviewed, coordinated Action commit.
-The Action consumes report schema 2, keeps INCONCLUSIVE blocking, and posts the
-Markdown report as a sticky PR comment and check summary. The action contract
-is maintained in the separate `maida-assert` repository.
+After reviewing the development starter, `maida init --github --agent-script my_agent.py` generates a workflow pinned to the reviewed Action commit, using the real entrypoint and baseline paths. See [init](cli/init.md) for supported dependency setup and the Python 3.12 acceptance-runner boundary. The Action consumes report schema 2, keeps INCONCLUSIVE blocking, and posts the Markdown report as a sticky PR comment and check summary. The action contract is maintained in the separate `maida-assert` repository. The [released Python walkthrough](python-agent.md) remains the route for installed releases; remote branch protection must be verified in the consumer repository before claiming merge enforcement.

@@ -29,9 +29,7 @@ The adapter captures:
 - **Tool calls** (`FunctionSpanData`): records tool name, args, result, and error status via `record_tool_call`.
 - **Handoffs** (`HandoffSpanData`): records a `TOOL_CALL` named `handoff`, with framework-specific details stored in `meta`.
 
-The offline example -- <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/openai_agents/minimal.py" download>download it</a>, or run
-[`examples/openai_agents/minimal.py`](https://github.com/maida-ai/maida-tutorials/blob/main/examples/openai_agents/minimal.py)
-from a maida-tutorials checkout -- constructs SDK tracing spans with fixed payloads and replaces the SDK processor list with Maida's processor. It requires no API key, provider call, or network access. Run the following commands from the tutorial repository root:
+The offline example -- <a href="https://raw.githubusercontent.com/maida-ai/maida-tutorials/main/examples/openai_agents/minimal.py" download>download it</a>, or run [`examples/openai_agents/minimal.py`](https://github.com/maida-ai/maida-tutorials/blob/main/examples/openai_agents/minimal.py) from a maida-tutorials checkout -- constructs SDK tracing spans with fixed payloads and replaces the SDK processor list with Maida's processor. It requires no API key, provider call, or network access. Run the following commands from the tutorial repository root:
 
 ```bash
 uv sync --locked --extra openai
