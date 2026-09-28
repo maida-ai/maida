@@ -171,7 +171,7 @@ def dependency_setup() -> str:
                 commands.append('uv pip install --python "$(command -v python)" --no-deps .')
         elif project.get("project"):
             commands.append('uv pip install --python "$(command -v python)" .')
-    elif Path("requirements.txt").is_file():
+    if not commands and Path("requirements.txt").is_file():
         commands.append('uv pip install --python "$(command -v python)" -r requirements.txt')
     if not commands:
         return ""

@@ -128,6 +128,20 @@ def test_starter_does_not_propose_no_loops_when_observed_runs_loop(temp_data_dir
     assert "stop_condition_reached" in policy.metrics
 
 
+@pytest.mark.parametrize("with_runtime_rule", [False, True])
+def test_starter_review_rejects_unobserved_plan_invariants(temp_data_dir, tmp_path, monkeypatch, with_runtime_rule):
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["init", "--from-run", observe()]).exit_code == 0
+    content = "version: 2.1\nmetrics:\n  plan_shape_seen: {kind: invariant, require: true}\n"
+    if with_runtime_rule:
+        content += "  stop_condition_reached: {kind: invariant, require: true}\n"
+    Path(".maida/starter/policy.yaml").write_text(content)
+    result = runner.invoke(app, ["init", "--reviewed", "--reason", "reviewed"])
+    assert result.exit_code == 2
+    assert "observation" in result.output
+    assert not Path(".maida/policy.yaml").exists()
+
+
 def test_starter_refuses_symlinked_output(temp_data_dir, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     outside = tmp_path / "other"
@@ -178,17 +192,22 @@ def test_github_scaffold_uses_real_entrypoint_and_reviewed_baseline(temp_data_di
     assert result.exit_code == 0, result.output
 
 
-def test_github_installs_declared_dependencies_in_both_execution_jobs(tmp_path, monkeypatch):
+@pytest.mark.parametrize("tooling_only", [False, True])
+def test_github_installs_declared_dependencies_in_both_execution_jobs(tmp_path, monkeypatch, tooling_only):
     from maida.scaffold import render_workflow
 
     monkeypatch.chdir(tmp_path)
-    Path("pyproject.toml").write_text('[project]\nname="example"\nversion="0.0.1"\ndependencies=[]\n')
-    Path("uv.lock").write_text("version = 1\n")
+    if tooling_only:
+        Path("pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts=[]\n")
+        Path("requirements.txt").write_text("# Project dependencies\n")
+    else:
+        Path("pyproject.toml").write_text('[project]\nname="example"\nversion="0.0.1"\ndependencies=[]\n')
+        Path("uv.lock").write_text("version = 1\n")
     workflow = yaml.safe_load(render_workflow("agent.py", ".maida/baselines/agent.json"))
     for job in ("agent-check", "capture"):
         steps = workflow["jobs"][job]["steps"]
         install = next(step for step in steps if step.get("name") == "Install project dependencies")
-        assert "uv export --locked --no-dev" in install["run"]
+        assert ("-r requirements.txt" if tooling_only else "uv export --locked --no-dev") in install["run"]
     assert not any("run" in step for step in workflow["jobs"]["write"]["steps"])
 
 

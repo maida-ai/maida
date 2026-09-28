@@ -154,7 +154,10 @@ def reviewed_starter(reason: str, config: MaidaConfig) -> tuple[dict[Path, str],
         _, meta, events = load_run_for_analysis(trace_id, config)
         if meta.get("status") != "ok" or meta.get("run_name") != review.get("run_name"):
             raise ValueError("Source observation changed; regenerate the starter before review")
-        if not all(invariant_outcomes(extract_run_metrics(meta, events), policy, baseline).values()):
+        outcomes = invariant_outcomes(extract_run_metrics(meta, events), policy, baseline)
+        if outcomes.keys() != policy.metrics.keys():
+            raise ValueError("Edited policy requires observation semantics unavailable in these runtime traces")
+        if not all(outcomes.values()):
             raise ValueError("The edited policy fails an observed run; review that run or revise the candidate")
     policy_text = STARTER_POLICY.read_text(encoding="utf-8")
     review.update(
