@@ -30,205 +30,36 @@ structural behavior regresses.
 on your machine or CI runner. [Optional usage counts](docs/usage-ping.md) require
 explicit consent and a configured collector; no collector is configured by default.
 
-## ⚡ Try it in 60 seconds
-
-No repo clone, no config file, no API key, no sign-up:
+## Start with one useful check
 
 ```bash
-pip install maida-ai     # or: uv tool install "maida-ai>=0.5"
-maida demo
-maida view
-```
-
-`maida demo` runs a bundled, simulated customer-support agent -- tool calls, LLM
-calls, state updates, automatic secret redaction, all canned data. `maida view`
-opens the timeline at `http://127.0.0.1:8712` with every event, input, output,
-and timing. Leave it running: new runs appear in the sidebar as you go.
-
-## 🎬 Watch it catch a regression
-
-One command tells the whole story:
-
-```bash
+uv tool install "maida-ai==0.5.3"
 maida demo --regression
 ```
 
-Maida baselines a known-good run, then runs a "refactored" agent that swaps in a
-cheaper model, loops on a tool, calls a tool the baseline has never seen, and
-burns 5x the tokens -- **while still exiting with status `ok`.**
+Expect a FAIL verdict and a PR-comment preview: the simulated agent still answers, but loops and calls an unexpected tool. Exit `1` is intentional. No clone, API keys, or account are needed for this rehearsal.
 
-```
-── Step 3/3 | Gate the new run against the baseline
-   policy: no new tools, no loops, status ok, and cost near baseline
+**[Protect one coding-agent task →](https://maida.ai/docs/getting-started/)**
 
-  ✗ step_count   [step_count_exceeded]     11 steps (baseline: 6, tolerance: 50%)
-  ✗ tool_calls   [tool_call_count_exceeded] 7 tool calls (baseline: 3, tolerance: 50%)
-  ✗ new_tools    [new_tool_path]           unexpected tools used: ['escalate_to_human']
-  ✗ no_loops     [loop_detected]           repeated_call x3: TOOL_CALL:search_kb
-  ✗ cost_tokens  [cost_envelope_exceeded]  447 tokens (baseline: 90, tolerance: 50%)
-  ✓ duration     [no_regression]           120 ms (baseline: 120, tolerance: 500%)
-  ✓ expect_status[no_regression]           status is 'ok'
+Start with a one-minute task in your repository, such as finding its test command, and get a report on that actual execution. Allow 10–15 minutes for capture setup and the first check. Review a small baseline and policy when that result is useful; deliberate failure, repair, and CI come next. This is a setup target, not a measured activation claim.
 
-RESULT: FAILED (5 of 7 active checks failed)
-```
+Building a Python tool-calling agent? Use the secondary [Python walkthrough](docs/python-agent.md), including installation into the project environment.
 
-<details>
-<summary><b>And the PR comment your team would see in CI</b></summary>
+## What the gate checks
 
-<br>
+Maida compares the observed execution against your checked-in policy and baseline: tool use, loops, stop conditions, structural counts, and configured cost or latency limits. It does not establish answer correctness or behavior outside the captured evidence. Keep your correctness tests alongside it.
 
-```markdown
-## ❌ Maida verdict: fail
+Read the verdict: **PASS**, **FAIL**, or **INCONCLUSIVE**. Exit `0` includes INCONCLUSIVE; consumers must not treat process success as approval.
 
-**5 of 7 checks failed** | run `40ced8d7` vs baseline `9612a7b6`
+## Investigate a failed check
 
-### Top behavior changes
+Use `maida view` to inspect the local timeline and `maida diff --baseline .maida/baselines/agent.json` to understand the structural change. Repair an unintended regression; review the evidence and reason before accepting an intentional baseline change.
 
-| Behavior | Baseline | Current | Change |
-|---|---|---|---|
-| Steps | 6 | 11 | +83% |
-| Loops/cycles | 0 | 1 | NEW |
-| Cost envelope | 90 tokens | 447 tokens | +397% |
-| Tool calls | 3 | 7 | +133% |
+## Add the PR gate
 
-**Tool changes:**
-- ➕ `escalate_to_human` -- new tool, not in baseline
-- ➖ `send_reply` -- no longer called
-- 🔁 `search_kb` -- repeated 1 -> 5 calls
-```
+After the local pass → deliberate failure → repair loop works, follow the [Action setup and protection requirements](https://github.com/maida-ai/maida-assert#blocking-mode-and-required-repository-settings). Use the [init reference](docs/cli/init.md) for your installed version. The workflow needs a real entrypoint, dependencies, a reviewed baseline, and an immutable Action pin.
 
-The report leads with the verdict, groups failures by stable reason code, and
-ends with the exact commands to inspect or accept the change. Reruns update the
-same comment in place.
-
-</details>
-
-<!-- MEDIA PLACEHOLDER: a ~20s screen recording of `maida demo --regression`
-     belongs here, replacing the static terminal block above. Spec and the
-     rest of the recording backlog live in repo-hygene-run/00-OWNER-REQUEST.md.
-     Do not restore the old docs/assets/*.gif files -- they still show the
-     pre-rename "AgentDbg" branding. -->
-
-## 🧩 How it works
-
-| | Step | Command |
-|---|---|---|
-| 1️⃣ | Instrument one agent entrypoint | `@trace` |
-| 2️⃣ | Capture known-good trials | `maida run --no-fail-fast --json-out ...` |
-| 3️⃣ | Check in a reviewed baseline | `maida baseline --from-report ...` |
-| 4️⃣ | Declare acceptable behavior | `.maida/policy.yaml` |
-| 5️⃣ | Gate every PR | `maida run --baseline ...` |
-| 6️⃣ | Accept intentional changes, on purpose | `maida accept --reason "..."` |
-
-Maida compares **structural behavior**, not answer text: step counts, tool-call
-counts, tool paths, loop and cycle signatures, guardrail events, stop
-conditions, and latency/cost envelopes.
-
-> Evals ask *"was the answer good?"* Maida asks *"did this PR change how the
-> agent behaves?"*
-
-## 🔧 Instrument your own agent
-
-Three lines in any Python agent:
-
-```python
-from maida import trace, record_llm_call, record_tool_call
-
-
-@trace
-def run_agent():
-    # ... your existing agent code ...
-
-    record_tool_call(
-        name="search_db",
-        args={"query": "active users"},
-        result={"count": 42},
-    )
-
-    record_llm_call(
-        model="gpt-4",
-        prompt="Summarize the search results.",
-        response="There are 42 active users.",
-        usage={"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
-    )
-```
-
-Then scaffold the policy and workflow for a real project:
-
-```bash
-maida init            # writes a starter .maida/policy.yaml
-maida init --github   # also writes .github/workflows/maida.yml
-```
-
-The workflow generated by `maida init --github` verifies the live PR head before
-checking out a `maida_baseline_updated` dispatch. The named check, required
-`Maida / agent-check` status and sticky comment identify that head; INCONCLUSIVE
-blocks and is never described as a PASS. Acceptance uses separate authorization,
-read-only capture and data-only write jobs. A baseline commit still requires
-reviewed `MAIDA_CONFIGURATION_ACCEPTANCE` for its exact base/head/configuration
-and fresh gate results. Install the coordinated `maida-assert@main` actions
-before adopting this scaffold, then pin a reviewed Action commit in production.
-See the [Action setup and protection requirements](https://github.com/maida-ai/maida-assert#blocking-mode-and-required-repository-settings).
-
-📖 [SDK reference](https://maida.ai/docs/sdk/) |
-[Getting started](https://maida.ai/docs/getting-started/) |
-[Policy reference](https://maida.ai/docs/reference/policy/)
-
-### Gate it locally
-
-```bash
-# Sample known-good behavior across isolated trials
-maida run my_agent.py --trials 25 --no-fail-fast --json-out baseline-report.json
-maida baseline --from-report baseline-report.json --out baselines/my_agent.json
-
-# After your next change, gate the candidate against that baseline
-maida run my_agent.py \
-  --baseline baselines/my_agent.json \
-  --policy .maida/policy.yaml \
-  --format markdown
-```
-
-### 🚧 Stop runaway runs while you iterate
-
-Guardrails are opt-in development-time safety rails. They abort a run that
-starts looping or blows past your budget -- and still write a normal trace you
-can inspect afterwards.
-
-```python
-@trace(
-    stop_on_loop=True,
-    max_llm_calls=10,
-    max_tool_calls=20,
-    max_duration_s=30,
-)
-def run_agent(): ...
-```
-
-Set them in `@trace(...)`, `.maida/config.yaml`, or env vars like
-`MAIDA_MAX_LLM_CALLS=50`.
-📖 [Guardrails guide](https://maida.ai/docs/guardrails/)
-
-## 🚦 Gate your pull requests
-
-The [`maida-assert`](https://github.com/maida-ai/maida-assert) Action wraps the
-same CLI:
-
-```yaml
-- uses: maida-ai/maida-assert@v5
-  with:
-    agent-script: my_agent.py
-    baseline: .maida/baselines/my_agent.json
-    policy: .maida/policy.yaml
-```
-
-Exit code `0` = pass or inconclusive, `1` = fail. Reports come in text, JSON, or
-Markdown.
-
-📖 [Regression testing guide](https://maida.ai/docs/regression-testing/) |
-[CLI reference](https://maida.ai/docs/cli/)
-
-For generated-plan gating, see the optional
-[maida-workflows](https://github.com/maida-ai/maida-workflows) package.
+A generated workflow is setup, not evidence of merge enforcement. Verify required checks on the actual PR head, trusted base policy, workflow protection, and the fresh result after acceptance before relying on that boundary.
 
 ## 🔌 Integrations
 
