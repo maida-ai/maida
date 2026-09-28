@@ -1,177 +1,49 @@
-# Getting started
+# Get your first useful Maida check
 
-## Installation
+Start with one short task your coding agent can do in your repository. The first checkpoint is a readable check of that actual execution. You can review a baseline and add CI later; neither is required to see your first result.
 
-Requires Python 3.10 to 3.13 (`requires-python = ">=3.10,<3.14"`).
+## 1. See a regression before configuring anything
 
-**With uv:**
-
-```bash
-uv tool install "maida-ai>=0.5"
-```
-
-**From source with uv:**
+Use Python 3.12 or newer; Maida 0.6 supports Python 3.12–3.14. Install the standalone CLI, then run the offline example:
 
 ```bash
-git clone https://github.com/maida-ai/maida.git
-cd maida
-uv sync
-```
-
-**From source with pip:**
-
-```bash
-git clone https://github.com/maida-ai/maida.git
-cd maida
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
-```
-
----
-
-## Try it in 60 seconds
-
-No repo clone, no config, no API keys:
-
-```bash
-uv tool install "maida-ai>=0.5"
-maida demo        # trace a bundled simulated agent
-maida view        # inspect the timeline in your browser
-```
-
-Then watch the gate catch a regression end-to-end -- baseline a good run, run a "refactored" agent that loops and calls a new tool, and see the failing report with a PR-comment preview:
-
-```bash
+uv tool install "maida-ai==0.5.3"
 maida demo --regression
 ```
 
-When you're ready to wire up your own project:
+Expect a FAIL verdict and a preview of the PR comment: the agent still answers, but repeats a tool and takes an unexpected path. The demo intentionally exits with code `1`. It uses canned data, no API keys, and no repository clone. Its baseline does not describe your agent.
+
+## 2. Get a useful result in your own repository
+
+Allow 10–15 minutes for this first checkpoint, including capture setup. Choose a task that normally takes your agent a minute or two. For example: **“Find the command this repository uses to run its tests. Cite the configuration file that defines it. Do not edit files or install dependencies.”** Check the answer against the cited file. You do not need to make a code change or introduce a regression yet.
+
+Follow [Protect one coding-agent task](https://github.com/maida-ai/maida-tutorials/blob/main/guides/coding-agent.md#checkpoint-1-check-your-normal-work) to add passive capture while preserving existing hooks. Finish a fresh session normally so capture imports the completed run. Your repository can use any language. If you build a Python tool-calling agent, use the secondary [Python walkthrough](python-agent.md).
+
+In the same terminal and local evidence directory used for capture:
 
 ```bash
-maida init            # starter .maida/policy.yaml
-maida init --github   # + GitHub Actions workflow
+maida list
+maida assert --expect-status ok --no-loops --no-guardrails
 ```
 
-The generated workflow tracks `maida-ai/maida-assert@main`, uses policy v2,
-and grants the `checks: write` permission needed for the gate check. Review and
-pin the coordinated Action commit before using the workflow in production.
+Expect your task's completed run, then a report checking successful completion, recorded loop warnings, and recorded guardrail events. You have explicitly requested those three checks; no baseline is needed and no policy file is created. If the repository already has `.maida/policy.yaml`, inspect it first: `assert` also loads that policy. If capture is missing or the run is incomplete, fix capture before continuing. If a check fails, inspect that observation with `maida view`, fix the cause, and repeat the small task. Do not substitute a demo trace for your repository's evidence.
 
-Replace `MAIDA_AGENT_SCRIPT` with your traced entrypoint. Once you have
-checked in a baseline, set `MAIDA_BASELINE` to its path. That enables
-authorized maintainers to accept an intentional PR change with
-`/maida accept [optional reason]`; the command stays inactive while the
-baseline value is blank.
+This first check answers whether those observed signals met your requirements. It does not compare against a known-good baseline or establish that the answer was correct. Hook capture observes tool activity and lifecycle; it does not establish complete model-call, token, or latency coverage. The [capture integration](claude-code.md) also supports a local loopback telemetry receiver; this is not telemetry sent to Maida. Your coding agent's ordinary provider use has its usual permissions and costs.
 
----
+**You can stop here.** You have a report on your own task and local evidence to inspect. The 10–15 minute allowance is a setup target, not a measured activation claim. If setup consumes it, resolve that capture problem before adding policy or CI.
 
-## Quickstart
+## 3. Keep a small contract for the next change
 
-**1. Decorate your entrypoint with `@trace`** so each invocation becomes a run. Maida stores the run as OTel-compatible spans and projects those spans into familiar `RUN_START`, `RUN_END`, `LLM_CALL`, `TOOL_CALL`, and `ERROR` event views for the viewer, baselines, assertions, and diffs.
+Keep the task text, starting commit, agent/model versions, and configuration together. Choose a successful observation of that task. Run `maida init --help` to check the installed command contract: versions with `--from-run` support the [reviewed init workflow](cli/init.md). It proposes a few observed invariants, lets you edit them, and records your explicit review before activating a baseline and policy.
 
-**2. Call the recorders** inside that function so events attach to the current run:
+The coding-agent walkthrough gives the commands for drafting, review, and checking the same task again. For Maida 0.5.x, follow its separate [compatibility walkthrough](https://github.com/maida-ai/maida-tutorials/blob/main/guides/coding-agent-0.5.md); that release needs a helper for comparing fresh captured sessions. Avoid copying a policy template for tools your task does not use.
 
-```python
-from maida import trace, record_llm_call, record_tool_call, record_state
+After local PASS, reproduce one safe, relevant failure and repair it without replacing the baseline. Read the verdict itself: PASS means the observed evidence met the selected checks; FAIL means investigate the named violation; INCONCLUSIVE means the evidence did not settle the configured claim. Exit `0` alone does not mean approval. Setup errors mean repair the missing input or capture and rerun.
 
+## 4. Add CI when the local check is useful
 
-@trace
-def run_agent():
-    record_tool_call(name="search_db", args={"query": "x"}, result={"count": 2})
-    record_llm_call(
-        model="gpt-4",
-        prompt="Summarize",
-        response="Done.",
-        usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-    )
-    record_state(state={"step": 1}, meta={"label": "after_search"})
+Keep the repeatable task, agent/configuration identity, reviewed baseline, and policy in Git. Captured evidence remains local. Repeatable coding-agent CI needs a [pinned scenario](cli/scenario-run.md); Python entrypoints use [`maida run`](cli/run.md).
 
+Follow the [Action setup](https://github.com/maida-ai/maida-assert#blocking-mode-and-required-repository-settings) to configure the repository boundary. The [init reference](cli/init.md) explains generating a workflow for an existing traced Python entrypoint. For the combined acceptance listener, require the explicit `Maida / agent-check` commit status with branches up to date; the Action setup explains why the workflow job and named check must not also be requirements for this route. Keep other required checks and reviews. Test these settings on an actual PR, including the new PR head after acceptance. Trusted base policy and workflow-file protection are part of that setup; generating a file alone does not establish protection.
 
-if __name__ == "__main__":
-    run_agent()
-```
-
-**3. Run the script, then open the UI:**
-
-```bash
-python your_script.py
-maida view
-```
-
-The viewer starts a local server (default `127.0.0.1:8712`) and opens the latest run in your browser. Use this trace as the evidence source for baselines, assertions, and diffs.
-
----
-
-## Add guardrails during iteration
-
-If you are iterating on an agent loop, add guardrails early so a bad prompt or tool policy does not spiral into dozens of repeated calls.
-
-```python
-from maida import trace
-
-
-@trace(
-    stop_on_loop=True,
-    max_llm_calls=12,
-    max_tool_calls=20,
-    max_events=80,
-    max_duration_s=30,
-)
-def run_agent(): ...
-```
-
-Useful defaults for local iteration:
-
-- `stop_on_loop=True` for ReAct-style loops
-- `max_llm_calls` when you want a token-budget ceiling
-- `max_tool_calls` when tools are expensive or side-effectful
-- `max_events` when you want a hard cap on trace size
-- `max_duration_s` when the run should finish quickly
-
-When a guardrail fires, Maida still writes the relevant trace evidence, then records `ERROR` and `RUN_END(status="error")` and re-raises a dedicated exception.
-
-See [Guardrails](guardrails.md) for examples and [Configuration reference](reference/config.md) for env/YAML setup.
-
----
-
-## Where data is stored
-
-- **Default:** `~/.maida/runs/<trace_id>/`
-  - `meta.json` - run metadata (`spec_version`, trace ID, status, counts, started_at, ended_at)
-  - `spans.jsonl` - one OTel span record per line (append-only)
-
-The CLI still uses the user-facing name `RUN_ID` in command arguments and JSON fields in a few places. Current runs are backed by OTel trace IDs, and short prefixes are resolved to the full trace ID.
-
----
-
-## Overriding the data directory
-
-Set the data directory so runs are stored somewhere else (e.g. project-local):
-
-```bash
-export MAIDA_DATA_DIR=/path/to/my/data
-```
-
-Config can also be set in `~/.maida/config.yaml` or `.maida/config.yaml` in the project root; environment variables take precedence. See the [configuration reference](reference/config.md) for the full list of options and precedence.
-
----
-
-## Redaction (defaults and config)
-
-- **Redaction is on by default.** Span attributes and projected event payloads are scanned for sensitive keys (e.g. `api_key`, `token`, `authorization`, `password`); matching values are replaced with `__REDACTED__`.
-- **Large values** are truncated to a maximum size (default 20_000 bytes) and suffixed with `__TRUNCATED__`.
-
-**Environment variables (override config files):**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MAIDA_REDACT` | `1` | `1`/`true`/`yes` to enable redaction |
-| `MAIDA_REDACT_KEYS` | `api_key,token,authorization,cookie,secret,password` | Comma-separated keys (case-insensitive substring match) |
-| `MAIDA_MAX_FIELD_BYTES` | `20000` | Max size for string/field before truncation |
-
-Example: disable redaction (e.g. for trusted local inspection):
-
-```bash
-export MAIDA_REDACT=0
-```
-
-For full details (precedence, YAML keys, redaction/truncation behavior), see the [configuration reference](reference/config.md).
+Add another task when it protects a real change you make. For storage and interoperability details, see the [trace format](reference/trace-format.md); for storage locations and redaction, see [configuration](reference/config.md).

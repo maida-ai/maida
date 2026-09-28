@@ -24,7 +24,7 @@ maida drift --window /srv/agents/orders/runs \
 ```
 
 The baseline selects matching `run_name` values from a mixed-agent window. Run
-the command once per baseline. Exit `0` means PASS or neutral INCONCLUSIVE,
+the command once per baseline. Exit `0` means PASS or INCONCLUSIVE,
 `1` means FAIL, `2` means invalid input, and `10` means an internal error.
 
 See [Scheduled behavioral regression checks](../scheduled-checks.md) for sample

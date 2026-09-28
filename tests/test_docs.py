@@ -4,6 +4,7 @@ from maida.scaffold import (
     CHECKOUT_ACTION_REF,
     MAIDA_ACCEPT_ACTION_REF,
     MAIDA_ASSERT_ACTION_REF,
+    render_workflow,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,7 +88,7 @@ def test_trace_format_documents_current_storage_contract():
     assert missing == []
 
 
-def test_action_version_references_match_scaffold():
+def test_action_version_references_match_scaffold(tmp_path, monkeypatch):
     combined = read_docs(
         "CHANGELOG.md",
         "README.md",
@@ -96,7 +97,7 @@ def test_action_version_references_match_scaffold():
         "docs/regression-testing.md",
     )
 
-    assert MAIDA_ASSERT_ACTION_REF == "maida-ai/maida-assert@main"
+    assert len(MAIDA_ASSERT_ACTION_REF.split("@")[1]) == 40
     assert MAIDA_ASSERT_ACTION_REF in combined
     assert MAIDA_ACCEPT_ACTION_REF in combined
     assert "maida-ai/maida-assert@v2" not in combined
@@ -104,7 +105,8 @@ def test_action_version_references_match_scaffold():
     assert "maida-ai/maida-assert@V4" not in combined
     assert "maida-ai/maida-assert@V5" not in combined
 
-    workflow_text = (ROOT / "maida/scaffold.py").read_text(encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    workflow_text = render_workflow("agent.py", ".maida/baselines/agent.json")
     assert CHECKOUT_ACTION_REF in workflow_text
     assert MAIDA_ASSERT_ACTION_REF in workflow_text
     assert MAIDA_ACCEPT_ACTION_REF in workflow_text
@@ -171,7 +173,6 @@ def test_adapter_conformance_contract_covers_required_behavior():
 
 def test_openai_agents_docs_include_offline_success_and_regression_workflow():
     docs = read_docs("docs/integrations.md", "docs/integrations")
-    example = (ROOT / "examples/openai_agents/minimal.py").read_text(encoding="utf-8")
 
     required_docs = [
         'uv add "maida-ai[openai]>=0.5"',
@@ -184,14 +185,12 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
     missing_docs = [snippet for snippet in required_docs if snippet not in docs]
 
     assert missing_docs == []
-    assert '"--regression"' in example
-    assert "regression=args.regression" in example
+    assert "https://github.com/maida-ai/maida-tutorials/blob/main/examples/openai_agents/minimal.py" in docs
 
 
 def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     integration_docs = read_docs("docs/integrations.md", "docs/integrations")
-    example = (ROOT / "examples/crewai/minimal.py").read_text(encoding="utf-8")
 
     for snippet in (
         "unsupported after v0.5.3",
@@ -215,16 +214,7 @@ def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():
     ):
         assert snippet in integration_docs
 
-    for snippet in (
-        "dropped after maida-ai 0.5.3",
-        "LLMCallHookContext",
-        "ToolCallHookContext",
-        "get_before_llm_call_hooks",
-        "get_after_tool_call_hooks",
-        "crewai_event_bus.shutdown",
-        "tool_calls = 3 if regression else 1",
-    ):
-        assert snippet in example
+    assert "https://github.com/maida-ai/maida-tutorials/blob/main/examples/crewai/minimal.py" in integration_docs
 
 
 def test_langfuse_docs_cover_read_only_import_and_mapping_contract():

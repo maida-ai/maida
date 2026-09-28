@@ -1,48 +1,15 @@
 """Project scaffolding for ``maida init``: starter policy and CI workflow."""
 
+import json
+import tomllib
 from pathlib import Path
 
 POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
 CHECKOUT_ACTION_REF = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-MAIDA_ASSERT_ACTION_REF = "maida-ai/maida-assert@main"
-MAIDA_ACCEPT_ACTION_REF = "maida-ai/maida-assert/accept-command@main"
-
-POLICY_TEMPLATE = """\
-# Maida policy v2 - enforced locally and by maida-assert main.
-# `confidence` is one-sided coverage (0.95 uses z = 1.645).
-# Measured tolerances compare against the immutable checked-in baseline sample.
-version: 2
-trials: 3
-fail_fast: true
-metrics:
-  stop_condition_reached:
-    kind: invariant
-    require: true
-
-  forbidden_tools:
-    kind: invariant
-    none_of: [admin_delete]
-
-  step_count:
-    kind: measured
-    direction: upper
-    tolerance: {relative: 0.5}
-
-  cost_tokens:
-    kind: measured
-    direction: upper
-    tolerance: {relative: 0.25}
-
-  task_pass_rate:
-    kind: statistical
-    direction: lower
-    threshold: 0.90
-    confidence: 0.95
-    success_predicate: all_invariants_passed
-    # n_min is 25; the default three-trial scaffold reports without blocking.
-    mode: report_only
-"""
+MAIDA_ACTION_REVISION = "8cba7033c01e89f7a3364a3f4b922b39d65fb6e3"
+MAIDA_ASSERT_ACTION_REF = f"maida-ai/maida-assert@{MAIDA_ACTION_REVISION}"
+MAIDA_ACCEPT_ACTION_REF = f"maida-ai/maida-assert/accept-command@{MAIDA_ACTION_REVISION}"
 
 WORKFLOW_TEMPLATE = f"""\
 name: Agent Regression Check
@@ -54,11 +21,11 @@ on:
     types: [maida_baseline_updated]
 permissions: {{}}
 env:
-  # Replace this with the script that runs your traced agent.
-  MAIDA_AGENT_SCRIPT: my_agent.py
+  # The existing traced entrypoint selected at initialization.
+  MAIDA_AGENT_SCRIPT: __MAIDA_AGENT_SCRIPT__
   MAIDA_POLICY: .maida/policy.yaml
-  # After committing a baseline, point this at it to enable `/maida accept`:
-  MAIDA_BASELINE: ''
+  # Reviewed baseline selected at initialization.
+  MAIDA_BASELINE: __MAIDA_BASELINE__
 concurrency:
   group: maida-${{{{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr_number }}}}
   cancel-in-progress: false
@@ -76,7 +43,7 @@ jobs:
     steps:
       - name: Verify PR identity
         id: pr
-        uses: maida-ai/maida-assert/pr-context@main
+        uses: maida-ai/maida-assert/pr-context@{MAIDA_ACTION_REVISION}
       - name: Check out repository
         uses: {CHECKOUT_ACTION_REF} # v7
         with:
@@ -94,7 +61,7 @@ jobs:
           configuration-acceptance: ${{{{ vars.MAIDA_CONFIGURATION_ACCEPTANCE }}}}
       - name: Publish required gate status
         if: always() && steps.pr.outcome == 'success'
-        uses: maida-ai/maida-assert/publish-status@main
+        uses: maida-ai/maida-assert/publish-status@{MAIDA_ACTION_REVISION}
         with:
           head-sha: ${{{{ steps.pr.outputs.head-sha }}}}
           base-sha: ${{{{ steps.pr.outputs.base-sha }}}}
@@ -136,7 +103,7 @@ jobs:
         with:
           ref: ${{{{ needs.authorize.outputs.head-sha }}}}
           persist-credentials: false
-      - uses: maida-ai/maida-assert/capture-acceptance@main
+      - uses: maida-ai/maida-assert/capture-acceptance@{MAIDA_ACTION_REVISION}
         with:
           context: ${{{{ needs.authorize.outputs.context }}}}
           agent-script: ${{{{ env.MAIDA_AGENT_SCRIPT }}}}
@@ -161,7 +128,7 @@ jobs:
         with:
           name: maida-accept-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}
           path: ${{{{ runner.temp }}}}/maida-acceptance
-      - uses: maida-ai/maida-assert/write-back@main
+      - uses: maida-ai/maida-assert/write-back@{MAIDA_ACTION_REVISION}
         if: always()
         with:
           context: ${{{{ needs.authorize.outputs.context }}}}
@@ -170,12 +137,62 @@ jobs:
 """
 
 
-def write_scaffold(path: Path, content: str, force: bool = False) -> bool:
-    """Write *content* to *path*, creating parents.
+def render_workflow(agent_script: str, baseline: str) -> str:
+    """Render validated paths and detected project dependencies in both run jobs."""
+    rendered = WORKFLOW_TEMPLATE.replace("__MAIDA_AGENT_SCRIPT__", json.dumps(agent_script)).replace(
+        "__MAIDA_BASELINE__", json.dumps(baseline)
+    )
+    setup = dependency_setup()
+    if setup:
+        rendered = rendered.replace(
+            "      - name: Run Maida regression gate", setup + "      - name: Run Maida regression gate"
+        )
+        rendered = rendered.replace(
+            f"      - uses: maida-ai/maida-assert/capture-acceptance@{MAIDA_ACTION_REVISION}",
+            setup + f"      - uses: maida-ai/maida-assert/capture-acceptance@{MAIDA_ACTION_REVISION}",
+        )
+    return rendered
 
-    Returns True when the file was written, False when it already existed
-    and *force* was not set.
-    """
+
+def dependency_setup() -> str:
+    """Use the consumer's declared Python dependencies, without fabricating any."""
+    commands = []
+    pyproject = Path("pyproject.toml")
+    if pyproject.is_file():
+        project = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        if Path("uv.lock").is_file():
+            commands.extend(
+                [
+                    'uv export --locked --no-dev --no-emit-project --output-file "$RUNNER_TEMP/maida-project-requirements.txt"',
+                    'uv pip install --python "$(command -v python)" -r "$RUNNER_TEMP/maida-project-requirements.txt"',
+                ]
+            )
+            if project.get("build-system"):
+                commands.append('uv pip install --python "$(command -v python)" --no-deps .')
+        elif project.get("project"):
+            commands.append('uv pip install --python "$(command -v python)" .')
+    if not commands and Path("requirements.txt").is_file():
+        commands.append('uv pip install --python "$(command -v python)" -r requirements.txt')
+    if not commands:
+        return ""
+    setup = """      - name: Set up project Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Set up project uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.12.17'
+          enable-cache: 'false'
+      - name: Install project dependencies
+        shell: bash
+        run: |
+"""
+    return setup + "".join(f"          {command}\n" for command in commands)
+
+
+def write_scaffold(path: Path, content: str, force: bool = False) -> bool:
+    """Compatibility helper for consumers rendering a single scaffold artifact."""
     if path.exists() and not force:
         return False
     path.parent.mkdir(parents=True, exist_ok=True)

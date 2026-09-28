@@ -2,7 +2,7 @@
 
 The active adoption workflow uses a private sheet with voluntary check-ins and
 separate public registry download counts. This prepared ping is not activated
-by that workflow; see [retention measurement](../scripts/retention.md).
+by that workflow; see [retention measurement](https://github.com/maida-ai/maida/blob/main/scripts/retention.md).
 
 Collection is **off by default**. Maida configures no collector URL, enables no
 receiver, and makes no usage request unless `MAIDA_USAGE_OPT_IN=1` is explicitly
@@ -18,7 +18,7 @@ unacceptable. `demo`, `drift`, and library calls do not send usage counts.
 
 ## Payload and consent
 
-The published [JSON schema](../schemas/usage-ping.v1.schema.json) allows only:
+The published [JSON schema](https://github.com/maida-ai/maida/blob/main/schemas/usage-ping.v1.schema.json) allows only:
 
 | Field | Meaning |
 | --- | --- |
@@ -68,7 +68,7 @@ Lost requests are not evidence of inactivity. These unauthenticated observations
 are not audited installation or usage totals. PR context is self-reported by the
 runner environment and is not independently verified.
 
-For [retention measurement](../scripts/retention.md), retain the initial install
+For [retention measurement](https://github.com/maida-ai/maida/blob/main/scripts/retention.md), retain the initial install
 timestamp privately and corroborate PR activity. A date-only observation crossing
 an install-relative week boundary needs a voluntary check-in or more precise
 private evidence. Missing pings remain unknown. Download counts cannot fill that

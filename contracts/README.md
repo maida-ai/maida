@@ -10,6 +10,8 @@ trace, baseline, policy, report, plan, CLI, installation, and Action channel.
 exercising this contract. Update it when the contract's required engine release
 changes; do not derive it from a development build's package version.
 
+`unreleased-cli.json` records additive CLI commands being developed after that release, with links to their development documentation. It is not a consumer snapshot or a release claim. Source checks require the exact union of the released and pending command surfaces, so additions cannot be silently omitted. During the coordinated release, move those entries into `current-main.json`, update its actual release tag, and clear the pending entries; the two sets must remain disjoint.
+
 Consumer repositories -- `maida-assert`, `maida-ts`, `maida-ai.github.io`,
 `maida-tutorials`, and `maida-workflows` -- vendor exact snapshots under
 `tests/contracts/` because those copies are test inputs, not independently

@@ -83,15 +83,9 @@ New integrations should be documented in [docs/integrations.md](docs/integration
 
 ## Example folders
 
-Examples live under `examples/` and must stay runnable from the repo root:
+Runnable examples and their workflow tests live in [maida-tutorials/examples](https://github.com/maida-ai/maida-tutorials/tree/main/examples), alongside the gradual tutorials and demo scenarios. The engine repository owns library behavior and deterministic adapter conformance tests; the tutorial repository owns example dependency setup and the learner's complete success/failure workflow. The installed offline `maida demo --regression` remains part of the engine package.
 
-- **`examples/minimal/`** – minimal pure-Python agent (no extra deps); run `python examples/minimal/simple_agent.py`.
-- **`examples/langchain/minimal.py`** – minimal LangChain chain; requires `[langchain]` extra.
-- **`examples/langchain/`** – advanced LangChain/LangGraph customer-support demo (`customer_support.py` + `_customer_support/`); requires installing the `examples/langchain` dependencies and API keys (see `_customer_support/README.md`).
-- **`examples/demo/`** – short demo scripts (`pure_python.py`, `langchain.py`).
-- **`examples/crewai/`** – historical CrewAI offline example; the `[crewai]` extra was removed after v0.5.3 (see CHANGELOG). Install `crewai[tools]` yourself only for local experimentation.
-
-When changing directory layout or run commands, update README, [docs/index.md](docs/index.md) (Demos section), and this list.
+When changing an adapter or public command, update the relevant tutorial and rerun its workflow checks. Start with the [examples catalog](https://github.com/maida-ai/maida-tutorials/blob/main/examples/README.md); optional integrations and historical CrewAI examples have explicit environment requirements there.
 
 ---
 

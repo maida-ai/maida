@@ -26,10 +26,8 @@ core product is behavioral regression gating.
 ## In 60 seconds
 
 ```bash
-pip install maida-ai     # or: uv tool install "maida-ai>=0.5"
-maida demo               # traced run of a bundled simulated agent
-maida view               # open the timeline at 127.0.0.1:8712
-maida demo --regression  # watch the gate catch a bad refactor
+uv tool install "maida-ai==0.5.3"
+maida demo --regression
 ```
 
 Runs are stored locally under `~/.maida/runs/<trace_id>/`. Nothing leaves your
@@ -82,16 +80,7 @@ machine.
 
 ## Demos and examples
 
-| Example | Path | How to run |
-|--------|------|------------|
-| **Minimal agent** (pure Python) | `examples/minimal/` | `python examples/minimal/simple_agent.py` |
-| **LangChain minimal** | `examples/langchain/minimal.py` | `uv run --extra langchain python examples/langchain/minimal.py` |
-| **OpenAI Agents minimal** | `examples/openai_agents/minimal.py` | `uv run --extra openai python examples/openai_agents/minimal.py` |
-| **LangChain customer support** (advanced) | `examples/langchain/` | Set API keys, then follow `_customer_support/README.md` |
-| **Demos** (short scripts) | `examples/demo/` | `python examples/demo/pure_python.py` |
-
-Step-by-step notebooks live in
-[maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials).
+[Start with one coding-agent task](getting-started.md), or follow the secondary [Python walkthrough](python-agent.md). Runnable examples, notebooks, and demo applications share one home in [maida-tutorials](https://github.com/maida-ai/maida-tutorials). Start with its guided task and open the reference pages only when needed.
 
 ---
 
