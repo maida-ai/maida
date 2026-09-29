@@ -127,7 +127,7 @@ importer rather than a Python agent entrypoint. Keep credentials in GitHub
 secrets and select exactly one completed source trace:
 
 ```yaml
-- uses: maida-ai/maida-assert@v5
+- uses: maida-ai/maida-assert@v0.6.0
   env:
     LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
     LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}

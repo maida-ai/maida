@@ -52,7 +52,10 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
         r"v\d+\.\d+\.\d+(?:(?:a|b|rc)\d+|\.post\d+)?",
         contract["engine_ref"],
     )
-    assert contract["action_ref"] == "maida-ai/maida-assert@v5"
+    assert re.fullmatch(r"maida-ai/maida-assert@v\d+\.\d+\.\d+", contract["action_ref"])
+    engine_version = Version(contract["engine_ref"].removeprefix("v"))
+    action_version = Version(contract["action_ref"].split("@v", 1)[1])
+    assert action_version.release[:2] == engine_version.release[:2]
     assert contract["cli"]["primary_gate"] == "run"
     assert contract["cli"]["legacy_gate"] == "assert"
     pending = _read_json(CONTRACTS / "unreleased-cli.json")

@@ -7,7 +7,7 @@ from pathlib import Path
 POLICY_RELPATH = Path(".maida") / "policy.yaml"
 WORKFLOW_RELPATH = Path(".github") / "workflows" / "maida.yml"
 CHECKOUT_ACTION_REF = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-MAIDA_ACTION_REVISION = "8cba7033c01e89f7a3364a3f4b922b39d65fb6e3"
+MAIDA_ACTION_REVISION = "v0.6.0"
 MAIDA_ASSERT_ACTION_REF = f"maida-ai/maida-assert@{MAIDA_ACTION_REVISION}"
 MAIDA_ACCEPT_ACTION_REF = f"maida-ai/maida-assert/accept-command@{MAIDA_ACTION_REVISION}"
 
