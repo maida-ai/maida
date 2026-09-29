@@ -94,6 +94,7 @@ def test_trace_format_documents_current_storage_contract():
 
 
 def test_action_version_references_match_scaffold(tmp_path, monkeypatch):
+    contract = json.loads((ROOT / "contracts/current-main.json").read_text(encoding="utf-8"))
     combined = read_docs(
         "CHANGELOG.md",
         "README.md",
@@ -102,7 +103,8 @@ def test_action_version_references_match_scaffold(tmp_path, monkeypatch):
         "docs/regression-testing.md",
     )
 
-    assert len(MAIDA_ASSERT_ACTION_REF.split("@")[1]) == 40
+    assert MAIDA_ASSERT_ACTION_REF == contract["action_ref"]
+    assert MAIDA_ACCEPT_ACTION_REF == contract["action_ref"].replace("maida-assert@", "maida-assert/accept-command@")
     assert MAIDA_ASSERT_ACTION_REF in combined
     assert MAIDA_ACCEPT_ACTION_REF in combined
     assert "maida-ai/maida-assert@v2" not in combined
@@ -249,7 +251,7 @@ def test_langfuse_docs_cover_read_only_import_and_mapping_contract():
         "fully synthetic",
         "read-only",
         "trace-command:",
-        "maida-ai/maida-assert@v5",
+        json.loads((ROOT / "contracts/current-main.json").read_text(encoding="utf-8"))["action_ref"],
         "fixed one-trial gate",
         "maida-tutorials/tree/main/demos/langfuse_import",
     ):

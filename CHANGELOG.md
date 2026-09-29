@@ -24,7 +24,7 @@ Install the standalone CLI with `uv tool install "maida-ai==0.6.0"`, or add the 
 - **`maida init` requires observed evidence and review.** Replace calls that expect an immediate default policy with `--from-run` followed by `--reviewed --reason`; see the [init reference](docs/cli/init.md). GitHub scaffolding additionally requires `--agent-script`.
 - **Baseline overwrite is explicit.** Existing output files are preserved unless `maida baseline --force` is used. Prefer `maida accept` for an intentional baseline update with a recorded reason and prior hash.
 - **CrewAI support is paused after v0.5.3.** The optional `maida-ai[crewai]` extra is removed because CrewAI dependency conflicts block Python 3.14 and newer OpenAI dependencies. The `maida.integrations.crewai` adapter remains in-tree. Pin `maida-ai[crewai]==0.5.3` in a historical environment to keep using the last supported release.
-- Read the report verdict: gate exit `0` includes INCONCLUSIVE. Action compatibility is independently tested and versioned; this engine release does not establish support for a new Action release.
+- Read the report verdict: gate exit `0` includes INCONCLUSIVE. The companion `maida-assert@v0.6.0` Action is versioned separately; verify its blocking and acceptance behavior on a protected pull request before relying on it.
 
 ### Contract
 
