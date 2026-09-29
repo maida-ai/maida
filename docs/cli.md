@@ -21,8 +21,8 @@ machine-readable when you redirect JSON or Markdown output.
 | Command | Use it to |
 |---|---|
 | [`maida demo`](cli/demo.md) | Run the deterministic first-run or regression story |
-| [`maida init`](cli/init.md) | Draft observed invariants, review them, and create a runnable gate (next release) |
-| [`maida onboarding`](onboarding-measurement.md) | Record activation attempts and human setup/maintenance effort locally (next release) |
+| [`maida init`](cli/init.md) | Draft observed invariants, review them, and create a runnable gate |
+| [`maida onboarding`](onboarding-measurement.md) | Record activation attempts and human setup/maintenance effort locally |
 | [`maida view`](cli/view.md) | Open the local execution timeline |
 | [`maida list`](cli/list.md) | List recent local runs |
 

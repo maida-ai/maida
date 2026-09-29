@@ -1,7 +1,5 @@
 {
-  "based_on": "v0.5.3",
+  "based_on": "v0.6.0rc1",
   "top_level_commands": [],
-  "command_groups": [
-    {"name": "onboarding", "documentation": "docs/onboarding-measurement.md"}
-  ]
+  "command_groups": []
 }

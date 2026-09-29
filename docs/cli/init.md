@@ -1,6 +1,6 @@
 # `maida init`
 
-**Requires Maida 0.6 or newer.** Check `maida init --help` for `--from-run` before following this page. The [getting-started guide](../getting-started.md) also routes older installations to compatible commands.
+**Requires Maida 0.6.0rc1 or newer.** Check `maida init --help` for `--from-run` before following this page. The [getting-started guide](../getting-started.md) also routes older installations to compatible commands.
 
 Initialize from a successful run of one real task. Maida proposes a small policy from what it observed, shows the source workflow and trace IDs, and waits for your explicit review before activating anything. It never invents a Python entrypoint or a forbidden tool.
 

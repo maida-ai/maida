@@ -1,14 +1,33 @@
 # Changelog
 
-## Unreleased
+## v0.6.0rc1
 
-### Changes
+This is a prerelease. Install the standalone CLI with `uv tool install "maida-ai==0.6.0rc1"`, or add the library to your project with `uv add "maida-ai==0.6.0rc1"`. Start with `maida demo --regression`; it shows an intentional FAIL verdict and exits `0` when the rehearsal completes. An actual failed gate exits `1`.
 
-- **CrewAI support paused after v0.5.3** - the optional `maida-ai[crewai]` extra
-  is removed because crewai dependency conflicts block enabling Python 3.14
-  (import-level incompatibility) and bumping `openai`. The
-  `maida.integrations.crewai` adapter remains in-tree for later restoration.
-  Pin `maida-ai[crewai]==0.5.3` to keep using the last supported release.
+### Highlights
+
+- **Reviewed starter (`maida init`)** - select successful observations with `--from-run`, review the proposed invariant-only policy, and activate it with `--reviewed --reason`. Plain `maida init` now explains the capture/selection step and writes nothing. Unsupported checks are omitted, and failed, incomplete, duplicate, or mixed-workflow observations are rejected.
+- **GitHub workflow scaffolding** - `maida init --github --agent-script path/to/agent.py` requires a real Python entrypoint and reviewed starter artifacts. It installs declared project dependencies and generates pinned gate and isolated acceptance jobs. Repository protection and trusted-base policy still require explicit setup and verification; generating a workflow does not prove merge enforcement.
+- **Local onboarding journal** - `maida onboarding start`, `record`, and `report` retain incomplete attempts and separate setup, trial, investigation, and maintenance effort. Activation requires capture, baseline review, PASS, a caught regression, and repair back to PASS. Records stay local and are self-reported evidence.
+- **Policy enforcement** - baseline tool membership remains enforced by `no_new_tools` in policy v2, and policy behavior has public CLI regression coverage. INCONCLUSIVE and insufficient evidence remain distinct from PASS.
+- **Packaging and dependencies** - README links are rewritten in built package metadata for PyPI. Runtime and optional framework dependencies have been upgraded; supported Python versions are 3.12–3.14.
+- **Implicit tracing** - the implicit run finalizes at process exit before OpenTelemetry shuts down its exporter, preserving the run name, terminal state, and tool counts.
+- **Source-distribution completeness** - nested public trace schemas are explicitly included so wheels rebuilt from the source distribution retain the targets of the bundled schema references.
+- **Documentation and examples** - onboarding starts with one real coding-agent task, with a separate project-environment Python route. Runnable examples and their dependency setup now live in `maida-tutorials`; the engine retains the installed offline demo and adapter conformance tests.
+- **Optional usage counts** - explicit consent and a configured collector are required. No collector is configured by default, and traces and payloads are not included in the counts.
+
+### Upgrading from 0.5.x
+
+- **Python 3.11 is no longer supported.** Use Python 3.12, 3.13, or 3.14.
+- **Policy v1 and unversioned policy files are no longer supported.** Review and migrate them to explicit `version: 2` or `version: 2.1`; see the [policy reference](docs/reference/policy.md). Renaming the version alone does not migrate the rule format.
+- **`maida init` requires observed evidence and review.** Replace calls that expect an immediate default policy with `--from-run` followed by `--reviewed --reason`; see the [init reference](docs/cli/init.md). GitHub scaffolding additionally requires `--agent-script`.
+- **Baseline overwrite is explicit.** Existing output files are preserved unless `maida baseline --force` is used. Prefer `maida accept` for an intentional baseline update with a recorded reason and prior hash.
+- **CrewAI support is paused after v0.5.3.** The optional `maida-ai[crewai]` extra is removed because CrewAI dependency conflicts block Python 3.14 and newer OpenAI dependencies. The `maida.integrations.crewai` adapter remains in-tree. Pin `maida-ai[crewai]==0.5.3` in a historical environment to keep using the last supported release.
+- Read the report verdict: gate exit `0` includes INCONCLUSIVE. Action compatibility is independently tested and versioned; this engine release does not establish support for a new Action release.
+
+### Contract
+
+Package versions and schema versions are independent. Trace remains `0.2.0`, baseline `0.3.1`, policy `2.1` (also accepts `2`), report `2.0.1`, and plan `0.1.0`. The engine CLI contract now includes `onboarding`; see [the authoritative snapshot](contracts/current-main.json).
 
 ## v0.5.0
 

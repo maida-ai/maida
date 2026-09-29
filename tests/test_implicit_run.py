@@ -17,10 +17,11 @@ from maida.events import EventType, spans_to_events
 from maida.storage import load_run_meta, list_runs, load_spans
 
 
-def _run_implicit_tool_call(data_dir: str) -> None:
+def _run_implicit_tool_call(data_dir: str, *, enabled: bool = True) -> None:
     """Subprocess: set env, call record_tool_call with no trace, exit (atexit finalizes)."""
     env = os.environ.copy()
-    env["MAIDA_IMPLICIT_RUN"] = "1"
+    env["MAIDA_IMPLICIT_RUN"] = "1" if enabled else "0"
+    env.pop("MAIDA_RUN_NAME", None)
     env["MAIDA_DATA_DIR"] = data_dir
     code = """
 from maida.tracing import record_tool_call
@@ -57,9 +58,16 @@ def test_implicit_run_creates_run_with_run_start_and_tool_call():
 
             assert EventType.RUN_START.value in event_types, "expected RUN_START"
             assert EventType.TOOL_CALL.value in event_types, "expected TOOL_CALL"
+            assert EventType.RUN_END.value in event_types, "expected atexit finalization"
 
             run_json = load_run_meta(run_id, config)
-            assert run_json["status"] in ("ok", "running"), "run should be finalized or still running"
+            assert run_json["status"] == "ok", "run must be finalized before exporter shutdown"
             assert run_json["counts"]["tool_calls"] == 1
         finally:
             os.environ.pop("MAIDA_DATA_DIR", None)
+
+
+def test_disabled_implicit_run_does_not_write_traces(tmp_path):
+    _run_implicit_tool_call(str(tmp_path), enabled=False)
+    assert not list(tmp_path.rglob("meta.json"))
+    assert not list(tmp_path.rglob("spans.jsonl"))

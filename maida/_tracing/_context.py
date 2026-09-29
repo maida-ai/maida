@@ -118,9 +118,6 @@ def _finalize_implicit_run() -> None:
         _implicit_otel_token = None
 
 
-atexit.register(_finalize_implicit_run)
-
-
 def _append_event_and_check_guardrails(run_id: str, event: dict, config: MaidaConfig, counts: dict) -> None:
     """
     Append event to storage (if storage backend supports it), then check guardrails.
@@ -209,6 +206,9 @@ def _ensure_run() -> tuple[str, dict, MaidaConfig, list[dict], set[str]] | None:
         from maida._tracing._otel import _setup_otel, _get_tracer
 
         _setup_otel()
+        # Exit handlers run in reverse order: finish the root span before the
+        # provider's shutdown handler closes its span processors.
+        atexit.register(_finalize_implicit_run)
         tracer = _get_tracer()
         run_name = _resolve_run_name("implicit", None)
         counts = default_counts()

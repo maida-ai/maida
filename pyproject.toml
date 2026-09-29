@@ -66,6 +66,10 @@ packages = ["maida"]
 [tool.hatch.build.targets.wheel.force-include]
 "schemas" = "maida/schemas"
 
+[tool.hatch.build.targets.sdist.force-include]
+# Preserve nested schemas even when repository ignore rules exclude JSON files.
+"schemas" = "schemas"
+
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
