@@ -15,7 +15,7 @@ Until the importer is included in the next PyPI release, install the current
 `main` revision:
 
 ```bash
-uv tool install "maida-ai>=0.5"
+uv tool install "maida-ai>=0.6.0rc1"
 ```
 
 ## Configure access

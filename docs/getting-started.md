@@ -4,14 +4,14 @@ Start with one short task your coding agent can do in your repository. The first
 
 ## 1. See a regression before configuring anything
 
-Use Python 3.12 or newer; Maida 0.6 supports Python 3.12–3.14. Install the standalone CLI, then run the offline example:
+Use Python 3.12–3.14. The explicit pin below installs the v0.6.0rc1 prerelease. Install the standalone CLI, then run the offline example:
 
 ```bash
-uv tool install "maida-ai==0.5.3"
+uv tool install "maida-ai==0.6.0rc1"
 maida demo --regression
 ```
 
-Expect a FAIL verdict and a preview of the PR comment: the agent still answers, but repeats a tool and takes an unexpected path. The demo intentionally exits with code `1`. It uses canned data, no API keys, and no repository clone. Its baseline does not describe your agent.
+Expect a FAIL verdict and a preview of the PR comment: the agent still answers, but repeats a tool and takes an unexpected path. The demo exits `0` after successfully showing the failing gate; an actual failed gate exits `1`. It uses canned data, no API keys, and no repository clone. Its baseline does not describe your agent.
 
 ## 2. Get a useful result in your own repository
 

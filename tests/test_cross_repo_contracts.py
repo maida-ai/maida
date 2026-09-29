@@ -72,7 +72,7 @@ def test_current_main_contract_matches_python_source_of_truth() -> None:
 
 def test_primary_public_docs_use_the_released_channel() -> None:
     contract = _read_json(CONTRACTS / "current-main.json")
-    for relative in ("README.md", "docs/index.md", "docs/getting-started.md"):
+    for relative in ("README.md", "docs/index.md", "docs/getting-started.md", "docs/python-agent.md"):
         text = (ROOT / relative).read_text(encoding="utf-8")
         installs = re.findall(r"maida-ai(?:==|>=)[0-9][0-9.a-z]*", text)
         assert installs, f"No released install command in {relative}"

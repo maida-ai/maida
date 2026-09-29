@@ -13,6 +13,14 @@ The `maida-ai` Python package uses immutable full Git tags such as `v0.5.3`. Git
 
 The GitHub Action has its own versioning and tag policy in the [`maida-assert` README](https://github.com/maida-ai/maida-assert#versioning). Other repositories document their own release mechanism and how they verify Maida compatibility in their contributor docs or README.
 
+### Preparing an engine release
+
+For a release candidate, use a full PEP 440 tag such as `v0.6.0rc1` and an explicit install pin such as `maida-ai==0.6.0rc1`. Before publishing, review the changelog's breaking changes, Python support, and migration steps; update current install examples and `contracts/current-main.json`, move shipped commands out of `contracts/unreleased-cli.json`, and keep independently versioned schemas aligned with `maida/schema_versions.py`. Historical compatibility pins remain historical.
+
+Run `uv sync --all-extras --dev`, `uv lock --check`, `uv run --all-extras pytest --cov`, `uv run ruff check .`, and `uv run ruff format --check .`. Verify the supported Python matrix from `pyproject.toml` and `.github/workflows/unittest-fast.yml`. Build with `uv build` (source distribution and wheel rebuilt from it), then inspect the wheel's version, Python requirement, extras, CLI entrypoint, bundled viewer and schemas, and rewritten README links. Smoke-test the installed wheel with isolated `MAIDA_DATA_DIR` storage; `maida demo --regression` must produce the intended FAIL report and exit `0` for a completed rehearsal; an actual failed gate exits `1`.
+
+Publish only from the reviewed, committed release tree whose immutable full tag resolves to that commit. A successful build from a dirty checkout can contain changes absent from its version tag, so it is verification evidence rather than a publishable release artifact. Do not move an existing release tag as part of routine preparation. Consumer snapshot propagation and Action compatibility need their own verification before claiming cross-repository support.
+
 ---
 
 ## Dev setup
@@ -44,8 +52,8 @@ uv run pytest
 Run a specific file or test:
 
 ```bash
-uv run pytest tests/test_tracing.py
-uv run pytest tests/test_tracing.py -k "test_trace_creates_run"
+uv run pytest tests/tracing/test_tracing.py
+uv run pytest tests/tracing/test_tracing.py -k "test_trace_success"
 ```
 
 ---
@@ -94,7 +102,7 @@ When changing an adapter or public command, update the relevant tutorial and rer
 - **User docs** live in `docs/`: [getting started](docs/getting-started.md), [CLI](docs/cli.md), [SDK](docs/sdk.md), [integrations](docs/integrations.md), [architecture](docs/architecture.md).
 - The guardrails feature has a dedicated page: [docs/guardrails.md](docs/guardrails.md). Because guardrails are a core user-facing wedge, keep this page, the README, and the config/reference docs aligned whenever behavior changes.
 - **Reference docs** (public contracts) are in `docs/reference/`:
-  - [Trace format](docs/reference/trace-format.md) - event schema, run.json, payloads.
+  - [Trace format](docs/reference/trace-format.md) - span schema, meta.json, spans.jsonl, and payloads.
   - [Configuration](docs/reference/config.md) - env vars, YAML precedence, redaction, loop detection, guardrails.
 
 When you change behavior that affects the trace format or configuration, update the relevant reference doc and any linked pages. For guardrails specifically, check all of:

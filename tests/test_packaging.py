@@ -30,7 +30,7 @@ def _relative_readme_urls(readme: str) -> list[str]:
 def test_built_wheel_contains_importable_package_and_cli(tmp_path):
     out_dir = tmp_path / "dist"
     result = subprocess.run(
-        ["uv", "build", "--wheel", "--out-dir", str(out_dir)],
+        ["uv", "build", "--out-dir", str(out_dir)],
         check=False,
         cwd=ROOT,
         text=True,
@@ -55,6 +55,10 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
     assert "maida/server.py" in names
     assert "maida/ui_static/index.html" in names
     assert "maida = maida.cli:main" in entry_points
+    # Test the release path: uv builds the wheel from the source distribution.
+    # Every published schema must survive both steps, including nested $refs.
+    for schema in (ROOT / "schemas").rglob("*.json"):
+        assert f"maida/schemas/{schema.relative_to(ROOT / 'schemas')}" in names
 
     # PyPI cannot resolve relative README links; METADATA must carry the rewrite.
     readme = (ROOT / "README.md").read_text(encoding="utf-8")

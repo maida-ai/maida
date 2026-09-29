@@ -1,4 +1,9 @@
+import json
+import re
 from pathlib import Path
+
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from maida.scaffold import (
     CHECKOUT_ACTION_REF,
@@ -175,7 +180,6 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
     docs = read_docs("docs/integrations.md", "docs/integrations")
 
     required_docs = [
-        'uv add "maida-ai[openai]>=0.5"',
         "openai-agents-baseline.json",
         "examples/openai_agents/minimal.py --regression",
         "RUN_START -> LLM_CALL -> TOOL_CALL(lookup_docs) -> TOOL_CALL(handoff) -> RUN_END",
@@ -186,6 +190,14 @@ def test_openai_agents_docs_include_offline_success_and_regression_workflow():
 
     assert missing_docs == []
     assert "https://github.com/maida-ai/maida-tutorials/blob/main/examples/openai_agents/minimal.py" in docs
+
+    contract = json.loads((ROOT / "contracts/current-main.json").read_text())
+    release = Version(contract["engine_ref"].removeprefix("v"))
+    installs = re.findall(r'uv add "(maida-ai\[openai\][^"]+)"', docs)
+    assert installs
+    for install in installs:
+        assert release in Requirement(install).specifier
+        assert str(Requirement(install).specifier) == str(Requirement(contract["install_requirement"]).specifier)
 
 
 def test_crewai_docs_cover_offline_success_and_strict_regression_workflow():

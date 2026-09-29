@@ -107,7 +107,9 @@ from maida.trace_validation import (
 EXIT_NOT_FOUND = 2
 EXIT_INTERNAL = 10
 _DEMO_TRACE_DURATION_MS = 120
-_PLAN_BACKEND_INSTALL_COMMAND = 'uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.5"'
+_PLAN_BACKEND_INSTALL_COMMAND = (
+    'uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.6.0rc1"'
+)
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
 capture_app = typer.Typer(help="Capture external agent behavior locally.")

@@ -32,12 +32,14 @@ explicit consent and a configured collector; no collector is configured by defau
 
 ## Start with one useful check
 
+This checkout targets the **v0.6.0rc1 prerelease**, supporting Python 3.12–3.14. Use the explicit prerelease pin below; see the [changelog](CHANGELOG.md) for changes and migration from 0.5.x.
+
 ```bash
-uv tool install "maida-ai==0.5.3"
+uv tool install "maida-ai==0.6.0rc1"
 maida demo --regression
 ```
 
-Expect a FAIL verdict and a PR-comment preview: the simulated agent still answers, but loops and calls an unexpected tool. Exit `1` is intentional. No clone, API keys, or account are needed for this rehearsal.
+Expect a FAIL verdict and a PR-comment preview: the simulated agent still answers, but loops and calls an unexpected tool. The demo command exits `0` after successfully showing the failing gate; an actual failed gate exits `1`. No clone, API keys, or account are needed for this rehearsal.
 
 **[Protect one coding-agent task →](https://maida.ai/docs/getting-started/)**
 

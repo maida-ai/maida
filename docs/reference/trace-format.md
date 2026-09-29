@@ -113,7 +113,7 @@ Projection rules are part of the public contract at the event-type level: Maida 
 ```json
 {
   "run_name": "optional string or null",
-  "python_version": "3.11.7",
+  "python_version": "3.12.3",
   "platform": "darwin | linux | win32",
   "cwd": "/path/to/cwd",
   "argv": ["script.py", "arg1"]
