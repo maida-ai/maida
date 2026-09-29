@@ -7,7 +7,7 @@ First run the offline gate story from [Getting started](getting-started.md). The
 Use the project's package manager and install the library into the interpreter that runs the agent:
 
 ```bash
-uv add "maida-ai==0.6.0rc1"
+uv add "maida-ai==0.6.0"
 ```
 
 Wrap one complete invocation with `@trace`, and record real tool boundaries or use a [supported integration](integrations.md). Preserve the agent's return value, errors, and tool behavior. Do not record invented events to get a green check.

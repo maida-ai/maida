@@ -5,7 +5,7 @@
 **Requirements:** `langchain-core` must be installed. Install Maida with the LangChain extra:
 
 ```bash
-uv add "maida-ai[langchain]>=0.6.0rc1"
+uv add "maida-ai[langchain]>=0.6.0"
 ```
 
 If `langchain-core` is missing, accessing `LangChainCallbackHandler` raises an `ImportError` that identifies the LangChain extra. Importing core `maida` remains safe.

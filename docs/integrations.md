@@ -4,8 +4,8 @@ Maida is framework-agnostic at its core. Adapters translate framework callbacks 
 
 | Integration | Install or connect | Guide |
 |---|---|---|
-| LangChain / LangGraph | `uv add "maida-ai[langchain]>=0.6.0rc1"` | [Callback handler](integrations/langchain-langgraph.md) |
-| OpenAI Agents SDK | `uv add "maida-ai[openai]>=0.6.0rc1"` | [Tracing adapter](integrations/openai-agents.md) |
+| LangChain / LangGraph | `uv add "maida-ai[langchain]>=0.6.0"` | [Callback handler](integrations/langchain-langgraph.md) |
+| OpenAI Agents SDK | `uv add "maida-ai[openai]>=0.6.0"` | [Tracing adapter](integrations/openai-agents.md) |
 | CrewAI | unsupported after v0.5.3 (pin `maida-ai[crewai]==0.5.3`) | [Execution-hook adapter](integrations/crewai.md) |
 | Langfuse | Existing completed traces | [Langfuse import guide](langfuse.md) |
 

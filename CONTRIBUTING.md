@@ -15,7 +15,7 @@ The GitHub Action has its own versioning and tag policy in the [`maida-assert` R
 
 ### Preparing an engine release
 
-For a release candidate, use a full PEP 440 tag such as `v0.6.0rc1` and an explicit install pin such as `maida-ai==0.6.0rc1`. Before publishing, review the changelog's breaking changes, Python support, and migration steps; update current install examples and `contracts/current-main.json`, move shipped commands out of `contracts/unreleased-cli.json`, and keep independently versioned schemas aligned with `maida/schema_versions.py`. Historical compatibility pins remain historical.
+For a stable release, use a full PEP 440 tag such as `v0.6.0` and an explicit install pin such as `maida-ai==0.6.0`. Before publishing, review the changelog's breaking changes, Python support, and migration steps; update current install examples and `contracts/current-main.json`, move shipped commands out of `contracts/unreleased-cli.json`, and keep independently versioned schemas aligned with `maida/schema_versions.py`. Historical compatibility pins remain historical.
 
 Run `uv sync --all-extras --dev`, `uv lock --check`, `uv run --all-extras pytest --cov`, `uv run ruff check .`, and `uv run ruff format --check .`. Verify the supported Python matrix from `pyproject.toml` and `.github/workflows/unittest-fast.yml`. Build with `uv build` (source distribution and wheel rebuilt from it), then inspect the wheel's version, Python requirement, extras, CLI entrypoint, bundled viewer and schemas, and rewritten README links. Smoke-test the installed wheel with isolated `MAIDA_DATA_DIR` storage; `maida demo --regression` must produce the intended FAIL report and exit `0` for a completed rehearsal; an actual failed gate exits `1`.
 

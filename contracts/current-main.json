@@ -1,7 +1,7 @@
 {
   "contract_version": 1,
-  "engine_ref": "v0.6.0rc1",
-  "install_requirement": "maida-ai>=0.6.0rc1",
+  "engine_ref": "v0.6.0",
+  "install_requirement": "maida-ai>=0.6.0",
   "action_ref": "maida-ai/maida-assert@v5",
   "schemas": {
     "trace": "0.2.0",

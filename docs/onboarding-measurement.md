@@ -1,6 +1,6 @@
 # Measure setup and maintenance effort locally
 
-**Available from v0.6.0rc1:** `maida onboarding` records setup and maintenance effort locally. It is an explicit local journal, separate from the optional usage-count receiver. It sends nothing over the network and stores no task text, prompt, tool payload, repository path or person name.
+**Available from v0.6.0:** `maida onboarding` records setup and maintenance effort locally. It is an explicit local journal, separate from the optional usage-count receiver. It sends nothing over the network and stores no task text, prompt, tool payload, repository path or person name.
 
 Start before trying the walkthrough:
 

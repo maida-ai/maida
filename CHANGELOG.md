@@ -1,8 +1,8 @@
 # Changelog
 
-## v0.6.0rc1
+## v0.6.0
 
-This is a prerelease. Install the standalone CLI with `uv tool install "maida-ai==0.6.0rc1"`, or add the library to your project with `uv add "maida-ai==0.6.0rc1"`. Start with `maida demo --regression`; it shows an intentional FAIL verdict and exits `0` when the rehearsal completes. An actual failed gate exits `1`.
+Install the standalone CLI with `uv tool install "maida-ai==0.6.0"`, or add the library to your project with `uv add "maida-ai==0.6.0"`. Start with `maida demo --regression`; it shows an intentional FAIL verdict and exits `0` when the rehearsal completes. An actual failed gate exits `1`.
 
 ### Highlights
 
@@ -13,6 +13,7 @@ This is a prerelease. Install the standalone CLI with `uv tool install "maida-ai
 - **Packaging and dependencies** - README links are rewritten in built package metadata for PyPI. Runtime and optional framework dependencies have been upgraded; supported Python versions are 3.12–3.14.
 - **Implicit tracing** - the implicit run finalizes at process exit before OpenTelemetry shuts down its exporter, preserving the run name, terminal state, and tool counts.
 - **Source-distribution completeness** - nested public trace schemas are explicitly included so wheels rebuilt from the source distribution retain the targets of the bundled schema references.
+- **Draft GitHub release** - pushing the full release tag tests the tagged source, creates a reproducible source archive with checksums, verifies its provenance, and prepares a draft GitHub release for review. Building and publishing Python distributions to PyPI remains a separate step.
 - **Documentation and examples** - onboarding starts with one real coding-agent task, with a separate project-environment Python route. Runnable examples and their dependency setup now live in `maida-tutorials`; the engine retains the installed offline demo and adapter conformance tests.
 - **Optional usage counts** - explicit consent and a configured collector are required. No collector is configured by default, and traces and payloads are not included in the counts.
 
