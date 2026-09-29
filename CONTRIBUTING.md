@@ -21,6 +21,8 @@ Run `uv sync --all-extras --dev`, `uv lock --check`, `uv run --all-extras pytest
 
 Publish only from the reviewed, committed release tree whose immutable full tag resolves to that commit. A successful build from a dirty checkout can contain changes absent from its version tag, so it is verification evidence rather than a publishable release artifact. Do not move an existing release tag as part of routine preparation. Consumer snapshot propagation and Action compatibility need their own verification before claiming cross-repository support.
 
+Pushing a full stable or `rcN` tag runs `.github/workflows/release.yml`: it tests the source, archives the exact event commit, signs and verifies build provenance, and creates a draft GitHub release with `maida.tar.gz`, `SHA256SUMS`, and `provenance.jsonl`. Review the draft's tag, notes, assets, and provenance before manually publishing it; immutable release protection takes effect on publication. Release candidates retain the prerelease classification. This workflow creates a source-archive release; building and publishing Python distributions to PyPI is a separate step.
+
 ---
 
 ## Dev setup
