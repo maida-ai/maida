@@ -4,10 +4,10 @@ Start with one short task your coding agent can do in your repository. The first
 
 ## 1. See a regression before configuring anything
 
-Use Python 3.12–3.14. The explicit pin below installs the v0.6.0rc1 prerelease. Install the standalone CLI, then run the offline example:
+Use Python 3.12–3.14. The explicit pin below installs v0.6.0. Install the standalone CLI, then run the offline example:
 
 ```bash
-uv tool install "maida-ai==0.6.0rc1"
+uv tool install "maida-ai==0.6.0"
 maida demo --regression
 ```
 

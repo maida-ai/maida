@@ -11,11 +11,10 @@ validates the result against Maida's current trace contract, and writes only to
 local Maida storage. It does not modify Langfuse data or upload the imported
 run to a hosted Maida service.
 
-Until the importer is included in the next PyPI release, install the current
-`main` revision:
+The importer is included in v0.6.0. Install Maida into an isolated tool environment:
 
 ```bash
-uv tool install "maida-ai>=0.6.0rc1"
+uv tool install "maida-ai==0.6.0"
 ```
 
 ## Configure access

@@ -1,6 +1,7 @@
 """Exercise release preparation without creating releases or signing remotely."""
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -11,6 +12,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+RELEASE_TAG = json.loads((ROOT / "contracts/current-main.json").read_text())["engine_ref"]
+PRERELEASE_TAG = f"{RELEASE_TAG}rc1"
 
 
 def release_step():
@@ -21,7 +24,7 @@ def head_sha():
     return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 
 
-def build_archive(tmp_path, ref="refs/tags/v0.6.0rc1", sha=None):
+def build_archive(tmp_path, ref=f"refs/tags/{RELEASE_TAG}", sha=None):
     output = tmp_path / "release"
     result = subprocess.run(
         ["bash", str(ROOT / "scripts/build_release.sh"), str(output), "maida"],
@@ -40,7 +43,8 @@ def build_archive(tmp_path, ref="refs/tags/v0.6.0rc1", sha=None):
 
 
 def run_release(tmp_path, prerelease, *, corrupt_archive=False):
-    result, output = build_archive(tmp_path)
+    tag = PRERELEASE_TAG if prerelease == "true" else RELEASE_TAG
+    result, output = build_archive(tmp_path, ref=f"refs/tags/{tag}")
     assert result.returncode == 0, result.stderr
     if corrupt_archive:
         (output / "maida.tar.gz").write_bytes(b"corrupted archive")
@@ -60,7 +64,7 @@ def run_release(tmp_path, prerelease, *, corrupt_archive=False):
             "RUNNER_TEMP": str(tmp_path),
             "ATTESTATION_BUNDLE": str(bundle),
             "IS_PRERELEASE": prerelease,
-            "GITHUB_REF_NAME": "v0.6.0rc1" if prerelease == "true" else "v0.6.0",
+            "GITHUB_REF_NAME": tag,
             "GITHUB_REPOSITORY": "maida-ai/maida",
         },
         capture_output=True,
@@ -76,6 +80,7 @@ def test_release_creation_stays_draft_and_uploads_built_archive(tmp_path, prerel
     assert result.returncode == 0, result.stderr
     args = calls.read_text().splitlines()
     assert args[:2] == ["release", "create"]
+    assert args[2] == (PRERELEASE_TAG if prerelease == "true" else RELEASE_TAG)
     assert "--draft" in args
     assert "--verify-tag" in args
     assert "--latest=false" in args
@@ -94,12 +99,12 @@ def test_invalid_classification_never_creates_release(tmp_path, prerelease):
 
 
 def test_corrupt_archive_never_creates_release(tmp_path):
-    result, _, calls, _ = run_release(tmp_path, "true", corrupt_archive=True)
+    result, _, calls, _ = run_release(tmp_path, "false", corrupt_archive=True)
     assert result.returncode != 0
     assert not calls.exists()
 
 
-@pytest.mark.parametrize("ref", ["refs/tags/v0.6.0", "refs/tags/v0.6.0rc1"])
+@pytest.mark.parametrize("ref", [f"refs/tags/{RELEASE_TAG}", f"refs/tags/{PRERELEASE_TAG}"])
 def test_archive_is_reproducible_committed_source_with_checksums(tmp_path, ref):
     result, output = build_archive(tmp_path, ref)
     assert result.returncode == 0, result.stderr

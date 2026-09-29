@@ -26,11 +26,11 @@ core product is behavioral regression gating.
 ## In 60 seconds
 
 ```bash
-uv tool install "maida-ai==0.6.0rc1"
+uv tool install "maida-ai==0.6.0"
 maida demo --regression
 ```
 
-This installs the v0.6.0rc1 prerelease on Python 3.12–3.14. Expect a FAIL verdict and a PR-comment preview: the simulated regression is intentional. The demo command exits `0` when the rehearsal completes; an actual failed gate exits `1`. Runs are stored locally under `~/.maida/runs/<trace_id>/`; this offline demo sends nothing over the network. See the [changelog](../CHANGELOG.md) for upgrade notes.
+This installs v0.6.0 on Python 3.12–3.14. Expect a FAIL verdict and a PR-comment preview: the simulated regression is intentional. The demo command exits `0` when the rehearsal completes; an actual failed gate exits `1`. Runs are stored locally under `~/.maida/runs/<trace_id>/`; this offline demo sends nothing over the network. See the [changelog](../CHANGELOG.md) for upgrade notes.
 
 ---
 

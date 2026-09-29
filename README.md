@@ -32,10 +32,10 @@ explicit consent and a configured collector; no collector is configured by defau
 
 ## Start with one useful check
 
-This checkout targets the **v0.6.0rc1 prerelease**, supporting Python 3.12–3.14. Use the explicit prerelease pin below; see the [changelog](CHANGELOG.md) for changes and migration from 0.5.x.
+This checkout targets **v0.6.0**, supporting Python 3.12–3.14. Use the explicit version pin below; see the [changelog](CHANGELOG.md) for changes and migration from 0.5.x.
 
 ```bash
-uv tool install "maida-ai==0.6.0rc1"
+uv tool install "maida-ai==0.6.0"
 maida demo --regression
 ```
 
