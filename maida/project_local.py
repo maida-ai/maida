@@ -25,18 +25,18 @@ def repository_root(start: Path) -> Path | None:
     return None
 
 
-def installation(start: Path) -> tuple[Path, dict] | None:
+def installation(start: Path, *, command: str = "maida init") -> tuple[Path, dict] | None:
     root = repository_root(start)
     if root is None:
         return None
     path = root / LOCAL_POINTER
-    raw = read_safe(path)
+    raw = read_safe(path, command=command)
     if raw is None:
         return None
     try:
         pointer = json.loads(raw)
     except (ValueError, UnicodeError) as exc:
-        raise ValueError(f"Invalid {path}. Move it aside and rerun maida init to create a new local identity.") from exc
+        raise ValueError(f"Invalid {path}. Move it aside and rerun {command} to create a new local identity.") from exc
     if (
         not isinstance(pointer, dict)
         or type(pointer.get("version")) is not int
@@ -44,8 +44,9 @@ def installation(start: Path) -> tuple[Path, dict] | None:
         or not isinstance(pointer.get("project_id"), str)
         or not _PROJECT_ID.fullmatch(pointer["project_id"])
         or pointer.get("capture") != "claude-code"
+        or ("enabled" in pointer and not isinstance(pointer["enabled"], bool))
     ):
-        raise ValueError(f"Invalid {path}. Move it aside and rerun maida init to create a new local identity.")
+        raise ValueError(f"Invalid {path}. Move it aside and rerun {command} to create a new local identity.")
     return root, pointer
 
 

@@ -2,6 +2,19 @@
 
 The `maida` CLI captures, inspects, compares, and gates agent runs. Commands that accept a trace ID default to the latest run when the ID is omitted; the selected run is announced on stderr so stdout remains machine-readable.
 
+## Run selection after capture setup
+
+`maida init` attaches capture without changing ordinary SDK/Python commands. `list`, `view`, `export`, `baseline`, `accept`, `diff`, starter `--from-run latest` and baseline-gated `assert` retain their configured run selection, including after detach. A baseline's source ID does not redirect candidate selection.
+
+The first onboarding check below automatically selects the newest captured Claude task in the current repository while capture is enabled. It requires finished, useful evidence and never falls back to unrelated SDK runs. Adding a baseline, an explicit policy, a run ID or additional check options retains ordinary selection. Explicit Claude trace IDs and prefixes resolve automatically in this repository, including after detach; no storage option is needed.
+
+```bash
+maida list
+maida assert --baseline .maida/baselines/python-agent.json
+maida assert --expect-status ok --no-loops --no-guardrails
+maida view RUN_ID                # inspect the task identified in its report
+```
+
 ## Exit codes
 
 Exit codes are a stable contract; CI can branch on them.
@@ -21,7 +34,8 @@ machine-readable when you redirect JSON or Markdown output.
 | Command | Use it to |
 |---|---|
 | [`maida demo`](cli/demo.md) | Run the deterministic first-run or regression story |
-| [`maida init`](cli/init.md) | Draft observed invariants, review them, and create a runnable gate |
+| [`maida init`](cli/init.md) | Set up local capture, then draft and review an observed contract |
+| [`maida detach`](cli/detach.md) | Remove repository capture hooks after preview and confirmation |
 | [`maida onboarding`](onboarding-measurement.md) | Record activation attempts and human setup/maintenance effort locally |
 | [`maida view`](cli/view.md) | Open the local execution timeline |
 | [`maida list`](cli/list.md) | List recent local runs |
@@ -56,6 +70,7 @@ machine-readable when you redirect JSON or Markdown output.
 
 cli/demo
 cli/init
+cli/detach
 cli/view
 cli/list
 cli/capture-claude-code

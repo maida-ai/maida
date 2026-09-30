@@ -7,6 +7,7 @@ Entrypoint: main() for console script maida.cli:main.
 
 import getpass
 import json
+import logging
 import os
 import shlex
 import socket
@@ -48,9 +49,9 @@ from maida.capture.claude_hook import (
     ClaudeHookInputError,
     parse_claude_hook_json,
 )
-from maida.config import load_config
+from maida.config import MaidaConfig, load_config
 from maida.project_local import installation, onboarding_run
-from maida.first_run import initialize_capture
+from maida.first_run import detach_capture, initialize_capture
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
     ensure_demo_env,
@@ -195,6 +196,19 @@ def _resolve_run_or_latest(run_id: str | None, config) -> str:
         typer.echo(f"Using latest run: {resolved[:8]}", err=True)
         return resolved
     return storage.resolve_run_id(run_id, config)
+
+
+def _read_config(run_id: str | None = None) -> MaidaConfig:
+    """Preserve configured read defaults, resolving explicit captured IDs too."""
+    config = load_config()
+    if run_id is None:
+        return config
+    try:
+        storage.resolve_run_id(run_id, config)
+        return config
+    except FileNotFoundError:
+        pass
+    return load_config(capture=True)
 
 
 def _trace_validation_payload(
@@ -388,7 +402,7 @@ def capture_claude_code_cmd(
 ) -> None:
     """Receive Claude Code logs and beta traces over OTLP HTTP/protobuf."""
     try:
-        config = load_config()
+        config = load_config(capture=True)
         receiver = create_claude_code_app(config)
         typer.echo(
             f"Listening for Claude Code OTLP on http://{host}:{port}",
@@ -413,8 +427,18 @@ def capture_claude_hook_cmd() -> None:
     """Record one passive Claude Code command-hook payload from stdin."""
     try:
         origin = os.environ.get("CLAUDE_PROJECT_DIR")
-        project_root = Path(origin) if origin and installation(Path(origin)) else None
-        parse_claude_hook_json(sys.stdin.read(), load_config(project_root=project_root))
+        local = installation(Path(origin) if origin else Path.cwd())
+        if local and local[1].get("enabled") is False:
+            diagnostic = (
+                f"Maida capture disabled for {local[0]} (enabled: false). "
+                "Reconnect with maida init --agent claude-code."
+            )
+            logging.getLogger(__name__).debug(diagnostic)
+            if os.environ.get("MAIDA_DEBUG", "").strip().lower() in {"1", "true", "yes"}:
+                typer.echo(diagnostic, err=True)
+            return
+        project_root = local[0] if local else None
+        parse_claude_hook_json(sys.stdin.read(), load_config(project_root=project_root, capture=True))
     except ClaudeHookInputError as exc:
         typer.echo(f"Invalid Claude hook payload: {exc}", err=True)
         # Claude assigns blocking semantics to hook exit code 2. This capture
@@ -453,7 +477,7 @@ def import_claude_code_cmd(
     try:
         result = import_claude_capture(
             session_id,
-            load_config(),
+            load_config(capture=True),
             segment=segment,
         )
         if segment == "latest":
@@ -882,7 +906,7 @@ def list_cmd(
 ) -> None:
     """List recent runs."""
     try:
-        config = load_config()
+        config = _read_config()
         runs = storage.list_runs(limit=limit, config=config)
         if json_out:
             out = {"spec_version": SPEC_VERSION, "runs": runs}
@@ -899,6 +923,9 @@ def list_cmd(
             ]
             rows = _run_table_rows(runs)
             print(_format_text_table(rows, headers))
+    except ValueError as e:
+        typer.echo(f"Invalid configuration: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         if not json_out:
             typer.echo(f"error: {e}", err=True)
@@ -912,7 +939,7 @@ def export_cmd(
 ) -> None:
     """Export a run to a single JSON file (run metadata + events array)."""
     try:
-        config = load_config()
+        config = _read_config(run_id)
         try:
             trace_id = _resolve_run_or_latest(run_id, config)
         except FileNotFoundError as e:
@@ -934,6 +961,9 @@ def export_cmd(
         raise
     except storage.UnsupportedTraceFormatError as e:
         _exit_unsupported_trace_format(e)
+    except ValueError as e:
+        typer.echo(f"Invalid configuration: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
@@ -949,7 +979,7 @@ def view_cmd(
 ) -> None:
     """Start local viewer server and optionally open browser."""
     try:
-        config = load_config()
+        config = _read_config(run_id)
         if run_id is None:
             runs = storage.list_runs(limit=1, config=config)
             if not runs:
@@ -984,7 +1014,7 @@ def view_cmd(
 
         import uvicorn
 
-        fastapi_app = create_app()
+        fastapi_app = create_app(config=config)
         log_level = "warning" if json_out else "info"
 
         # Start the server in a background thread so we can gate the browser
@@ -1014,6 +1044,9 @@ def view_cmd(
         if not json_out:
             typer.echo("Stopped.", err=True)
         raise Exit(0)
+    except ValueError as e:
+        typer.echo(f"Invalid configuration: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         if not json_out:
             typer.echo(f"error: {e}", err=True)
@@ -1033,7 +1066,7 @@ def baseline_cmd(
 ) -> None:
     """Capture a baseline snapshot from a completed run."""
     try:
-        config = load_config()
+        config = _read_config(run_id)
         if from_report is not None:
             if run_id is not None:
                 raise ValueError("RUN_ID and --from-report are mutually exclusive")
@@ -1093,7 +1126,7 @@ def accept_cmd(
             raise Exit(EXIT_NOT_FOUND)
         reason = reason.strip()
 
-        config = load_config()
+        config = _read_config(run_id)
         try:
             run_id = _resolve_run_or_latest(run_id, config)
         except FileNotFoundError as e:
@@ -1169,7 +1202,36 @@ def assert_cmd(
 ) -> None:
     """Assert that a run meets behavioral policy checks. Exit 0 = pass, 1 = fail."""
     try:
-        config = load_config()
+        config = _read_config(run_id)
+        # Only the first onboarding check implicitly selects a Claude session.
+        # Baseline/policy gates and ordinary SDK assertions keep their defaults.
+        onboarding_check = (
+            run_id is None
+            and baseline_path is None
+            and policy_path is None
+            and expect_status == "ok"
+            and no_loops
+            and no_guardrails
+            and not no_new_tools
+            and not ignore_check
+            and all(
+                value is None
+                for value in (
+                    max_steps,
+                    step_tolerance,
+                    max_tool_calls,
+                    tool_call_tolerance,
+                    max_cost_tokens,
+                    cost_tolerance,
+                    max_duration_ms,
+                    duration_tolerance,
+                )
+            )
+        )
+        if onboarding_check:
+            local = installation(Path.cwd())
+            if local and local[1].get("enabled", True):
+                config = load_config(project_root=local[0], capture=True)
         try:
             if run_id is None and config.project_id:
                 run_id = onboarding_run(config)
@@ -1206,7 +1268,6 @@ def assert_cmd(
         }
         policy = merge_policy(policy, cli_overrides)
 
-        # Load baseline if provided
         bl = None
         if baseline_path is not None:
             try:
@@ -1458,7 +1519,12 @@ def init_cmd(
                     "Cannot read capture setup files or Git metadata. Check permissions for this checkout and rerun maida init."
                 ) from exc
             return
-        config = load_config()
+        if from_run:
+            config = _read_config(None if from_run[0] == "latest" else from_run[0])
+        elif reviewed and (LOCAL_DIR_NAME / "starter/baseline.json").is_file():
+            config = _read_config(load_baseline(LOCAL_DIR_NAME / "starter/baseline.json").get("source_run_id"))
+        else:
+            config = load_config()
         if from_run:
             targets = draft_starter(from_run, config)
             write_files(targets, force=force)
@@ -1487,7 +1553,10 @@ def init_cmd(
         for path in targets:
             typer.echo(f"Wrote {path}")
         typer.echo("Next: run the same task again, then gate the new observation:")
-        typer.echo(f"  maida assert --baseline {ACTIVE_BASELINE} --policy {ACTIVE_POLICY}")
+        selection = " RUN_ID" if config.project_id else ""
+        typer.echo(f"  maida assert{selection} --baseline {ACTIVE_BASELINE} --policy {ACTIVE_POLICY}")
+        if selection:
+            typer.echo("Use the new task's run ID printed by the first onboarding check.")
         typer.echo("This checks one observed execution; it does not certify a population pass rate.")
         if script:
             typer.echo(
@@ -1505,6 +1574,25 @@ def init_cmd(
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
+
+
+@app.command("detach")
+def detach_cmd(
+    agent: str | None = typer.Option(None, "--agent", help="Agent to detach: claude-code"),
+) -> None:
+    """Preview and confirm removal of repository Maida capture hooks."""
+    try:
+        detach_capture(agent)
+    except (ValueError, OSError) as exc:
+        message = (
+            str(exc)
+            if isinstance(exc, ValueError)
+            else (
+                "Cannot read or write capture setup files. Check permissions for this checkout and rerun maida detach --agent claude-code."
+            )
+        )
+        typer.echo(f"Cannot detach Maida: {message}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
 
 
 @app.command("demo")
@@ -1573,7 +1661,7 @@ def diff_cmd(
 ) -> None:
     """Inspect stored runs, or gate a Claude capture against a baseline."""
     try:
-        config = load_config()
+        config = load_config(capture=True) if capture_session_id is not None else _read_config(run_a)
 
         if capture_session_id is not None:
             if run_a is not None or run_b is not None:
@@ -1698,6 +1786,9 @@ def diff_cmd(
             typer.echo(f"error: {e}", err=True)
             raise Exit(EXIT_INTERNAL)
         _exit_run_validation_error(e)
+    except ValueError as e:
+        typer.echo(f"Invalid configuration: {e}", err=True)
+        raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)

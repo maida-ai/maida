@@ -35,9 +35,9 @@ def _validated_trace_id(trace_id: str) -> str:
         raise HTTPException(status_code=400, detail="invalid trace_id")
 
 
-def create_app() -> FastAPI:
+def create_app(config: MaidaConfig | None = None) -> FastAPI:
     app = FastAPI(title="Maida Viewer")
-    app.state.config = load_config()
+    app.state.config = config if config is not None else load_config()
 
     class RenameRunRequest(BaseModel):
         run_name: str

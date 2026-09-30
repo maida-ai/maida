@@ -47,10 +47,10 @@ def test_fresh_preview_approval_and_repeat(project):
     pointer = json.loads((project / ".maida/local.json").read_text())
     assert pointer["version"] == 1
     assert pointer["capture"] == "claude-code"
-    assert load_config().data_dir == Path.home() / ".maida/projects" / pointer["project_id"]
+    assert load_config(capture=True).data_dir == Path.home() / ".maida/projects" / pointer["project_id"]
     excluded = subprocess.run(["git", "check-ignore", ".maida/local.json"], text=True, capture_output=True, check=True)
     assert excluded.stdout.strip() == ".maida/local.json"
-    paths = [project / ".claude/settings.json", project / ".maida/local.json", project / ".git/info/exclude"]
+    paths = [project / ".claude/settings.local.json", project / ".maida/local.json", project / ".git/info/exclude"]
     before = [path.read_bytes() for path in paths]
     repeat = runner.invoke(app, ["init"])
     assert repeat.exit_code == 0, repeat.output
@@ -77,7 +77,7 @@ def test_noninteractive_is_preview_only(project, monkeypatch):
 
 
 def test_existing_settings_and_exclude_survive(project):
-    path = project / ".claude/settings.json"
+    path = project / ".claude/settings.local.json"
     path.parent.mkdir()
     original = {
         "permissions": {"deny": ["Write"]},
@@ -96,7 +96,7 @@ def test_existing_settings_and_exclude_survive(project):
 
 @pytest.mark.parametrize("content", ["invalid", "[]", '{"hooks": []}', '{"disableAllHooks": true}'])
 def test_bad_settings_have_actionable_error_without_writes(project, content):
-    path = project / ".claude/settings.json"
+    path = project / ".claude/settings.local.json"
     path.parent.mkdir()
     path.write_text(content)
     result = runner.invoke(app, ["init"], input="y\n")
@@ -136,7 +136,7 @@ def test_project_signal_beats_multiple_binaries(project, monkeypatch):
 def test_concurrent_change_and_write_failure_do_not_partially_install(project, monkeypatch):
     import maida.first_run as first_run
 
-    path = project / ".claude/settings.json"
+    path = project / ".claude/settings.local.json"
     path.parent.mkdir()
     path.write_text("{}")
 
@@ -152,10 +152,10 @@ def test_concurrent_change_and_write_failure_do_not_partially_install(project, m
     monkeypatch.setattr(first_run.typer, "confirm", lambda *a, **k: True)
     replace = first_run.atomic_replace
 
-    def failing(path, content, *, expected):
+    def failing(path, content, *, expected, **kwargs):
         if path.name == "exclude":
             raise PermissionError("fixture write denied")
-        return replace(path, content, expected=expected)
+        return replace(path, content, expected=expected, **kwargs)
 
     monkeypatch.setattr(first_run, "atomic_replace", failing)
     result = runner.invoke(app, ["init"])
@@ -194,7 +194,7 @@ def test_installed_hook_processes_produce_first_report(project, monkeypatch):
         if terminal is not None:
             os.close(terminal)
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project))
-    settings = json.loads((project / ".claude/settings.json").read_text())
+    settings = json.loads((project / ".claude/settings.local.json").read_text())
     tool = {"tool_use_id": "read-config", "tool_name": "Read", "tool_input": {"file_path": "pyproject.toml"}}
     for event, extra in (
         ("SessionStart", {"source": "startup"}),
@@ -272,7 +272,7 @@ def test_cancelled_input_and_io_failure_are_actionable(project, monkeypatch):
     monkeypatch.setattr(first_run.typer, "confirm", lambda *a, **k: (_ for _ in ()).throw(EOFError()))
     assert runner.invoke(app, ["init"]).exit_code == 0
     assert not (project / ".maida").exists()
-    monkeypatch.setattr(first_run, "prepare_settings", lambda *a: (_ for _ in ()).throw(PermissionError()))
+    monkeypatch.setattr(first_run, "prepare_settings", lambda *a, **k: (_ for _ in ()).throw(PermissionError()))
     denied = runner.invoke(app, ["init"])
     assert denied.exit_code == 2
     assert "Check permissions" in denied.output
@@ -283,7 +283,11 @@ def test_existing_review_flow_after_first_run_setup(project):
 
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
     task(project, "first-task")
-    draft = runner.invoke(app, ["init", "--from-run", "latest"])
+    check_args = ["assert", "--expect-status", "ok", "--no-loops", "--no-guardrails", "--format", "json"]
+    first_check = runner.invoke(app, check_args)
+    assert first_check.exit_code == 0, first_check.output
+    first_id = json.loads(first_check.stdout)["run_id"]
+    draft = runner.invoke(app, ["init", "--from-run", first_id])
     assert draft.exit_code == 0, draft.output
     assert not (project / ".maida/policy.yaml").exists()
     reviewed = runner.invoke(app, ["init", "--reviewed", "--reason", "This task must complete without loops"])
@@ -291,7 +295,10 @@ def test_existing_review_flow_after_first_run_setup(project):
     baseline = project / ".maida/baselines/agent.json"
     before = baseline.read_bytes()
     task(project, "fresh-task")
-    result = runner.invoke(app, ["assert", "--baseline", str(baseline), "--policy", ".maida/policy.yaml"])
+    new_check = runner.invoke(app, check_args)
+    assert new_check.exit_code == 0, new_check.output
+    new_id = json.loads(new_check.stdout)["run_id"]
+    result = runner.invoke(app, ["assert", new_id, "--baseline", str(baseline), "--policy", ".maida/policy.yaml"])
     assert result.exit_code == 0, result.output
     assert baseline.read_bytes() == before
 
@@ -318,11 +325,11 @@ def test_git_worktree_has_its_own_pointer_and_resolved_exclude(project, monkeypa
         check=True,
     )
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
-    first_id = load_config().project_id
+    first_id = load_config(capture=True).project_id
     worktree = project.parent / "worktree"
     subprocess.run(["git", "worktree", "add", "--detach", str(worktree)], capture_output=True, check=True)
     monkeypatch.chdir(worktree)
     result = runner.invoke(app, ["init"], input="y\n")
     assert result.exit_code == 0, result.output
-    assert load_config().project_id != first_id
+    assert load_config(capture=True).project_id != first_id
     assert subprocess.run(["git", "check-ignore", ".maida/local.json"], capture_output=True).returncode == 0

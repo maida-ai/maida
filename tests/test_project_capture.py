@@ -51,12 +51,12 @@ def test_project_storage_and_subdirectories(tmp_path, temp_data_dir, monkeypatch
     one, two = tmp_path / "one", tmp_path / "two"
     first_id, second_id = initialized(one), initialized(two)
     monkeypatch.chdir(one)
-    assert load_config().data_dir == temp_data_dir / "projects" / first_id
+    assert load_config(capture=True).data_dir == temp_data_dir / "projects" / first_id
     sub = one / "src"
     sub.mkdir()
     monkeypatch.chdir(sub)
-    assert load_config().data_dir == temp_data_dir / "projects" / first_id
-    assert load_config(project_root=two).data_dir == temp_data_dir / "projects" / second_id
+    assert load_config(capture=True).data_dir == temp_data_dir / "projects" / first_id
+    assert load_config(project_root=two, capture=True).data_dir == temp_data_dir / "projects" / second_id
 
 
 def test_first_capture_report_and_isolation(tmp_path, temp_data_dir, monkeypatch):
@@ -127,7 +127,7 @@ def test_explicit_selection_still_works_and_json_stays_machine_readable(tmp_path
     initialized(tmp_path)
     monkeypatch.chdir(tmp_path)
     task(tmp_path)
-    receipt = json.loads(next((load_config().data_dir / "onboarding").glob("*.json")).read_text())
+    receipt = json.loads(next((load_config(capture=True).data_dir / "onboarding").glob("*.json")).read_text())
     result = runner.invoke(app, ["assert", receipt["trace_id"], "--expect-status", "ok", "--format", "json"])
     assert result.exit_code == 0
     assert json.loads(result.stdout)["run_id"] == receipt["trace_id"]
@@ -143,19 +143,19 @@ def test_default_home_storage_and_nested_repository_boundary(tmp_path, monkeypat
     monkeypatch.delenv("MAIDA_DATA_DIR", raising=False)
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path / "home"))
     monkeypatch.chdir(project)
-    assert load_config().data_dir == tmp_path / "home/.maida/projects" / project_id
+    assert load_config(capture=True).data_dir == tmp_path / "home/.maida/projects" / project_id
     nested = project / "nested"
     nested.mkdir()
     subprocess.run(["git", "init", "--quiet", str(nested)], check=True)
     monkeypatch.chdir(nested)
-    assert load_config().project_id is None
+    assert load_config(capture=True).project_id is None
 
 
 def test_receipt_corruption_is_not_silently_ignored(tmp_path, temp_data_dir, monkeypatch):
     initialized(tmp_path)
     monkeypatch.chdir(tmp_path)
     task(tmp_path)
-    next((load_config().data_dir / "onboarding").glob("*.json")).write_text("broken")
+    next((load_config(capture=True).data_dir / "onboarding").glob("*.json")).write_text("broken")
     result = report()
     assert result.exit_code == 2
     assert "capture state is unreadable" in result.output
@@ -165,7 +165,7 @@ def test_malformed_pointer_is_actionable(tmp_path, temp_data_dir, monkeypatch):
     initialized(tmp_path)
     (tmp_path / ".maida/local.json").write_text("broken JSON")
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["assert", "--expect-status", "ok"])
+    result = report()
     assert result.exit_code == 2
     assert "Move it aside" in result.output
 
@@ -191,4 +191,4 @@ def test_invalid_pointer_never_falls_back(tmp_path, temp_data_dir, monkeypatch, 
     (tmp_path / ".maida/local.json").write_text(json.dumps(pointer))
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="local.json"):
-        load_config()
+        load_config(capture=True)

@@ -4,7 +4,36 @@ import json
 
 import pytest
 
-from maida.capture_setup import COMMAND, EVENTS, install, merged_settings
+from maida.capture_setup import COMMAND, EVENTS, atomic_replace, install, merged_settings
+
+
+@pytest.mark.parametrize("scope", ["group", "hook"])
+@pytest.mark.parametrize("restriction", [{"enabled": False}, {"disabled": True}])
+def test_disabled_inherited_observer_does_not_count_as_coverage(scope, restriction):
+    hook = {"type": "command", "command": COMMAND}
+    group = {"hooks": [hook]}
+    (group if scope == "group" else hook).update(restriction)
+    inherited = {"hooks": {"PreToolUse": [group]}}
+    merged, added = merged_settings({}, inherited=(inherited,))
+    assert "PreToolUse" in added
+    assert merged["hooks"]["PreToolUse"][0]["hooks"] == [{"type": "command", "command": COMMAND}]
+
+
+def test_effective_inherited_disable_all_hooks_and_local_override():
+    inherited = merged_settings({})[0]
+    inherited["disableAllHooks"] = True
+    with pytest.raises(ValueError, match="Enable hooks"):
+        merged_settings({}, inherited=(inherited,))
+    # disableAllHooks applies to the merged configuration, not to each source.
+    _, added = merged_settings({"disableAllHooks": False}, inherited=(inherited,))
+    assert added == []
+
+
+def test_absent_replacement_is_rejected_before_creating_files(tmp_path):
+    path = tmp_path / ".claude/settings.json"
+    with pytest.raises(TypeError, match="must be bytes"):
+        atomic_replace(path, None, expected=None)
+    assert not path.parent.exists()
 
 
 def test_preview_and_repeated_install(tmp_path):
