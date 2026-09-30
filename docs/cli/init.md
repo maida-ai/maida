@@ -1,6 +1,28 @@
 # `maida init`
 
-**Requires Maida 0.6.0 or newer.** Check `maida init --help` for `--from-run` before following this page. The [getting-started guide](../getting-started.md) also routes older installations to compatible commands.
+**Automatic capture setup is new after shipped v0.6.0.** Check `maida init --help` for `--agent` before using the default setup path below. The reviewed starter workflow requires `--from-run`, available in v0.6.0.
+
+## Set up your first task
+
+Run `maida init` inside your Git repository. Maida uses repository configuration before installed agent commands to detect Claude Code. It previews missing passive observers in `.claude/settings.json`, a local installation pointer in `.maida/local.json`, and its Git local exclude entry, then asks once before writing anything. Existing settings, permissions and hooks are preserved. Repeating setup adds no duplicate observers and keeps the same project identity. `--force` does not bypass first-run approval or replace existing hooks.
+
+```bash
+maida init
+```
+
+After approval, follow the single printed next action: start a new Claude Code session here, run one bounded task, exit the session, then:
+
+```bash
+maida assert --expect-status ok --no-loops --no-guardrails
+```
+
+No policy or baseline is created. The report concerns the newest task captured for this repository; an unfinished or missing task cannot fall back to another repository's evidence. Hook capture observes tool activity and lifecycle, not answer correctness or complete model-call, token or latency coverage. Capture follows your configured redaction settings. Task evidence stays on this machine; no local receiver setup or telemetry sent to Maida is involved.
+
+The installation pointer records only a generated project ID, format version and capture choice. It is local state, not authoritative policy or runtime configuration. Git's local exclude file keeps it out of ordinary commits. Evidence defaults to `~/.maida/projects/<project-id>/runs/`, `captures/` and `onboarding/`; an explicit Maida storage override changes the parent location while preserving project isolation. New clones and worktrees initialized separately get separate IDs. No remote URL is used as identity.
+
+If multiple agent environments are detected, Maida names them and writes nothing. For a Claude Code task, resolve the ambiguity with `maida init --agent claude-code`; this still previews changes and asks for approval. Unsupported environments receive an explicit explanation. Noninteractive setup is preview-only and exits `2`; approve setup from an interactive terminal. Malformed settings, disabled hooks and write failures identify a concrete repair action.
+
+## Keep a reviewed contract later
 
 Initialize from a successful run of one real task. Maida proposes a small policy from what it observed, shows the source workflow and trace IDs, and waits for your explicit review before activating anything. It never invents a Python entrypoint or a forbidden tool.
 
@@ -54,6 +76,6 @@ Run the printed `maida run` command locally, commit the policy, baseline, review
 
 All Action components use the `v0.6.0` release tag, including `maida-ai/maida-assert@v0.6.0` and `maida-ai/maida-assert/accept-command@v0.6.0`. Publish the Action release before running this workflow. For production workflows, replace the tag with the reviewed full commit SHA and keep that revision consistent across every Action component.
 
-Use `--force` only after reviewing the files that will be replaced. Maida preflights all target files, refuses symlinked or escaping outputs, and preserves existing files by default. Plain `maida init` explains the next capture/selection step and writes nothing.
+Use `--force` only after reviewing the starter or workflow files that will be replaced. Maida preflights all target files, refuses symlinked or escaping outputs, and preserves existing files by default. First-run hook setup always merges and requires approval for changes.
 
-Exit codes: `0` draft or activation completed; `2` missing observations, invalid configuration or file collision; `10` unexpected internal failure.
+Exit codes: `0` capture setup completed, already configured or declined, or draft/activation completed; `2` unsupported/ambiguous environment, noninteractive setup needing approval, missing observations, invalid configuration or file collision; `10` unexpected internal failure.

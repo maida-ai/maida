@@ -50,6 +50,7 @@ from maida.capture.claude_hook import (
 )
 from maida.config import load_config
 from maida.project_local import installation, onboarding_run
+from maida.first_run import initialize_capture
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
     ensure_demo_env,
@@ -1437,15 +1438,26 @@ def init_cmd(
     ),
     reason: str | None = typer.Option(None, "--reason", help="Record why the reviewed invariants fit this task"),
     agent_script: Path | None = typer.Option(None, "--agent-script", help="Existing traced Python entrypoint for CI"),
+    agent: str | None = typer.Option(None, "--agent", help="Resolve ambiguous first-run detection: claude-code"),
 ) -> None:
-    """Draft observed invariants, review them, then create a runnable gate."""
+    """Set up local agent capture, or draft and activate reviewed invariants."""
     try:
+        if agent is not None and (from_run or reviewed or github):
+            raise ValueError("--agent is for first-run capture setup. Use maida init --agent claude-code separately.")
         if from_run and (reviewed or github):
             raise ValueError("Draft first with --from-run; review the candidates before --reviewed or --github")
         if reason is not None and not reviewed:
             raise ValueError("--reason requires --reviewed")
         if agent_script is not None and not github:
             raise ValueError("--agent-script requires --github")
+        if not from_run and not reviewed and not github:
+            try:
+                initialize_capture(agent)
+            except OSError as exc:
+                raise ValueError(
+                    "Cannot read capture setup files or Git metadata. Check permissions for this checkout and rerun maida init."
+                ) from exc
+            return
         config = load_config()
         if from_run:
             targets = draft_starter(from_run, config)
@@ -1459,12 +1471,6 @@ def init_cmd(
             typer.echo("These observations do not establish correctness or guarantees about future runs.")
             typer.echo("Next: maida init --reviewed --reason 'why these rules fit this task'")
             return
-        if not reviewed and not github:
-            raise ValueError(
-                "Choose a successful run from `maida list`, then run `maida init --from-run RUN_ID` "
-                "(or explicitly --from-run latest). Start with `maida demo --regression` to try the gate; "
-                "capture your own coding-agent task using https://maida.ai/docs/getting-started/."
-            )
         script = validate_agent_script(agent_script) if github else None
         targets = {}
         review_record = None

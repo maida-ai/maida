@@ -112,9 +112,15 @@ def test_unpaired_tool_and_import_failure_are_setup_errors(tmp_path, temp_data_d
     monkeypatch.setattr(
         "maida.capture.claude_hook.import_claude_capture", lambda *a, **k: (_ for _ in ()).throw(ValueError("fixture"))
     )
+    assert deliver(tmp_path, "SessionStart", session="cannot-import").exit_code == 0
+    tool = {"tool_use_id": "one", "tool_name": "Read", "tool_input": {}}
+    assert deliver(tmp_path, "PreToolUse", session="cannot-import", **tool).exit_code == 0
+    assert deliver(tmp_path, "PostToolUse", session="cannot-import", **tool, tool_response={}).exit_code == 0
     result = deliver(tmp_path, "SessionEnd", session="cannot-import")
     assert result.exit_code == 10
-    assert report().exit_code == 2
+    failed = report()
+    assert failed.exit_code == 2
+    assert "could not be imported" in failed.output
 
 
 def test_explicit_selection_still_works_and_json_stays_machine_readable(tmp_path, temp_data_dir, monkeypatch):
@@ -153,6 +159,15 @@ def test_receipt_corruption_is_not_silently_ignored(tmp_path, temp_data_dir, mon
     result = report()
     assert result.exit_code == 2
     assert "capture state is unreadable" in result.output
+
+
+def test_malformed_pointer_is_actionable(tmp_path, temp_data_dir, monkeypatch):
+    initialized(tmp_path)
+    (tmp_path / ".maida/local.json").write_text("broken JSON")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["assert", "--expect-status", "ok"])
+    assert result.exit_code == 2
+    assert "Move it aside" in result.output
 
 
 def test_capture_uses_original_project_after_cd(tmp_path, temp_data_dir, monkeypatch):

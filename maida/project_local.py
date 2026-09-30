@@ -36,7 +36,7 @@ def installation(start: Path) -> tuple[Path, dict] | None:
     try:
         pointer = json.loads(raw)
     except (ValueError, UnicodeError) as exc:
-        raise ValueError(f"Invalid {path}. Restore the local installation pointer and rerun maida init.") from exc
+        raise ValueError(f"Invalid {path}. Move it aside and rerun maida init to create a new local identity.") from exc
     if (
         not isinstance(pointer, dict)
         or type(pointer.get("version")) is not int
@@ -45,7 +45,7 @@ def installation(start: Path) -> tuple[Path, dict] | None:
         or not _PROJECT_ID.fullmatch(pointer["project_id"])
         or pointer.get("capture") != "claude-code"
     ):
-        raise ValueError(f"Invalid {path}. Restore the local installation pointer and rerun maida init.")
+        raise ValueError(f"Invalid {path}. Move it aside and rerun maida init to create a new local identity.")
     return root, pointer
 
 
@@ -60,7 +60,9 @@ def onboarding_run(config: MaidaConfig) -> str:
                 raise ValueError("invalid receipt")
             receipts.append(receipt)
         except (OSError, ValueError) as exc:
-            raise ValueError("Local capture state is unreadable. Rerun maida init to check capture setup.") from exc
+            raise ValueError(
+                f"Local capture state is unreadable at {path}. Move that receipt aside and rerun maida assert."
+            ) from exc
     if not receipts:
         raise FileNotFoundError(
             "No Claude Code task captured in this repository. Start a new Claude Code session here, "
@@ -78,5 +80,8 @@ def onboarding_run(config: MaidaConfig) -> str:
         )
     trace_id = latest.get("trace_id")
     if not isinstance(trace_id, str) or not _PROJECT_ID.fullmatch(trace_id):
-        raise FileNotFoundError("The completed session could not be imported. Rerun maida init to check capture setup.")
+        raise FileNotFoundError(
+            "The completed session could not be imported. Start a new Claude Code session, run the bounded task again, "
+            "exit, then rerun maida assert."
+        )
     return trace_id
