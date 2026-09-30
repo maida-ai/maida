@@ -1,5 +1,11 @@
 {
   "based_on": "v0.6.0",
-  "top_level_commands": [],
+  "top_level_commands": [
+    {
+      "name": "detach",
+      "documentation": "docs/cli/detach.md",
+      "reason": "Confirmed removal of repository Claude Code capture hooks without deleting evidence or gate configuration."
+    }
+  ],
   "command_groups": []
 }

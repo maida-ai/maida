@@ -8,6 +8,8 @@ Evaluates one already-completed trace against v2 invariant and measured rules, o
 maida assert [TRACE_ID] [options]
 ```
 
+`maida init` does not change ordinary run selection: `maida assert --baseline PATH` still checks the latest SDK/Python run without any additional option. While local capture is enabled, the first onboarding check `maida assert --expect-status ok --no-loops --no-guardrails`, without a baseline, run ID, explicit policy or additional check options, selects the current repository's newest finished Claude task. Missing or incomplete capture produces a recovery action rather than falling back to SDK evidence. Explicit Claude IDs and prefixes resolve automatically, including after detach.
+
 **Arguments / options:**
 
 | Argument/Option | Default | Description |

@@ -222,12 +222,15 @@ def _apply_env_to_guardrails(params: GuardrailParams) -> GuardrailParams:
     return params
 
 
-def load_config(project_root: Path | None = None) -> MaidaConfig:
+def load_config(project_root: Path | None = None, *, capture: bool = False) -> MaidaConfig:
     """
     Load MaidaConfig with precedence (highest first):
     1. Environment variables
     2. .maida/config.yaml in project root (if present)
     3. ~/.maida/config.yaml
+
+    Only Claude capture opts into the repository namespace. SDK tracing and
+    isolated runners retain the exact configured data directory.
     """
     base = Path.home() / LOCAL_DIR_NAME
     redact = _DEFAULT_REDACT
@@ -258,7 +261,7 @@ def load_config(project_root: Path | None = None) -> MaidaConfig:
     #       will not set the root to the project, but the place
     #       where CLI was called from.
     root = project_root if project_root is not None else Path.cwd()
-    local = installation(root)
+    local = installation(root) if capture else None
     if local is not None:
         root = local[0]
     project_config_path = root / LOCAL_DIR_NAME / "config.yaml"

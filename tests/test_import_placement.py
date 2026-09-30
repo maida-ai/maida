@@ -103,7 +103,10 @@ def test_function_scoped_imports_are_explicitly_justified() -> None:
     """Keep imports at module top unless a local import is intentional."""
     unexpected: list[tuple[str, str, str, str, tuple[str, ...]]] = []
 
-    for path in sorted(Path("maida").rglob("*.py")):
+    root = Path(__file__).resolve().parents[1]
+    sources = sorted((root / "maida").rglob("*.py"))
+    assert sources, "Production source scan must not depend on the test working directory"
+    for path in sources:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         parents: dict[ast.AST, ast.AST] = {}
         for parent in ast.walk(tree):
@@ -116,7 +119,7 @@ def test_function_scoped_imports_are_explicitly_justified() -> None:
             scope = _scope_for(node, parents)
             if scope is None:
                 continue
-            key = _import_key(path, node, scope)
+            key = _import_key(path.relative_to(root), node, scope)
             if key not in _ALLOWED_FUNCTION_IMPORTS:
                 unexpected.append(key)
 

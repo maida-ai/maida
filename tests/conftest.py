@@ -10,13 +10,34 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def reset_otel():
+def isolated_local_environment(tmp_path_factory):
+    """Keep developer project pointers, home settings and capture env out of tests."""
+    directory = tmp_path_factory.mktemp("local-environment")
+    home = directory / "home"
+    project = directory / "project"
+    home.mkdir()
+    project.mkdir()
+    # Keep isolation separate from tests' monkeypatch fixture: some tests call
+    # monkeypatch.undo() between assertions and must remain in the sandbox.
+    with pytest.MonkeyPatch.context() as isolation:
+        isolation.setenv("HOME", str(home))
+        isolation.setattr(Path, "home", staticmethod(lambda: home))
+        isolation.chdir(project)
+        for key in list(os.environ):
+            if key.startswith("MAIDA_") or key == "CLAUDE_PROJECT_DIR":
+                isolation.delenv(key)
+        yield
+
+
+@pytest.fixture(autouse=True)
+def reset_otel(isolated_local_environment):
     """Reset OTel singleton state before each test so MaidaLocalSpanExporter
     picks up the correct MAIDA_DATA_DIR for this test's temp dir."""
     from maida._tracing._otel import _shutdown_otel
 
     _shutdown_otel()
     yield
+    _shutdown_otel()
 
 
 @pytest.fixture

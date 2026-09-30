@@ -15,6 +15,10 @@ Automatic capture setup is new after shipped v0.6.0. These instructions require 
 
 Maida detects your environment, prioritizing repository configuration over installed agent commands. For Claude Code, it shows the passive capture hooks, local installation pointer and storage location before asking for one approval. It preserves existing settings and hooks and creates no policy or baseline. If detection is ambiguous, it names the environments; for a Claude Code task, rerun `maida init --agent claude-code`. Unsupported environments and malformed settings receive a concrete recovery action before anything is written.
 
+Setup writes local Claude settings, keeping shared team settings and existing Python run storage intact. To stop capture, run `maida detach --agent claude-code` and approve its removal preview. Other hooks and saved evidence are preserved. Exit and restart any existing Claude Code session afterward; reconnect with `maida init --agent claude-code`.
+
+Existing SDK/Python commands and baseline gates keep selecting runs as before setup. The first check below automatically selects this repository's captured task. To inspect that task later, use the run ID shown in its report, for example `maida view RUN_ID`.
+
 Your repository can use any language. Building a Python tool-calling agent? Use the secondary [Python walkthrough](python-agent.md), including installation into the project environment.
 
 ## 2. Get a useful result in your own repository
@@ -25,7 +29,7 @@ After approval, start a new Claude Code session in this repository. Choose a tas
 maida assert --expect-status ok --no-loops --no-guardrails
 ```
 
-Expect a report checking your task's observed completion, recorded loop warnings and recorded guardrail events. No baseline is needed. Evidence is automatically scoped to this repository under `~/.maida/projects/<project-id>/`; you do not manage a storage environment variable or select a trace ID. An unfinished newest session produces a recovery message rather than showing an older task. If a check fails, inspect that observation with `maida view`, fix the cause and repeat the bounded task. If the repository already has `.maida/policy.yaml`, `assert` also loads it.
+Expect a report checking your task's observed completion, recorded loop warnings and recorded guardrail events. No baseline is needed. Evidence is automatically scoped to this repository; you do not manage a storage environment variable or select a trace ID for this check. An unfinished newest session produces a recovery message rather than showing an older task. If a check fails, follow the printed `maida view RUN_ID` command, fix the cause and repeat the bounded task. If the repository already has `.maida/policy.yaml`, `assert` also loads it.
 
 This first check answers whether the observed signals met the three requested checks. It does not compare against a known-good baseline or establish answer correctness. Hook capture observes tool activity and lifecycle, not complete model-call, token or latency coverage. It follows your configured redaction settings. No telemetry receiver setup is required and no task evidence is sent to Maida. Your agent's normal provider use has its usual permissions and costs.
 

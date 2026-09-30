@@ -49,6 +49,8 @@ maida assert --expect-status ok --no-loops --no-guardrails
 
 The report checks your own task's observed completion, loops and guardrail events. No policy, baseline, tutorial clone or telemetry receiver setup is required. Task evidence stays outside Git in a repository-specific directory under `~/.maida/projects/`; this is not telemetry sent to Maida. Capture follows your configured redaction settings and observes tool activity and lifecycle, not complete model-call, token or latency coverage. Your agent's normal provider use has its usual permissions and costs.
 
+Setup uses local Claude settings and preserves shared team configuration and existing SDK/Python commands. The first check above selects this repository's captured task automatically; ordinary commands and baseline gates keep their existing run selection. To stop capturing, run `maida detach --agent claude-code`: it previews removal and asks once, keeping other hooks and saved evidence. Reconnect with `maida init --agent claude-code`.
+
 **[Protect one coding-agent task →](https://maida.ai/docs/getting-started/)**
 
 The setup target is under five minutes for one bounded task; it is not a measured activation claim. Review a small baseline and policy when the first report is useful; deliberate failure, repair and CI come later. Unsupported or ambiguous environments are explained before configuration changes.
