@@ -32,18 +32,28 @@ explicit consent and a configured collector; no collector is configured by defau
 
 ## Start with one useful check
 
-This checkout targets **v0.6.0**, supporting Python 3.12–3.14. Use the explicit version pin below; see the [changelog](CHANGELOG.md) for changes and migration from 0.5.x.
+Use Python 3.12–3.14. Install the standalone CLI, then run setup inside your Git repository:
 
 ```bash
-uv tool install "maida-ai==0.6.0"
-maida demo --regression
+uv tool install maida-ai
+maida init
 ```
 
-Expect a FAIL verdict and a PR-comment preview: the simulated agent still answers, but loops and calls an unexpected tool. The demo command exits `0` after successfully showing the failing gate; an actual failed gate exits `1`. No clone, API keys, or account are needed for this rehearsal.
+Automatic capture setup is new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent`; until that release is published, use a wheel built from this checkout. See the [changelog](CHANGELOG.md) for released behavior.
+
+Maida detects Claude Code, previews the passive hooks and local storage setup, and asks for one approval. Existing settings and hooks are preserved. Start a new Claude Code session in this repository, run one bounded task such as finding its test command, then exit the session and run:
+
+```bash
+maida assert --expect-status ok --no-loops --no-guardrails
+```
+
+The report checks your own task's observed completion, loops and guardrail events. No policy, baseline, tutorial clone or telemetry receiver setup is required. Task evidence stays outside Git in a repository-specific directory under `~/.maida/projects/`; this is not telemetry sent to Maida. Capture follows your configured redaction settings and observes tool activity and lifecycle, not complete model-call, token or latency coverage. Your agent's normal provider use has its usual permissions and costs.
 
 **[Protect one coding-agent task →](https://maida.ai/docs/getting-started/)**
 
-Start with a one-minute task in your repository, such as finding its test command, and get a report on that actual execution. Allow 10–15 minutes for capture setup and the first check. Review a small baseline and policy when that result is useful; deliberate failure, repair, and CI come next. This is a setup target, not a measured activation claim.
+The setup target is under five minutes for one bounded task; it is not a measured activation claim. Review a small baseline and policy when the first report is useful; deliberate failure, repair and CI come later. Unsupported or ambiguous environments are explained before configuration changes.
+
+For an offline rehearsal with the currently shipped release, use `uv tool install "maida-ai==0.6.0"`, then `maida demo --regression`: expect a FAIL verdict and PR-comment preview on canned data. No clone or API keys are needed. The demo exits `0` after showing the failing gate; an actual failed check exits `1`.
 
 Building a Python tool-calling agent? Use the secondary [Python walkthrough](docs/python-agent.md), including installation into the project environment.
 

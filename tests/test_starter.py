@@ -70,7 +70,7 @@ def test_starter_requires_explicit_observation_and_rejects_mixed_workflows(temp_
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 2
-    assert "--from-run" in result.output
+    assert "Git repository" in result.output
     assert not Path(".maida").exists()
     result = runner.invoke(app, ["init", "--from-run", "latest"])
     assert result.exit_code == 2

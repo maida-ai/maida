@@ -389,6 +389,35 @@ def capture_claude_hook(
         state["updated_at"] = now
         _atomic_json(state_path, state)
 
+        receipt_path = config.data_dir / "onboarding" / f"{session_hash}-{segment}.json"
+        receipt = None
+        if config.project_id:
+            manifest = _read_json(segment_dir / "manifest.json")
+            names = [item["record"]["event_name"] for item in existing]
+            starts = {
+                item["record"]["attributes"]["tool_use_id"]
+                for item in existing
+                if item["record"]["event_name"] == "claude_code.hook.pre_tool_use"
+            }
+            terminals = {
+                item["record"]["attributes"]["tool_use_id"]
+                for item in existing
+                if item["record"]["event_name"]
+                in {
+                    "claude_code.hook.post_tool_use",
+                    "claude_code.hook.post_tool_use_failure",
+                    "claude_code.hook.permission_denied",
+                }
+            }
+            receipt = {
+                "started_at": manifest["created_at"],
+                "state": capture_state,
+                "has_start": "claude_code.hook.session_start" in names,
+                "complete_tools": bool(starts) and starts == terminals,
+                "trace_id": None,
+            }
+            _atomic_json(receipt_path, receipt)
+
         if event == "SessionEnd":
             try:
                 import_result = import_claude_capture(
@@ -396,6 +425,9 @@ def capture_claude_hook(
                     config,
                     segment=segment,
                 )
+                if receipt is not None:
+                    receipt["trace_id"] = import_result.trace_id
+                    _atomic_json(receipt_path, receipt)
             except Exception as exc:
                 raise ClaudeHookImportError(f"completed Claude hook capture could not be imported: {exc}") from exc
 

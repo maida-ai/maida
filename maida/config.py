@@ -7,6 +7,7 @@ from typing import Any
 
 from maida.guardrails import GuardrailParams
 from maida.constants import LOCAL_DIR_NAME
+from maida.project_local import installation
 
 try:
     import yaml
@@ -43,6 +44,8 @@ class MaidaConfig:
     loop_repetitions: int
     data_dir: Path
     guardrails: GuardrailParams
+    project_root: Path | None = None
+    project_id: str | None = None
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -255,6 +258,9 @@ def load_config(project_root: Path | None = None) -> MaidaConfig:
     #       will not set the root to the project, but the place
     #       where CLI was called from.
     root = project_root if project_root is not None else Path.cwd()
+    local = installation(root)
+    if local is not None:
+        root = local[0]
     project_config_path = root / LOCAL_DIR_NAME / "config.yaml"
     proj_cfg = _load_yaml(project_config_path)
     if proj_cfg:
@@ -300,6 +306,11 @@ def load_config(project_root: Path | None = None) -> MaidaConfig:
 
     guardrails = _apply_env_to_guardrails(guardrails)
 
+    if local is not None:
+        # Overrides still choose the storage parent; local installations always
+        # receive a namespace, so a global override cannot mix repositories.
+        data_dir = data_dir.expanduser().resolve() / "projects" / local[1]["project_id"]
+
     return MaidaConfig(
         redact=redact,
         redact_keys=redact_keys,
@@ -308,4 +319,6 @@ def load_config(project_root: Path | None = None) -> MaidaConfig:
         loop_repetitions=loop_repetitions,
         data_dir=data_dir,
         guardrails=guardrails,
+        project_root=local[0] if local else None,
+        project_id=local[1]["project_id"] if local else None,
     )
