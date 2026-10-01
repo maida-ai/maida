@@ -7,11 +7,11 @@ Start with one short task your coding agent can do in your repository. The first
 Use Python 3.12–3.14. Install the standalone CLI, then run setup inside your Git repository:
 
 ```bash
-uv tool install maida-ai
+uv tool install "maida-ai==0.6.1"
 maida init
 ```
 
-Automatic capture setup and `maida check` are new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent` and which provides `maida check`; until that release is published, use a wheel built from this checkout. Shipped v0.6.0 supports the reviewed starter flow below but does not perform automatic first-run setup.
+Automatic capture setup and `maida check` are available from v0.6.1. If you already have an older standalone install, upgrade with `uv tool install --force "maida-ai==0.6.1"` before following this flow. The reviewed starter workflow remains available through explicit `--from-run` and `--reviewed --reason` options.
 
 Maida detects your environment, prioritizing repository configuration over installed agent commands. For Claude Code, it shows the passive capture command and local files it would change before asking for one approval. It preserves existing settings and other hooks and creates no policy or baseline. If detection is ambiguous, it names the environments; for a Claude Code task, rerun `maida init --agent claude-code`. Unsupported environments and malformed settings receive a concrete recovery action before anything is written.
 
@@ -37,7 +37,7 @@ This first check answers whether the observed signals met the three built-in che
 
 **You can stop here.** You have a report on your own task and local evidence to inspect. The target is under five minutes from `init` to a report for a bounded task; this is not a measured activation claim. Resolve capture errors before adding policy or CI.
 
-For an offline rehearsal with the currently shipped release, use `uv tool install "maida-ai==0.6.0"`, then `maida demo --regression`. It shows a FAIL verdict and PR-comment preview on canned data, needs no clone or API keys and exits `0` after showing the failing gate. An actual failed check exits `1`; demo evidence is not selected as your first captured task.
+For an offline rehearsal, run `maida demo --regression`. It shows a FAIL verdict and PR-comment preview on canned data, needs no clone or API keys and exits `0` after showing the failing gate. An actual failed check exits `1`; demo evidence is not selected as your first captured task.
 
 ## 3. Keep a small contract for the next change
 

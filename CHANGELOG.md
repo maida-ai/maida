@@ -2,9 +2,29 @@
 
 ## Unreleased
 
+## v0.6.1
+
+Install the standalone CLI with `uv tool install "maida-ai==0.6.1"`, or add the library to your project with `uv add "maida-ai==0.6.1"`. Supported Python versions remain 3.12–3.14. For an offline rehearsal, run `maida demo --regression`; the intentional FAIL report exits `0` when the rehearsal completes, while an actual failed gate exits `1`.
+
+### Highlights
+
+- **Automatic local capture setup** - plain `maida init` detects Claude Code, previews passive capture hooks and repository-local setup, and asks for approval before writing. Shared settings and existing SDK/Python storage are preserved; repeated setup is idempotent. `maida detach --agent claude-code` previews and confirms observer removal while retaining other hooks and saved evidence.
 - **Loop argument identity** - loop equality now uses tool name and a bounded fingerprint of canonicalized, redacted arguments. Distinct commands or file paths no longer look like repeated actions; identical calls and alternating argument cycles still warn without displaying raw argument values. Previously captured warnings keep their original patterns.
 - **First task check** - `maida init` now ends with `maida check`, which selects the repository's captured task, checks completion, loops and guardrail events, and prints the exact viewer command. `maida assert` no longer changes run selection based on its assertion flags; SDK/Python baseline gates retain their defaults.
 - **Executable-bound capture hooks** - setup binds hooks to the active Maida environment and validates the command before reporting ready. `uv run maida init` supports plain `claude` afterward. Approved setup upgrades exact local legacy hooks; detach recognizes both legacy and bound commands while preserving other handlers and evidence.
+- **Recovered failures** - failed SDK tool and LLM operations increment run error counts independently of the final run outcome. Claude captures use terminal completion evidence for run status: a recovered child failure stays visible without turning a successfully completed task into a failed run. Missing terminal evidence remains unresolved, and explicit terminal failures remain errors.
+- **Viewer and dependencies** - the viewer favicon follows the run's status. Runtime, framework, development, and CI dependencies have been refreshed.
+
+### Upgrading from 0.6.0
+
+- Plain `maida init` now performs local capture setup instead of only explaining the reviewed starter workflow. It requires interactive approval before changes; noninteractive first-run setup exits `2` without writing. The explicit `--from-run`, `--reviewed --reason`, and `--github --agent-script` starter paths remain available.
+- Use `maida check` for the latest task captured in the initialized repository. Baseline gates and SDK/Python read commands retain their existing storage defaults; pass a trace ID explicitly to inspect saved task evidence with those commands.
+- Existing capture hooks can be upgraded through the approved init flow. Restart the coding-agent session after setup or detach so it picks up the hook configuration.
+- Claude imports with changed completion mapping do not silently overwrite an existing run. Existing mapping version 1 imports remain unchanged; use a fresh capture segment to obtain mapping version 2 normalization.
+
+### Contract
+
+The released CLI contract adds `check` and `detach`. Schema versions remain trace `0.2.0`, baseline `0.3.1`, policy `2.1`, report `2.0.1`, and plan `0.1.0`. The independently versioned Action reference remains `maida-ai/maida-assert@v0.6.0`; the engine patch does not require a new Action release. Gate exit `0` still includes INCONCLUSIVE, so consumers must read the verdict itself.
 
 ## v0.6.0
 

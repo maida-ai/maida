@@ -1,6 +1,6 @@
 # `maida check`
 
-Check the latest Claude Code task captured in this initialized repository, then open the same task using the printed viewer command.
+Check the latest Claude Code task captured in this initialized repository, then open the same task using the printed viewer command. This command is available from v0.6.1.
 
 ```bash
 maida check
