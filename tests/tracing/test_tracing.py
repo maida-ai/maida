@@ -73,6 +73,35 @@ def test_has_active_run_false_outside_traced_run(temp_data_dir):
     assert has_active_run() is False
 
 
+@pytest.mark.parametrize("terminal_failure", [False, True])
+def test_child_error_counts_are_independent_of_run_outcome(terminal_failure, temp_data_dir):
+    @trace(name="recovered-errors")
+    def run():
+        record_tool_call("Read", status="error", error=ValueError("missing file"))
+        record_llm_call("test-model", status="error", error=TimeoutError("timeout"))
+        record_tool_call("Read", result="found")
+        record_llm_call("test-model", response="done")
+        if terminal_failure:
+            raise RuntimeError("terminal failure")
+
+    if terminal_failure:
+        with pytest.raises(RuntimeError, match="terminal failure"):
+            run()
+    else:
+        run()
+
+    config = load_config()
+    run_id = get_latest_run_id(config)
+    meta = load_run_meta(run_id, config)
+    events = spans_to_events(load_spans(run_id, config))
+    expected = "error" if terminal_failure else "ok"
+    assert meta["status"] == expected
+    assert meta["counts"]["errors"] == (3 if terminal_failure else 2)
+    assert next(event for event in events if event["event_type"] == "RUN_END")["payload"]["status"] == expected
+    calls = [event for event in events if event["event_type"] in {"TOOL_CALL", "LLM_CALL"}]
+    assert sum(event["payload"].get("status") == "error" for event in calls) == 2
+
+
 def test_has_active_run_true_inside_traced_run_and_false_after(temp_data_dir):
     """Public helper reports True only while an explicit run context is active."""
     seen_inside = []

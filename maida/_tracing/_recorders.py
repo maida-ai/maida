@@ -267,6 +267,8 @@ def record_llm_call(
     )
 
     counts["llm_calls"] = counts.get("llm_calls", 0) + 1
+    if status == "error":
+        counts["errors"] = counts.get("errors", 0) + 1
     ev = new_event(EventType.LLM_CALL, run_id, model, {"model": model})
     _append_event_and_check_guardrails(run_id, ev, config, counts)
     window.append({"event_type": "LLM_CALL", "payload": {"model": model}})
@@ -300,6 +302,8 @@ def record_tool_call(
     )
 
     counts["tool_calls"] = counts.get("tool_calls", 0) + 1
+    if status == "error":
+        counts["errors"] = counts.get("errors", 0) + 1
     ev = new_event(EventType.TOOL_CALL, run_id, name, {"tool_name": name})
     _append_event_and_check_guardrails(run_id, ev, config, counts)
     payload = {"tool_name": name}

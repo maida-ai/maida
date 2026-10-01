@@ -196,7 +196,7 @@ def test_langchain_handler_llm_error_is_normalized_on_call(temp_data_dir):
     assert meta["counts"] == {
         "llm_calls": 1,
         "tool_calls": 0,
-        "errors": 0,
+        "errors": 1,
         "loop_warnings": 0,
     }
     assert meta["status"] == "ok"
