@@ -454,7 +454,7 @@ def test_openai_agents_errors_persist_on_normalized_calls(
         "stack": None,
     }
     assert meta["status"] == "ok"
-    assert meta["counts"]["errors"] == 0
+    assert meta["counts"]["errors"] == 1
     assert events[-1]["payload"] == {"status": "ok"}
 
 

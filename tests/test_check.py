@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 from maida.cli import app
 from maida.config import load_config
 from maida.demo import run_good_agent
-from maida.storage import resolve_latest_run_id
+from maida.storage import load_run_for_analysis, resolve_latest_run_id
 from tests.test_project_capture import deliver, initialized, task
 
 runner = CliRunner()
@@ -71,11 +71,24 @@ def test_check_json_keeps_output_machine_readable(project):
 
 
 def test_check_failure_still_prints_task_and_viewer(project):
-    task(project, failure=True)
+    task(project, looping=True)
     captured = resolve_latest_run_id(load_config(capture=True))
     result = runner.invoke(app, ["check"])
     assert result.exit_code == 1, result.output
     assert f"maida view {captured}" in result.stdout
+
+
+def test_check_completed_session_with_child_failure_passes(project):
+    task(project, failure=True)
+    config = load_config(capture=True)
+    captured = resolve_latest_run_id(config)
+    result = runner.invoke(app, ["check"])
+    assert result.exit_code == 0, result.output
+    assert "status is 'ok'" in result.stdout
+    _, meta, events = load_run_for_analysis(captured, config)
+    assert meta["status"] == "ok"
+    assert meta["counts"]["errors"] == 1
+    assert next(event for event in events if event["event_type"] == "TOOL_CALL")["payload"]["status"] == "error"
 
 
 def test_missing_and_unfinished_capture_never_fall_back(project):

@@ -101,6 +101,10 @@ version; normal `maida baseline`, `maida diff`, and `maida view` commands work
 without a Claude-specific downstream path. The legacy `maida assert` interface
 can still inspect one imported completed trace during migration.
 
+Run outcome and intermediate errors are independent. A failed tool or model request stays visible in the timeline and increments `counts.errors`, even when the session recovers and finishes with `status=ok`. The latest completed top-level interaction supplies the outcome; its explicit `ERROR` status remains a run failure even if a later `SessionEnd` closes the capture. Nested interaction failures do not determine the session outcome. For hook-only captures, a recognized lifecycle `SessionEnd` supplies normal completion. These signals describe observed completion, not answer correctness.
+
+Without a top-level interaction or a recognized `SessionEnd`, the outcome is unresolved: metadata uses `status=running`, and the root span uses `UNSET` so `RUN_END` reports `unknown`. Intermediate errors remain countable in this case too. Mapping version 2 records this distinction; existing imports from mapping version 1 remain unchanged, and re-import refuses to overwrite them. Use a fresh capture segment to obtain the new normalization.
+
 ## Gate a capture locally
 
 Use capture-backed diff mode to import the latest segment and run the same

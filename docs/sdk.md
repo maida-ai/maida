@@ -135,6 +135,8 @@ Useful when integration code or utilities need to conditionally record events on
 
 ## `record_llm_call`
 
+Calls recorded with `status="error"` increment the run's `counts.errors` and remain visible as failed operations. This also applies to `record_tool_call`. A recovered child failure does not fail the run: overall status reflects whether the enclosing traced function or `traced_run` completes normally or raises.
+
 Record an LLM call event.
 
 ```python

@@ -33,13 +33,14 @@ def deliver(root, event, *, session="normal-task", **extra):
     return runner.invoke(app, ["capture", "claude-hook"], input=json.dumps(payload))
 
 
-def task(root, session="normal-task", failure=False):
+def task(root, session="normal-task", failure=False, looping=False):
     assert deliver(root, "SessionStart", session=session).exit_code == 0
-    tool = {"tool_use_id": "one", "tool_name": "Read", "tool_input": {"file_path": "pyproject.toml"}}
-    assert deliver(root, "PreToolUse", session=session, **tool).exit_code == 0
-    terminal = "PostToolUseFailure" if failure else "PostToolUse"
-    extra = {"error": "fixture failure"} if failure else {"tool_response": {"content": "pytest"}}
-    assert deliver(root, terminal, session=session, **tool, **extra).exit_code == 0
+    for index in range(3 if looping else 1):
+        tool = {"tool_use_id": f"tool-{index}", "tool_name": "Read", "tool_input": {"file_path": "pyproject.toml"}}
+        assert deliver(root, "PreToolUse", session=session, **tool).exit_code == 0
+        terminal = "PostToolUseFailure" if failure else "PostToolUse"
+        extra = {"error": "fixture failure"} if failure else {"tool_response": {"content": "pytest"}}
+        assert deliver(root, terminal, session=session, **tool, **extra).exit_code == 0
     assert deliver(root, "SessionEnd", session=session).exit_code == 0
 
 
@@ -78,7 +79,7 @@ def test_first_capture_report_and_isolation(tmp_path, temp_data_dir, monkeypatch
     assert str(one) in result.stdout
     monkeypatch.chdir(two)
     assert report().exit_code == 2
-    task(two, "failing-task", failure=True)
+    task(two, "failing-task", looping=True)
     assert report().exit_code == 1
 
 
