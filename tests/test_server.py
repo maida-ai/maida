@@ -6,10 +6,12 @@ Uses tmp dir via MAIDA_DATA_DIR; no real home directory touched.
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from maida import storage
 from maida.config import load_config
+from maida.demo import run_good_agent
 from maida.server import UI_APP_JS_PATH, UI_STYLES_PATH, create_app
 
 
@@ -86,6 +88,24 @@ def test_run_id_accepts_valid_trace_id(temp_data_dir):
 # ---------------------------------------------------------------------------
 # Server: invalid run_id returns 400
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "status"),
+    [("/", 200), ("/api/runs", 200), ("/api/runs/short", 400), ("/api/runs/" + "b" * 32, 404)],
+)
+def test_viewer_requests_do_not_write_agent_traces(temp_data_dir, path, status):
+    """Reading the viewer must not export HTTP spans as agent runs."""
+    run_good_agent()
+    runs_dir = temp_data_dir / "runs"
+    before = {file.relative_to(runs_dir): file.read_bytes() for file in runs_dir.rglob("*") if file.is_file()}
+
+    with TestClient(create_app()) as client:
+        assert client.get(path).status_code == status
+        assert client.get(path).status_code == status
+
+    after = {file.relative_to(runs_dir): file.read_bytes() for file in runs_dir.rglob("*") if file.is_file()}
+    assert after == before
 
 
 def test_server_returns_400_for_invalid_run_id(temp_data_dir):

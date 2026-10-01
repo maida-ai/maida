@@ -36,7 +36,11 @@ def _validated_trace_id(trace_id: str) -> str:
 
 
 def create_app(config: MaidaConfig | None = None) -> FastAPI:
-    app = FastAPI(title="Maida Viewer")
+    # Viewer requests must not become agent runs in Maida's global OTel provider.
+    app = FastAPI(
+        title="Maida Viewer",
+        telemetry={"tracing": False, "metrics": False, "logs": False, "auto_configure": False},
+    )
     app.state.config = config if config is not None else load_config()
 
     class RenameRunRequest(BaseModel):

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from maida.cli import app
+from maida.cli import _normalize_demo_trace_duration, app
 from maida.config import load_config
 from maida.demo._agents import run_good_agent
 from maida.storage import resolve_latest_run_id
@@ -39,6 +39,8 @@ def test_sdk_gate_and_claude_onboarding_survive_init_and_detach(
     expected_directory = temp_data_dir if configured_directory else Path.home() / ".maida"
     run_good_agent()
     trace_id = resolve_latest_run_id(load_config())
+    # Storage selection must not depend on wall-clock variation between demo runs.
+    _normalize_demo_trace_duration(trace_id, load_config())
     baseline = project / "baseline.json"
     assert runner.invoke(app, ["baseline", trace_id, "--out", str(baseline)]).exit_code == 0
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
@@ -48,6 +50,7 @@ def test_sdk_gate_and_claude_onboarding_survive_init_and_detach(
     task(project)
     run_good_agent()
     latest_python = resolve_latest_run_id(load_config())
+    _normalize_demo_trace_duration(latest_python, load_config())
     result = runner.invoke(app, ["assert", "--baseline", str(baseline), "--format", "json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["run_id"] == latest_python
@@ -94,6 +97,7 @@ def test_corrupt_local_pointer_does_not_break_sdk_or_explicit_python_reads(proje
 def test_python_baseline_from_old_scoped_storage_uses_new_python_candidate(project, temp_data_dir):
     run_good_agent()
     trace_id = resolve_latest_run_id(load_config())
+    _normalize_demo_trace_duration(trace_id, load_config())
     baseline = project / "baseline.json"
     assert runner.invoke(app, ["baseline", trace_id, "--out", str(baseline)]).exit_code == 0
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
@@ -104,6 +108,7 @@ def test_python_baseline_from_old_scoped_storage_uses_new_python_candidate(proje
     task(project)
     run_good_agent()
     current = resolve_latest_run_id(load_config())
+    _normalize_demo_trace_duration(current, load_config())
     result = runner.invoke(app, ["assert", "--baseline", str(baseline), "--format", "json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["run_id"] == current
