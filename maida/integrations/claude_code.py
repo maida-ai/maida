@@ -37,7 +37,7 @@ from maida.events import span_to_event_dict
 from maida.loopdetect import detect_loop, pattern_key
 from maida.storage import install_validated_run, load_validated_run
 
-_MAPPING_VERSION = 1
+_MAPPING_VERSION = 2
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 _SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -595,6 +595,37 @@ def _cycle_members(parents: dict[str, str | None]) -> set[str]:
 
 def _service_version(item: dict[str, Any]) -> str | None:
     return item.get("resource", {}).get("attributes", {}).get("app.version")
+
+
+def _terminal_outcome(capture: ClaudeCaptureSegment) -> tuple[str, str]:
+    """Use top-level completion evidence, never a child operation's failure."""
+    interactions = [
+        item["span"]
+        for item in capture.spans
+        if item["span"]["name"] == "claude_code.interaction" and not item["span"].get("parent_span_id")
+    ]
+    if interactions:
+        terminal = max(
+            interactions,
+            key=lambda span: (
+                _parse_time(span["end_time"], "span end_time"),
+                _parse_time(span["start_time"], "span start_time"),
+                span["span_id"],
+            ),
+        )
+        # A completed interaction may leave OTel status UNSET on success.
+        # A later SessionEnd cleanup notification cannot erase its failure.
+        if terminal["status_code"] == "ERROR":
+            return "ERROR", str(terminal.get("status_description") or "Claude Code interaction failed")
+        return "OK", ""
+
+    session_ends = [item for item in capture.logs if item["record"]["event_name"] == "claude_code.hook.session_end"]
+    if session_ends:
+        terminal = max(session_ends, key=lambda item: (_log_time(item), _source_identity(item, "logs")))
+        reason = terminal["record"]["attributes"].get("reason")
+        if reason in {"clear", "resume", "logout", "prompt_input_exit", "other", "bypass_permissions_disabled"}:
+            return "OK", ""
+    return "UNSET", "Claude Code capture has no recognized terminal outcome"
 
 
 def normalize_claude_capture(
@@ -1163,6 +1194,7 @@ def normalize_claude_capture(
     llm_calls = sum(1 for span in action_spans if span_to_event_dict(span)["event_type"] == "LLM_CALL")
     tool_calls = sum(1 for span in action_spans if span_to_event_dict(span)["event_type"] == "TOOL_CALL")
     errors = sum(1 for span in normalized if span["status_code"] == "ERROR")
+    root_status, root_description = _terminal_outcome(capture)
     root_source = {
         "mapping_version": _MAPPING_VERSION,
         "source": "local-capture",
@@ -1190,8 +1222,8 @@ def normalize_claude_capture(
         "duration_ms": max(0, int((root_end - root_start).total_seconds() * 1000)),
         "attributes": root_attrs,
         "events": [],
-        "status_code": "ERROR" if errors else "OK",
-        "status_description": "Claude Code capture contains failures" if errors else "",
+        "status_code": root_status,
+        "status_description": root_description,
     }
     by_normalized_id = {span["span_id"]: span for span in normalized}
 
@@ -1225,7 +1257,7 @@ def normalize_claude_capture(
         "started_at": root["start_time"],
         "ended_at": root["end_time"],
         "duration_ms": root["duration_ms"],
-        "status": "error" if errors else "ok",
+        "status": "error" if root_status == "ERROR" else "ok" if root_status == "OK" else "running",
         "counts": {
             "llm_calls": llm_calls,
             "tool_calls": tool_calls,

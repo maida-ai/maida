@@ -8,7 +8,9 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
+from maida.cli import app
 from maida.config import load_config
 from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.events import spans_to_events
@@ -17,7 +19,7 @@ from maida.integrations.claude_code import (
     load_capture_segment,
     normalize_claude_capture,
 )
-from maida.storage import list_runs
+from maida.storage import list_runs, load_validated_run
 
 
 SESSION_ID = "hook/session/../../private"
@@ -187,6 +189,49 @@ def test_duplicate_session_end_is_idempotent(temp_data_dir):
     assert first.import_result.imported is True
     assert second.import_result.imported is False
     assert len(list_runs(limit=20, config=config)) == 1
+
+
+@pytest.mark.parametrize("reason", ["other", "prompt_input_exit", "clear", "resume", "logout"])
+def test_recovered_hook_errors_do_not_fail_completed_session(reason, temp_data_dir):
+    from maida.capture.claude_hook import capture_claude_hook
+
+    config = load_config()
+    for payload in (
+        _payload("SessionStart"),
+        _payload("PostToolUseFailure", error="command not found"),
+        _payload("PermissionDenied"),
+        _payload("PreToolUse"),
+        _payload("PostToolUse"),
+    ):
+        capture_claude_hook(payload, config)
+    result = capture_claude_hook(_payload("SessionEnd", reason=reason), config)
+    meta, spans = load_validated_run(result.import_result.trace_id, config)
+    events = spans_to_events(spans)
+
+    assert meta["status"] == "ok"
+    assert meta["counts"]["errors"] == 2
+    root = next(span for span in spans if span["parent_span_id"] is None)
+    assert root["status_code"] == "OK"
+    assert root["attributes"]["maida.errors"] == 2
+    assert next(event for event in events if event["event_type"] == "RUN_END")["payload"]["status"] == "ok"
+    tools = [event for event in events if event["event_type"] == "TOOL_CALL"]
+    assert [event["payload"]["status"] for event in tools].count("error") == 2
+    assert next(event for event in tools if event["name"] == "Write")["payload"]["status"] == "ok"
+    report = CliRunner().invoke(
+        app, ["assert", result.import_result.trace_id, "--expect-status", "ok", "--format", "json"]
+    )
+    assert report.exit_code == 0, report.output
+
+
+def test_unrecognized_session_end_does_not_claim_success(temp_data_dir):
+    from maida.capture.claude_hook import capture_claude_hook
+
+    config = load_config()
+    result = capture_claude_hook(_payload("SessionEnd", reason="future-reason"), config)
+    meta, spans = load_validated_run(result.import_result.trace_id, config)
+    assert meta["status"] == "running"
+    assert meta["counts"]["errors"] == 0
+    assert spans[0]["status_code"] == "UNSET"
 
 
 def test_conflicting_duplicate_tool_delivery_is_rejected(temp_data_dir):
