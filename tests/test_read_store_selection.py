@@ -13,7 +13,8 @@ from maida.storage import resolve_latest_run_id
 from tests.test_project_capture import initialized, task
 
 runner = CliRunner()
-FIRST_CHECK = ["assert", "--expect-status", "ok", "--no-loops", "--no-guardrails"]
+FIRST_CHECK = ["check"]
+ASSERT_CHECKS = ["assert", "--expect-status", "ok", "--no-loops", "--no-guardrails"]
 
 
 @pytest.fixture
@@ -51,7 +52,7 @@ def test_ordinary_reads_keep_sdk_defaults_after_attach_and_detach(runs, detached
     diffed = runner.invoke(app, ["diff", "--baseline", "baseline.json"])
     assert diffed.exit_code == 0, diffed.output
     assert sdk[:8] in diffed.stderr
-    gated = runner.invoke(app, [*FIRST_CHECK, "--baseline", "baseline.json", "--format", "json"])
+    gated = runner.invoke(app, [*ASSERT_CHECKS, "--baseline", "baseline.json", "--format", "json"])
     assert gated.exit_code == 0, gated.output
     assert json.loads(gated.stdout)["run_id"] == sdk
     accepted = runner.invoke(app, ["accept", "--baseline", "baseline.json", "--reason", "reviewed"])
@@ -155,7 +156,7 @@ def test_explicit_capture_ids_remain_readable(runs, detached):
 @pytest.mark.parametrize("extra", [["--max-steps", "100"], ["--ignore-check", "step_count"], ["--no-new-tools"]])
 def test_additional_sdk_checks_do_not_enter_onboarding_path(runs, extra):
     _, _, sdk = runs
-    result = runner.invoke(app, [*FIRST_CHECK, *extra, "--format", "json"])
+    result = runner.invoke(app, [*ASSERT_CHECKS, *extra, "--format", "json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["run_id"] == sdk
 
@@ -163,7 +164,7 @@ def test_additional_sdk_checks_do_not_enter_onboarding_path(runs, extra):
 def test_explicit_policy_keeps_sdk_selection(runs):
     project, _, sdk = runs
     (project / "sdk-policy.yaml").write_text("version: 2\nmetrics: {}\n")
-    result = runner.invoke(app, [*FIRST_CHECK, "--policy", "sdk-policy.yaml", "--format", "json"])
+    result = runner.invoke(app, [*ASSERT_CHECKS, "--policy", "sdk-policy.yaml", "--format", "json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["run_id"] == sdk
 

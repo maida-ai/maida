@@ -11,27 +11,29 @@ uv tool install maida-ai
 maida init
 ```
 
-Automatic capture setup is new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent`; until that release is published, use a wheel built from this checkout. Shipped v0.6.0 supports the reviewed starter flow below but does not perform automatic first-run setup.
+Automatic capture setup and `maida check` are new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent` and which provides `maida check`; until that release is published, use a wheel built from this checkout. Shipped v0.6.0 supports the reviewed starter flow below but does not perform automatic first-run setup.
 
-Maida detects your environment, prioritizing repository configuration over installed agent commands. For Claude Code, it shows the passive capture hooks, local installation pointer and storage location before asking for one approval. It preserves existing settings and hooks and creates no policy or baseline. If detection is ambiguous, it names the environments; for a Claude Code task, rerun `maida init --agent claude-code`. Unsupported environments and malformed settings receive a concrete recovery action before anything is written.
+Maida detects your environment, prioritizing repository configuration over installed agent commands. For Claude Code, it shows the passive capture command and local files it would change before asking for one approval. It preserves existing settings and other hooks and creates no policy or baseline. If detection is ambiguous, it names the environments; for a Claude Code task, rerun `maida init --agent claude-code`. Unsupported environments and malformed settings receive a concrete recovery action before anything is written.
 
 Setup writes local Claude settings, keeping shared team settings and existing Python run storage intact. To stop capture, run `maida detach --agent claude-code` and approve its removal preview. Other hooks and saved evidence are preserved. Exit and restart any existing Claude Code session afterward; reconnect with `maida init --agent claude-code`.
 
-Existing SDK/Python commands and baseline gates keep selecting runs as before setup. The first check below automatically selects this repository's captured task. To inspect that task later, use the run ID shown in its report, for example `maida view RUN_ID`.
+Already installed Maida into this project's environment? Use `uv run maida init` and `uv run maida check`. Setup binds the hooks to that environment and validates them before reporting ready, so start plain `claude` afterward. You do not need Maida on your global PATH or `uv run claude`.
+
+Existing SDK/Python commands and baseline gates keep selecting runs as before setup. `maida check` automatically selects this repository's captured task and prints its exact viewer command.
 
 Your repository can use any language. Building a Python tool-calling agent? Use the secondary [Python walkthrough](python-agent.md), including installation into the project environment.
 
 ## 2. Get a useful result in your own repository
 
-After approval, start a new Claude Code session in this repository. Choose a task that normally takes a minute or two. For example: **“Find the command this repository uses to run its tests. Cite the configuration file that defines it. Do not edit files or install dependencies.”** Check the answer against the cited file. Exit the session normally, then run:
+After approval, run `claude` to start a new session in this repository. Choose a task that normally takes a minute or two. For example: **“Find the command this repository uses to run its tests. Cite the configuration file that defines it. Do not edit files or install dependencies.”** Check the answer against the cited file. Exit the session normally, then run:
 
 ```bash
-maida assert --expect-status ok --no-loops --no-guardrails
+maida check
 ```
 
-Expect a report checking your task's observed completion, recorded loop warnings and recorded guardrail events. No baseline is needed. Evidence is automatically scoped to this repository; you do not manage a storage environment variable or select a trace ID for this check. An unfinished newest session produces a recovery message rather than showing an older task. If a check fails, follow the printed `maida view RUN_ID` command, fix the cause and repeat the bounded task. If the repository already has `.maida/policy.yaml`, `assert` also loads it.
+Expect a report checking your task's observed completion, recorded loop warnings and recorded guardrail events. No baseline is needed. Evidence is automatically scoped to this repository; you do not manage a storage environment variable or select a trace ID for this check. An unfinished newest session produces a recovery message rather than showing an older task. Follow the printed `maida view TRACE_ID` command to inspect that same task; it includes `uv run` when you launched the check that way. If a check fails, fix the cause and repeat the bounded task. `maida check` uses these three checks independently of any existing policy.
 
-This first check answers whether the observed signals met the three requested checks. It does not compare against a known-good baseline or establish answer correctness. Hook capture observes tool activity and lifecycle, not complete model-call, token or latency coverage. It follows your configured redaction settings. No telemetry receiver setup is required and no task evidence is sent to Maida. Your agent's normal provider use has its usual permissions and costs.
+This first check answers whether the observed signals met the three built-in checks. It does not compare against a known-good baseline or establish answer correctness. Hook capture observes tool activity and lifecycle, not complete model-call, token or latency coverage. It follows your configured redaction settings. No telemetry receiver setup is required and no task evidence is sent to Maida. Your agent's normal provider use has its usual permissions and costs.
 
 **You can stop here.** You have a report on your own task and local evidence to inspect. The target is under five minutes from `init` to a report for a bounded task; this is not a measured activation claim. Resolve capture errors before adding policy or CI.
 

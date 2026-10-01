@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **First task check** - `maida init` now ends with `maida check`, which selects the repository's captured task, checks completion, loops and guardrail events, and prints the exact viewer command. `maida assert` no longer changes run selection based on its assertion flags; SDK/Python baseline gates retain their defaults.
+- **Executable-bound capture hooks** - setup binds hooks to the active Maida environment and validates the command before reporting ready. `uv run maida init` supports plain `claude` afterward. Approved setup upgrades exact local legacy hooks; detach recognizes both legacy and bound commands while preserving other handlers and evidence.
+
 ## v0.6.0
 
 Install the standalone CLI with `uv tool install "maida-ai==0.6.0"`, or add the library to your project with `uv add "maida-ai==0.6.0"`. Start with `maida demo --regression`; it shows an intentional FAIL verdict and exits `0` when the rehearsal completes. An actual failed gate exits `1`.

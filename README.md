@@ -39,15 +39,17 @@ uv tool install maida-ai
 maida init
 ```
 
-Automatic capture setup is new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent`; until that release is published, use a wheel built from this checkout. See the [changelog](CHANGELOG.md) for released behavior.
+Automatic capture setup and `maida check` are new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent` and which provides `maida check`; until that release is published, use a wheel built from this checkout. See the [changelog](CHANGELOG.md) for released behavior.
 
-Maida detects Claude Code, previews the passive hooks and local storage setup, and asks for one approval. Existing settings and hooks are preserved. Start a new Claude Code session in this repository, run one bounded task such as finding its test command, then exit the session and run:
+Maida detects Claude Code, previews the passive hooks and local setup, and asks for one approval. Existing settings and other hooks are preserved. Start plain `claude` in this repository, run one bounded task such as finding its test command, then exit the session and run:
 
 ```bash
-maida assert --expect-status ok --no-loops --no-guardrails
+maida check
 ```
 
-The report checks your own task's observed completion, loops and guardrail events. No policy, baseline, tutorial clone or telemetry receiver setup is required. Task evidence stays outside Git in a repository-specific directory under `~/.maida/projects/`; this is not telemetry sent to Maida. Capture follows your configured redaction settings and observes tool activity and lifecycle, not complete model-call, token or latency coverage. Your agent's normal provider use has its usual permissions and costs.
+The report checks your own task's observed completion, loops and guardrail events, and prints the exact `maida view TRACE_ID` command to inspect that task. No policy, baseline, tutorial clone or telemetry receiver setup is required. Task evidence stays outside Git in a repository-specific directory under `~/.maida/projects/`; this is not telemetry sent to Maida. Capture follows your configured redaction settings and observes tool activity and lifecycle, not complete model-call, token or latency coverage. Your agent's normal provider use has its usual permissions and costs.
+
+If Maida is installed in your project environment, use `uv run maida init` and `uv run maida check`. Hooks are bound to that environment and validated before setup reports ready; plain `claude` can run them without a global Maida command. The printed viewer command keeps the `uv run` prefix.
 
 Setup uses local Claude settings and preserves shared team configuration and existing SDK/Python commands. The first check above selects this repository's captured task automatically; ordinary commands and baseline gates keep their existing run selection. To stop capturing, run `maida detach --agent claude-code`: it previews removal and asks once, keeping other hooks and saved evidence. Reconnect with `maida init --agent claude-code`.
 

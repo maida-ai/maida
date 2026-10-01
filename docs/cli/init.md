@@ -1,10 +1,14 @@
 # `maida init`
 
-**Automatic capture setup is new after shipped v0.6.0.** Check `maida init --help` for `--agent` before using the default setup path below. The reviewed starter workflow requires `--from-run`, available in v0.6.0.
+**Automatic capture setup and `maida check` are new after shipped v0.6.0.** Check `maida init --help` for `--agent` and `maida check --help` before using the default setup path below. The reviewed starter workflow requires `--from-run`, available in v0.6.0.
 
 ## Set up your first task
 
-Run `maida init` inside your Git repository. Maida uses repository configuration before installed agent commands to detect Claude Code. It previews missing passive observers in `.claude/settings.local.json`, a local installation pointer in `.maida/local.json`, and their Git local exclude entries, then asks once before writing anything. Shared `.claude/settings.json` is preserved; local setup does not install hooks for teammates. Existing settings, permissions and hooks are preserved, including observers inherited from user or shared project settings. Repeating setup adds no duplicate observers and keeps the same project identity. `--force` does not bypass first-run approval or replace existing hooks.
+Run `maida init` inside your Git repository. Maida uses repository configuration before installed agent commands to detect Claude Code. It previews passive observer additions or upgrades in `.claude/settings.local.json`, a local setup file in `.maida/local.json`, and their Git local exclude entries, then asks once before writing anything. Shared `.claude/settings.json` is preserved; local setup does not install hooks for teammates. Existing settings, permissions and other hooks are preserved, and compatible inherited Maida observers are reused. Repeating setup adds no duplicate observers and keeps the same project identity. `--force` does not bypass first-run approval.
+
+Hooks use the absolute Python executable from the Maida environment running init. Setup validates the capture command outside the repository without relying on PATH or a project import path. This supports `uv run maida init` followed by plain `claude`; no global Maida command or `uv run claude` is needed. If you remove or relocate that environment, rerun init from the replacement environment to update local Maida observers after approval.
+
+Exact legacy Maida observers in local settings are upgraded after approval, preserving other handlers and settings. Older inherited Maida observers cannot be silently replaced: shared project hooks require `maida detach --agent claude-code` followed by init, and user-wide hooks require removing those Maida entries in Claude Code's `/hooks` menu followed by init. Setup identifies the affected file and writes nothing in this case. Compatible bound observers inherited from the same environment are reused.
 
 ```bash
 maida init
@@ -13,14 +17,14 @@ maida init
 After approval, follow the single printed next action: start a new Claude Code session here, run one bounded task, exit the session, then:
 
 ```bash
-maida assert --expect-status ok --no-loops --no-guardrails
+maida check
 ```
 
 No policy or baseline is created. The report concerns the newest task captured for this repository; an unfinished or missing task cannot fall back to another repository's evidence. Hook capture observes tool activity and lifecycle, not answer correctness or complete model-call, token or latency coverage. Capture follows your configured redaction settings. Task evidence stays on this machine; no local receiver setup or telemetry sent to Maida is involved.
 
 The installation pointer records a generated project ID, format version, capture choice and, after detaching, its enabled state. It is local state, not authoritative policy. Git's local exclude file keeps it and any existing or newly written local Claude settings out of ordinary commits; no exclude is added for an absent local settings file when all observers are inherited. Claude evidence defaults to `~/.maida/projects/<project-id>/runs/`, `captures/` and `onboarding/`; a Maida storage override changes the parent for Claude capture while preserving isolation. SDK tracing, Python trial runners and other importers retain their exact configured storage directory. New clones and worktrees initialized separately get separate IDs. No remote URL is used as identity.
 
-Setup attaches capture without changing ordinary SDK/Python commands. `list`, `view`, `export`, `baseline`, `accept`, `diff`, starter `--from-run latest` and baseline-gated `assert` keep their existing run selection. `maida assert --baseline PATH` automatically selects the latest SDK/Python candidate. Only the first onboarding check above automatically selects this repository's Claude task; adding a baseline, explicit policy, run ID or additional check options retains ordinary selection. Explicit Claude trace IDs resolve automatically, including after detach. See [run selection](../cli.md#run-selection-after-capture-setup).
+Setup attaches capture without changing ordinary SDK/Python commands. `list`, `view`, `export`, `baseline`, `accept`, `diff`, starter `--from-run latest` and `assert` keep their existing run selection. `maida assert --baseline PATH` automatically selects the latest SDK/Python candidate. `maida check` automatically selects this repository's Claude task and prints its trace ID and exact viewer command; when launched through uv, it prints `uv run maida view TRACE_ID`. Explicit Claude trace IDs resolve automatically, including after detach. See [run selection](../cli.md#run-selection-after-capture-setup).
 
 To stop capturing, run `maida detach --agent claude-code`. It previews removal and asks for one approval, preserves other hooks and saved evidence, and can be reversed with `maida init --agent claude-code`. See the [detach command](detach.md) for existing-session and shared-hook behavior.
 
@@ -64,7 +68,7 @@ Run the same task again and check the new observation:
 maida assert --baseline .maida/baselines/agent.json --policy .maida/policy.yaml
 ```
 
-For a captured Claude task, first run the onboarding check again to obtain the new task's run ID, then pass that ID to `maida assert RUN_ID --baseline .maida/baselines/agent.json --policy .maida/policy.yaml`. The command above without an ID selects the latest SDK/Python candidate. Each command checks one observed execution. A failing invariant exits `1`; a passing observed check exits `0`. A different tool order or step count is allowed unless you explicitly add those contracts. Investigate a captured task with `maida view RUN_ID`; accept intentional baseline changes only after reviewing their reason and evidence.
+For a captured Claude task, run `maida check` to obtain the new task's run ID, then pass that ID to `maida assert RUN_ID --baseline .maida/baselines/agent.json --policy .maida/policy.yaml`. The command above without an ID selects the latest SDK/Python candidate. Each command checks one observed execution. A failing invariant exits `1`; a passing observed check exits `0`. A different tool order or step count is allowed unless you explicitly add those contracts. Investigate a captured task with the printed viewer command; accept intentional baseline changes only after reviewing their reason and evidence.
 
 ## Add a Python gate to GitHub
 
