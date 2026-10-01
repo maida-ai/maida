@@ -23,6 +23,7 @@ from maida.integrations.claude_code import (
     normalize_claude_capture,
 )
 from maida.storage import install_validated_run, load_validated_run
+from maida.loopdetect import compute_signature
 
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "traces" / "claude-code" / "2.1.220"
@@ -120,6 +121,44 @@ def test_regression_fixture_detects_historical_loop(temp_data_dir):
     assert normalized.meta["counts"]["tool_calls"] == 3
     assert normalized.meta["counts"]["loop_warnings"] == 1
     assert [event["event_type"] for event in events].count("LOOP_WARNING") == 1
+
+
+@pytest.mark.parametrize(
+    "commands,length",
+    [
+        (["pytest", "git status", "cat pyproject.toml"], 0),
+        (["pytest"] * 3, 1),
+        (["pytest", "git status"] * 3, 2),
+    ],
+)
+def test_captured_bash_loop_equality_uses_sanitized_args(temp_data_dir, commands, length):
+    segment = load_capture_segment(FIXTURES / "regression")
+    spans = deepcopy(segment.spans[:2])
+    for i, command in enumerate(commands):
+        record = deepcopy(segment.spans[2])
+        span = record["span"]
+        span["span_id"] = f"{i + 1:016x}"
+        span["start_time"] = f"2026-08-08T12:10:0{i // 2 + 1}.{200 + 500 * (i % 2):03d}000Z"
+        span["end_time"] = f"2026-08-08T12:10:0{i // 2 + 1}.{400 + 500 * (i % 2):03d}000Z"
+        span["attributes"].update(
+            tool_use_id=f"tool-{i}",
+            full_command=command,
+            tool_input={"command": command, "private_value": f"secret-{i}"},
+        )
+        spans.append(record)
+    config = replace(load_config(), redact_keys=["private_value"])
+    normalized = normalize_claude_capture(replace(segment, spans=spans), config)
+    events = spans_to_events(normalized.spans)
+    warnings = [e for e in events if e["event_type"] == "LOOP_WARNING"]
+    assert normalized.meta["counts"]["loop_warnings"] == (1 if length else 0)
+    assert len(warnings) == (1 if length else 0)
+    if length:
+        payload = warnings[0]["payload"]
+        tools = [e for e in events if e["event_type"] == "TOOL_CALL"]
+        assert payload["pattern_length"] == length
+        assert payload["pattern"] == " -> ".join(compute_signature(e) for e in tools[:length])
+        assert all(command not in json.dumps(payload) for command in commands)
+    assert all(f"secret-{i}" not in json.dumps(normalized.spans) for i in range(len(commands)))
 
 
 def test_parent_cycle_is_broken_at_interaction_boundary(temp_data_dir):

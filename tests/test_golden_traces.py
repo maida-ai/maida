@@ -90,7 +90,6 @@ EXTERNAL_LOOP_EXPECTATIONS = {
         "run_name": "ts-tool-loop",
         "tool_name": "lookup",
         "tool_args": {"id": "A"},
-        "signature": "TOOL_CALL:lookup args:{id:str}",
         "stored_pattern": "TOOL_CALL:lookup args:{id:str}",
         "pattern_type": "repeated_call",
         "pattern_length": 1,
@@ -100,7 +99,6 @@ EXTERNAL_LOOP_EXPECTATIONS = {
         "run_name": "opencode:fixture-tool-loop",
         "tool_name": "search",
         "tool_args": {"query": "same query"},
-        "signature": "TOOL_CALL:search args:{query:str}",
         "stored_pattern": "TOOL_CALL:search",
     },
 }
@@ -505,14 +503,11 @@ def test_external_tool_loop_run_projects_loop_structure(temp_data_dir, source, e
     ]
 
     signatures = [compute_signature(event) for event in tool_events]
-    assert signatures == [
-        expected["signature"],
-        expected["signature"],
-        expected["signature"],
-    ]
+    assert signatures == [signatures[0]] * 3
+    assert signatures[0].startswith(f"TOOL_CALL:{expected['tool_name']} args:sha256:")
     loop = detect_loop(tool_events, window=3, repetitions=3)
     assert loop is not None
-    assert loop["pattern"] == expected["signature"]
+    assert loop["pattern"] == signatures[0]
 
     loop_warning = next(event for event in events if event["event_type"] == EventType.LOOP_WARNING.value)
     assert loop_warning["payload"]["pattern"] == expected["stored_pattern"]

@@ -135,13 +135,10 @@ All integrations are optional dependencies; the core package does not depend on 
 ## Loop detection
 
 - **Input:** A sliding window of the last N projected events (default N=12; `MAIDA_LOOP_WINDOW`).
-- **Signature:** Each event is reduced to a string: for `LLM_CALL` ->
-  `"LLM_CALL:"+model`; for `TOOL_CALL` -> `"TOOL_CALL:"+tool_name` plus a
-  bounded, shape-only argument signature when args are present; otherwise
-  `event_type`. Scalar argument values never enter the signature.
+- **Signature:** Each event is reduced to a string: for `LLM_CALL` -> `"LLM_CALL:"+model`; for `TOOL_CALL` -> `"TOOL_CALL:"+tool_name` plus a fixed-size SHA-256 fingerprint of canonicalized arguments when args are present; otherwise `event_type`. Arguments pass through configured redaction and truncation first. Object key order is ignored; scalar values, array order, and all available items determine equality. Raw argument values and keys never appear in the fingerprint or `LOOP_WARNING` pattern.
 - **Rule:** Look for a contiguous block of signatures that repeats K times (default K=3; `MAIDA_LOOP_REPETITIONS`) at the end of the window. A block of one signature is reported as `pattern_type: "repeated_call"`; a longer block is reported as `pattern_type: "cycle"`. If found, emit one `LOOP_WARNING` per distinct pattern per run (deduplicated by pattern + repetitions).
 - **Payload:** `pattern` (e.g. "LLM_CALL:gpt-4 -> TOOL_CALL:search"),
   `pattern_type`, `pattern_length`, `repetitions`, `window_size`, and
   `evidence_event_ids`.
 
-No ML; purely pattern-based on event type, name, and compact tool-argument structure to give quick feedback on repetitive agent behavior.
+Three identical calls to a generic tool produce a repeated-call warning; three different commands or file paths do not. Alternating arguments A, B, A, B, A, B produce a two-step cycle. Only captured, sanitized arguments are compared: differences removed by redaction or truncation cannot distinguish actions. Changes to timestamps or request IDs inside arguments distinguish calls; event timestamps and tool results are outside equality. Calls with missing or null args retain name-only matching. Older stored warnings remain readable with their original patterns.
