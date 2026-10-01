@@ -12,15 +12,22 @@ from pathlib import Path
 
 import typer
 
-from maida.capture_setup import COMMAND, atomic_replace, prepare_settings, read_safe, removed_settings, settings_object
-from maida.config import load_config
+from maida.capture_setup import (
+    atomic_replace,
+    bound_hook_command,
+    prepare_settings,
+    read_safe,
+    removed_settings,
+    settings_object,
+    validate_hook_command,
+)
 from maida.project_local import LOCAL_POINTER, installation, repository_root
 
 NEXT_ACTION = (
     "Next: Start a new Claude Code session here, run one bounded task\n"
     "(for example, find this repository's test command without editing files),\n"
     "then exit the session and run:\n"
-    "  maida assert --expect-status ok --no-loops --no-guardrails"
+    "  {command} check"
 )
 _AGENTS = {
     "Claude Code": ("claude", (".claude", "CLAUDE.md")),
@@ -32,6 +39,11 @@ _AGENTS = {
 
 def is_interactive() -> bool:
     return sys.stdin.isatty() and not os.environ.get("CI")
+
+
+def maida_command() -> str:
+    """Keep printed commands usable when the CLI was launched through uv."""
+    return "uv run maida" if os.environ.get("UV_RUN_RECURSION_DEPTH") else "maida"
 
 
 def detect_agent(root: Path, explicit: str | None, *, command: str = "maida init") -> str:
@@ -89,12 +101,12 @@ def initialize_capture(agent: str | None = None) -> None:
         raise ValueError("No Git repository detected. Run maida init from your Git checkout.")
     detected = detect_agent(root, agent)
     typer.echo(f"Detected {detected}.")
-    if not shutil.which("maida"):
-        raise ValueError(
-            "The maida command is not on PATH for Claude hooks. Add the Maida installation's bin directory to PATH and rerun maida init."
-        )
     _check_hooks_enabled(root)
-    settings_path, settings_before, settings_after, events = prepare_settings(root, local=True)
+    observer_command = bound_hook_command()
+    settings_path, settings_before, settings_after, events = prepare_settings(
+        root, local=True, observer_command=observer_command
+    )
+    validate_hook_command(observer_command)
     if _git(root, "ls-files", "--error-unmatch", "--", ".claude/settings.local.json").returncode == 0:
         raise ValueError(
             ".claude/settings.local.json is tracked by Git. Run git rm --cached -- .claude/settings.local.json, then rerun maida init."
@@ -135,29 +147,24 @@ def initialize_capture(agent: str | None = None) -> None:
         (exclude_path, exclude_before, exclude_after),
     ]
     changes = [item for item in files if item[1] != item[2]]
-    config = load_config(project_root=root, capture=True)
-    evidence = config.data_dir if local else config.data_dir.expanduser().resolve() / "projects" / project_id
     if not changes:
         typer.echo("Claude Code capture is already ready for this repository.")
-        typer.echo("\n" + NEXT_ACTION)
+        typer.echo("\n" + NEXT_ACTION.format(command=maida_command()))
         return
     typer.echo(f"Repository: {root}")
     if events:
-        typer.echo(f"Would add observer command to {settings_path}: {COMMAND}")
+        typer.echo(f"Would add or update observer command in {settings_path}: {observer_command}")
         typer.echo("Events: " + ", ".join(events))
         if "SessionEnd" in events:
             typer.echo("SessionEnd observer timeout: 30 seconds.")
     if pointer_before is None:
-        typer.echo(f"Would create local installation pointer: {pointer_path}")
+        typer.echo(f"Would create local setup file: {pointer_path}")
     elif pointer_before != pointer_after:
         typer.echo(f"Would re-enable capture in {pointer_path}")
     if added_rules:
         typer.echo(f"Would exclude {', '.join(added_rules)} in {exclude_path}")
-    typer.echo(f"Local task evidence: {evidence}")
     typer.echo("Capture is passive; redaction follows your Maida settings. Task evidence stays on this machine.")
-    typer.echo(
-        "Existing SDK/Python commands keep their configured runs. The first onboarding check selects this repository's Claude task."
-    )
+    typer.echo("Run plain claude after setup; Maida's hooks use the validated executable above.")
     if not is_interactive():
         raise ValueError(
             "Setup needs one explicit approval. Rerun maida init in an interactive terminal to approve this preview."
@@ -171,7 +178,7 @@ def initialize_capture(agent: str | None = None) -> None:
         return
     _write_previewed(files, "init")
     typer.echo("Claude Code capture is ready for this repository.")
-    typer.echo("\n" + NEXT_ACTION)
+    typer.echo("\n" + NEXT_ACTION.format(command=maida_command()))
 
 
 def _write_previewed(files: list[tuple[Path, bytes | None, bytes | None]], action: str) -> None:

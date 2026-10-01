@@ -6,7 +6,7 @@ Detach Maida's Claude Code capture from the current Git repository. This command
 maida detach --agent claude-code
 ```
 
-Maida shows a warning and the files it would change, then asks once before writing. It removes only command hooks whose command is exactly `maida capture claude-hook` from `.claude/settings.local.json` and `.claude/settings.json`, including hooks installed by the earlier setup path. Other hooks, permissions and settings are preserved. Before confirmation, tracked files are explicitly labelled `TRACKED`, with a warning that the change affects shared team configuration. Review that Git diff before committing.
+Maida shows a warning and the files it would change, then asks once before writing. It removes exact Maida command hooks from `.claude/settings.local.json` and `.claude/settings.json`: both legacy `maida capture claude-hook` and the bound absolute-Python invocations installed by init. Shell wrappers and commands with extra arguments are preserved. Other hooks, permissions and settings are preserved. Before confirmation, tracked files are explicitly labelled `TRACKED`, with a warning that the change affects shared team configuration. Review that Git diff before committing.
 
 Saved captures, imported runs, policies, baselines, Git excludes and the repository's local identity remain. Detach sets `enabled: false` in a valid `.maida/local.json`, so cached Maida hooks in an existing session stop recording immediately. Exit and restart Claude Code to reload its hook settings. If the local identity is damaged, Maida can still remove the observers with `--agent claude-code`; it preserves the damaged file and tells you to exit existing sessions.
 

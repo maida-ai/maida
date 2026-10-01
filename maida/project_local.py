@@ -50,7 +50,7 @@ def installation(start: Path, *, command: str = "maida init") -> tuple[Path, dic
     return root, pointer
 
 
-def onboarding_run(config: MaidaConfig) -> str:
+def onboarding_run(config: MaidaConfig, *, command: str = "maida check") -> str:
     """Select the newest started session, refusing stale or incomplete evidence."""
     receipts = []
     directory = config.data_dir / "onboarding"
@@ -62,27 +62,28 @@ def onboarding_run(config: MaidaConfig) -> str:
             receipts.append(receipt)
         except (OSError, ValueError) as exc:
             raise ValueError(
-                f"Local capture state is unreadable at {path}. Move that receipt aside and rerun maida assert."
+                f"Local capture state is unreadable at {path}. Move that file aside, then capture a new Claude Code "
+                f"task, exit the session and rerun {command}."
             ) from exc
     if not receipts:
         raise FileNotFoundError(
             "No Claude Code task captured in this repository. Start a new Claude Code session here, "
-            "run one bounded task, exit the session, then rerun the same maida assert command."
+            f"run one bounded task, exit the session, then rerun {command}."
         )
     latest = max(receipts, key=lambda item: item["started_at"])
     if latest.get("state") != "closed":
         raise FileNotFoundError(
-            "The newest Claude Code session is still open. Finish and exit that session, then rerun maida assert."
+            f"The newest Claude Code session is still open. Finish and exit that session, then rerun {command}."
         )
     if not latest.get("has_start") or not latest.get("complete_tools"):
         raise FileNotFoundError(
             "Capture is missing a complete task lifecycle or tool activity. Start a new Claude Code session, "
-            "run a bounded task that reads a repository file, exit, then rerun maida assert."
+            f"run a bounded task that reads a repository file, exit, then rerun {command}."
         )
     trace_id = latest.get("trace_id")
     if not isinstance(trace_id, str) or not _PROJECT_ID.fullmatch(trace_id):
         raise FileNotFoundError(
             "The completed session could not be imported. Start a new Claude Code session, run the bounded task again, "
-            "exit, then rerun maida assert."
+            f"exit, then rerun {command}."
         )
     return trace_id

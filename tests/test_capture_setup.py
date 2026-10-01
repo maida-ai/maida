@@ -1,10 +1,24 @@
 """Safe, additive installation of passive Claude observers."""
 
 import json
+import shlex
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
-from maida.capture_setup import COMMAND, EVENTS, atomic_replace, install, merged_settings
+from maida.capture_setup import (
+    COMMAND,
+    EVENTS,
+    atomic_replace,
+    bound_hook_command,
+    install,
+    is_maida_hook_command,
+    merged_settings,
+    removed_settings,
+    validate_hook_command,
+)
 
 
 @pytest.mark.parametrize("scope", ["group", "hook"])
@@ -117,3 +131,119 @@ def test_write_failure_preserves_original_and_cleans_temporary(tmp_path, monkeyp
         atomic_replace(path, b"new", expected=b"{}")
     assert path.read_text() == "{}"
     assert list(tmp_path.iterdir()) == [path]
+
+
+def test_bound_command_preserves_venv_path_and_shell_quoting(tmp_path, monkeypatch):
+    alias = tmp_path / "environment with ' spaces"
+    alias.symlink_to(Path(sys.executable).parent.parent, target_is_directory=True)
+    executable = str(alias / "bin" / Path(sys.executable).name)
+    monkeypatch.setattr("maida.capture_setup.sys.executable", executable)
+    command = bound_hook_command()
+    assert shlex.split(command) == [executable, "-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
+    assert is_maida_hook_command(command)
+    validate_hook_command(command)
+
+
+def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch):
+    import sysconfig
+    import venv
+
+    from maida.config import load_config
+    from tests.test_project_capture import initialized
+
+    dependencies = sysconfig.get_path("purelib")
+    environment = tmp_path / "python-environment"
+    venv.EnvBuilder(with_pip=False, system_site_packages=True).create(environment)
+    executable = str(environment / "bin/python")
+    locations = subprocess.run(
+        [
+            executable,
+            "-E",
+            "-P",
+            "-c",
+            "import json, site, sysconfig; print(json.dumps([site.getusersitepackages(), sysconfig.get_path('purelib')]))",
+        ],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    user_site, environment_site = map(Path, json.loads(locations.stdout))
+    assert user_site.is_relative_to(Path.home())
+    user_site.mkdir(parents=True)
+    # Install real Maida in the isolated HOME's user site; reuse only its already
+    # installed dependencies through the new environment's ordinary site path.
+    user_site.joinpath("maida").symlink_to(Path(__file__).resolve().parents[1] / "maida", target_is_directory=True)
+    environment_site.joinpath("dependencies.pth").write_text(dependencies + "\n")
+    project = tmp_path / "repo"
+    initialized(project)
+    monkeypatch.chdir(project)
+    monkeypatch.setattr("maida.capture_setup.sys.executable", executable)
+    command = bound_hook_command()
+    validate_hook_command(command)
+    payload = {
+        "session_id": "user-site-task",
+        "cwd": str(project),
+        "hook_event_name": "SessionStart",
+        "source": "startup",
+    }
+    result = subprocess.run(shlex.split(command), input=json.dumps(payload), text=True, capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == result.stderr == ""
+    assert list((load_config(capture=True).data_dir / "onboarding").glob("*.json"))
+
+
+@pytest.mark.parametrize("failure", ["exit", "missing", "timeout"])
+def test_bound_command_validation_failures_are_actionable(monkeypatch, failure):
+    def probe(arguments, **kwargs):
+        assert arguments[-1] == "--help"
+        assert "PYTHONPATH" not in kwargs["env"]
+        if failure == "missing":
+            raise FileNotFoundError("fixture missing interpreter")
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(arguments, 15)
+        return subprocess.CompletedProcess(arguments, 1)
+
+    monkeypatch.setattr("maida.capture_setup.subprocess.run", probe)
+    with pytest.raises(ValueError, match="Reinstall Maida"):
+        validate_hook_command(bound_hook_command())
+
+
+def test_local_legacy_and_old_bound_hooks_migrate_without_duplicates():
+    old = shlex.join(["/old/environment/bin/python", "-m", "maida.cli", "capture", "claude-hook"])
+    for previous in (COMMAND, old):
+        settings = merged_settings({}, observer_command=previous)[0]
+        settings["permissions"] = {"deny": ["Write"]}
+        original = json.loads(json.dumps(settings))
+        migrated, changed = merged_settings(settings, observer_command=bound_hook_command())
+        assert changed == list(EVENTS)
+        assert settings == original
+        assert migrated["permissions"] == settings["permissions"]
+        for event in EVENTS:
+            assert len(migrated["hooks"][event]) == 1
+            assert migrated["hooks"][event][0]["hooks"][0]["command"] == bound_hook_command()
+        assert migrated["hooks"]["SessionEnd"][0]["hooks"][0]["timeout"] == 30
+        assert merged_settings(migrated, observer_command=bound_hook_command())[1] == []
+
+
+def test_legacy_installer_preserves_existing_bound_observers(tmp_path):
+    path = tmp_path / ".claude/settings.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(merged_settings({}, observer_command=bound_hook_command())[0]))
+    before = path.read_bytes()
+    assert install(tmp_path, apply=True) == []
+    assert path.read_bytes() == before
+
+
+def test_detach_only_removes_exact_legacy_and_bound_commands():
+    bound = bound_hook_command()
+    preserved = [
+        f"echo {COMMAND}",
+        f"{bound} --extra",
+        f"{bound} && echo keep",
+        "'malformed quote",
+    ]
+    commands = [COMMAND, bound, *preserved]
+    settings = {"hooks": {"SessionEnd": [{"hooks": [{"type": "command", "command": c} for c in commands]}]}}
+    result, removed = removed_settings(settings)
+    assert removed == 2
+    assert [h["command"] for h in result["hooks"]["SessionEnd"][0]["hooks"]] == preserved

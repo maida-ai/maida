@@ -51,7 +51,7 @@ from maida.capture.claude_hook import (
 )
 from maida.config import MaidaConfig, load_config
 from maida.project_local import installation, onboarding_run
-from maida.first_run import detach_capture, initialize_capture
+from maida.first_run import detach_capture, initialize_capture, maida_command
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
     ensure_demo_env,
@@ -1203,41 +1203,8 @@ def assert_cmd(
     """Assert that a run meets behavioral policy checks. Exit 0 = pass, 1 = fail."""
     try:
         config = _read_config(run_id)
-        # Only the first onboarding check implicitly selects a Claude session.
-        # Baseline/policy gates and ordinary SDK assertions keep their defaults.
-        onboarding_check = (
-            run_id is None
-            and baseline_path is None
-            and policy_path is None
-            and expect_status == "ok"
-            and no_loops
-            and no_guardrails
-            and not no_new_tools
-            and not ignore_check
-            and all(
-                value is None
-                for value in (
-                    max_steps,
-                    step_tolerance,
-                    max_tool_calls,
-                    tool_call_tolerance,
-                    max_cost_tokens,
-                    cost_tolerance,
-                    max_duration_ms,
-                    duration_tolerance,
-                )
-            )
-        )
-        if onboarding_check:
-            local = installation(Path.cwd())
-            if local and local[1].get("enabled", True):
-                config = load_config(project_root=local[0], capture=True)
         try:
-            if run_id is None and config.project_id:
-                run_id = onboarding_run(config)
-                typer.echo(f"Using this repository's Claude Code task: {run_id[:8]}", err=True)
-            else:
-                run_id = _resolve_run_or_latest(run_id, config)
+            run_id = _resolve_run_or_latest(run_id, config)
         except FileNotFoundError as e:
             typer.echo(f"Run not found: {run_id or e}", err=True)
             raise Exit(EXIT_NOT_FOUND)
@@ -1316,6 +1283,66 @@ def assert_cmd(
     except Exception as e:
         typer.echo(f"error: {e}", err=True)
         raise Exit(EXIT_INTERNAL)
+
+
+@app.command("check")
+def check_cmd(
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, markdown"),
+) -> None:
+    """Check your latest completed Claude task and show how to inspect it."""
+    command = f"{maida_command()} check"
+    if output_format not in {"text", "json", "markdown"}:
+        typer.echo(f"Unknown report format. Use {command} --format text, json or markdown.", err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    try:
+        local = installation(Path.cwd(), command=f"{maida_command()} init")
+        if local is None or not local[1].get("enabled", True):
+            typer.echo(
+                f"Claude capture is not attached here. Run {maida_command()} init in this repository to attach it.",
+                err=True,
+            )
+            raise Exit(EXIT_NOT_FOUND)
+        config = load_config(project_root=local[0], capture=True)
+        try:
+            run_id = onboarding_run(config, command=command)
+        except FileNotFoundError as exc:
+            typer.echo(str(exc), err=True)
+            raise Exit(EXIT_NOT_FOUND)
+        policy = AssertionPolicy(expect_status="ok", no_loops=True, no_guardrails=True)
+        try:
+            report = run_assertions(run_id, policy, config=config)
+        except (FileNotFoundError, storage.RunValidationError, storage.UnsupportedTraceFormatError) as exc:
+            typer.echo(
+                "The captured task cannot be read. Start a new Claude Code session here, run one bounded task, "
+                f"exit, then rerun {command}.",
+                err=True,
+            )
+            raise Exit(EXIT_NOT_FOUND) from exc
+        render = {"text": format_report_text, "json": format_report_json, "markdown": format_report_markdown}
+        typer.echo(render[output_format](report))
+        if output_format == "text":
+            typer.echo(f"\nRepository: {config.project_root}")
+            typer.echo(
+                "Coverage: observed tool activity and session lifecycle; answer correctness and "
+                "complete model-call, token, and latency coverage are outside this check."
+            )
+        typer.echo(f"Trace: {run_id}\nView: {maida_command()} view {run_id}", err=output_format != "text")
+        typer.echo(report_usage("pass" if report.passed else "fail"), err=True)
+        if not report.passed:
+            raise Exit(1)
+    except Exit:
+        raise
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise Exit(EXIT_NOT_FOUND)
+    except OSError as exc:
+        typer.echo(
+            f"Cannot read this repository's captured task. Check its file permissions, then rerun {command}.", err=True
+        )
+        raise Exit(EXIT_NOT_FOUND) from exc
+    except Exception as exc:
+        typer.echo(f"Could not check the captured task due to an internal error. Rerun {command}.", err=True)
+        raise Exit(EXIT_INTERNAL) from exc
 
 
 def _iso_add_ms(start_time: str | None, duration_ms: int) -> str | None:
@@ -1556,7 +1583,7 @@ def init_cmd(
         selection = " RUN_ID" if config.project_id else ""
         typer.echo(f"  maida assert{selection} --baseline {ACTIVE_BASELINE} --policy {ACTIVE_POLICY}")
         if selection:
-            typer.echo("Use the new task's run ID printed by the first onboarding check.")
+            typer.echo("Use the new task's run ID printed by maida check.")
         typer.echo("This checks one observed execution; it does not certify a population pass rate.")
         if script:
             typer.echo(
@@ -1569,7 +1596,8 @@ def init_cmd(
                 "CI dependency installation and workflow protection remain part of your repository configuration."
             )
     except (ValueError, FileNotFoundError) as e:
-        typer.echo(f"Cannot initialize gate: {e}", err=True)
+        operation = "initialize gate" if from_run or reviewed or github else "set up capture"
+        typer.echo(f"Cannot {operation}: {e}", err=True)
         raise Exit(EXIT_NOT_FOUND)
     except Exception as e:
         typer.echo(f"error: {e}", err=True)

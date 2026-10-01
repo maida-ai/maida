@@ -1,6 +1,7 @@
 """The default init journey needs no tutorial checkout or policy knowledge."""
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from maida.cli import app
 from maida.config import load_config
 
 runner = CliRunner()
+UV_EXECUTABLE = shutil.which("uv")
 
 
 @pytest.fixture
@@ -41,7 +43,7 @@ def test_fresh_preview_approval_and_repeat(project):
     assert result.output.index("Would add") < result.output.index("[y/N]")
     assert result.output.count("[y/N]") == 1
     assert result.output.count("Next:") == 1
-    assert "maida assert --expect-status ok --no-loops --no-guardrails" in result.output
+    assert "maida check" in result.output
     assert not (project / ".maida/policy.yaml").exists()
     assert not (project / ".maida/starter").exists()
     pointer = json.loads((project / ".maida/local.json").read_text())
@@ -164,19 +166,27 @@ def test_concurrent_change_and_write_failure_do_not_partially_install(project, m
     assert not (project / ".maida/local.json").exists()
 
 
-def test_installed_hook_processes_produce_first_report(project, monkeypatch):
-    """Use the exact installed observer commands, with no storage environment variable."""
+def test_uv_init_plain_claude_hooks_and_check_produce_first_report(project, monkeypatch):
+    """Exercise uv's executable, then plain Claude's environment, without a global Maida."""
     import os
     import pty
     import shlex
 
-    monkeypatch.setenv("PATH", str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"])
+    assert UV_EXECUTABLE, "uv is required by the repository's test workflow"
+    monkeypatch.setenv("PATH", os.defpath)
     monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(Path(sys.executable).parent.parent))
+    # Reuse the installed test environment offline. --no-sync avoids resolving
+    # fixture dependencies; uv still launches the real Maida entrypoint.
+    (project / "pyproject.toml").write_text('[project]\nname = "first-task"\nversion = "0.0.0"\n')
+    uv_maida = [UV_EXECUTABLE, "run", "--no-sync", "maida"]
     (project / "CLAUDE.md").write_text("fixture instructions")
     primary, terminal = pty.openpty()
     try:
         with subprocess.Popen(
-            [str(Path(sys.executable).parent / "maida"), "init"],
+            [*uv_maida, "init"],
             stdin=terminal,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -189,43 +199,54 @@ def test_installed_hook_processes_produce_first_report(project, monkeypatch):
             assert process.returncode == 0, output
             assert output.count("[y/N]") == 1
             assert "Claude Code capture is ready" in output
+            assert "uv run maida check" in output
     finally:
         os.close(primary)
         if terminal is not None:
             os.close(terminal)
-    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project))
-    settings = json.loads((project / ".claude/settings.local.json").read_text())
-    tool = {"tool_use_id": "read-config", "tool_name": "Read", "tool_input": {"file_path": "pyproject.toml"}}
-    for event, extra in (
-        ("SessionStart", {"source": "startup"}),
-        ("PreToolUse", tool),
-        ("PostToolUse", {**tool, "tool_response": {"content": "pytest"}}),
-        ("SessionEnd", {"reason": "other"}),
-    ):
-        observer = settings["hooks"][event][-1]["hooks"][0]["command"]
-        payload = {"session_id": "first-real-hook-process", "cwd": str(project), "hook_event_name": event, **extra}
-        captured = subprocess.run(
-            shlex.split(observer), input=json.dumps(payload), text=True, capture_output=True, check=False
-        )
-        assert captured.returncode == 0, captured.stderr
-        assert captured.stdout == captured.stderr == ""
-    report = subprocess.run(
-        [
-            str(Path(sys.executable).parent / "maida"),
-            "assert",
-            "--expect-status",
-            "ok",
-            "--no-loops",
-            "--no-guardrails",
-        ],
-        text=True,
-        capture_output=True,
-        check=False,
+    # A deterministic Claude stand-in delivers real hook payloads through its
+    # configured shell commands. No uv, Maida, or Python is discoverable on PATH.
+    (project / "maida.py").write_text('raise RuntimeError("Project files must not shadow the installed hook")\n')
+    fake_bin = project.parent / "agent-bin"
+    fake_bin.mkdir()
+    driver = fake_bin / "deliver.py"
+    driver.write_text(
+        """import json, os, subprocess
+from pathlib import Path
+root = Path.cwd()
+assert not any((Path(p) / "maida").exists() for p in os.environ["PATH"].split(os.pathsep))
+settings = json.loads((root / ".claude/settings.local.json").read_text())
+tool = {"tool_use_id": "read-config", "tool_name": "Read", "tool_input": {"file_path": "pyproject.toml"}}
+for event, extra in (
+    ("SessionStart", {"source": "startup"}),
+    ("PreToolUse", tool),
+    ("PostToolUse", {**tool, "tool_response": {"content": "pytest"}}),
+    ("SessionEnd", {"reason": "other"}),
+):
+    command = settings["hooks"][event][-1]["hooks"][0]["command"]
+    payload = {"session_id": "first-real-hook-process", "cwd": str(root), "hook_event_name": event, **extra}
+    result = subprocess.run(command, shell=True, executable="/bin/sh", input=json.dumps(payload),
+                            text=True, capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == result.stderr == ""
+"""
     )
+    claude = fake_bin / "claude"
+    claude.write_text("#!/bin/sh\nexec " + shlex.join([sys.executable, str(driver)]) + "\n")
+    claude.chmod(0o700)
+    monkeypatch.setenv("PATH", str(fake_bin))
+    monkeypatch.delenv("UV_RUN_RECURSION_DEPTH", raising=False)
+    monkeypatch.delenv("UV_PROJECT_ENVIRONMENT")
+    completed = subprocess.run(["claude"], text=True, capture_output=True, timeout=30)
+    assert completed.returncode == 0, completed.stderr
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(Path(sys.executable).parent.parent))
+    report = subprocess.run([*uv_maida, "check"], text=True, capture_output=True, check=False, timeout=30)
     assert report.returncode == 0, report.stderr
     assert "3 active checks passed" in report.stdout
     assert str(project) in report.stdout
     assert "Coverage:" in report.stdout
+    trace_id = next(line.removeprefix("Trace: ") for line in report.stdout.splitlines() if line.startswith("Trace: "))
+    assert f"View: uv run maida view {trace_id}" in report.stdout
 
 
 def test_installed_ambiguity_and_unsupported_project_signal(project, monkeypatch):
@@ -250,13 +271,18 @@ def test_agent_override_validation(project, args):
     assert not (project / ".maida").exists()
 
 
-def test_missing_hook_executable_and_disabled_setting_type(project, monkeypatch):
+def test_init_does_not_require_maida_on_path(project, monkeypatch):
     monkeypatch.setattr("maida.first_run.shutil.which", lambda name: "/fixture/claude" if name == "claude" else None)
-    missing = runner.invoke(app, ["init"])
-    assert missing.exit_code == 2
-    assert "PATH" in missing.output
-    assert not (project / ".maida").exists()
-    monkeypatch.setattr("maida.first_run.shutil.which", lambda name: "/fixture/bin")
+    result = runner.invoke(app, ["init"], input="y\n")
+    assert result.exit_code == 0, result.output
+    settings = json.loads((project / ".claude/settings.local.json").read_text())
+    import shlex
+
+    command = shlex.split(settings["hooks"]["SessionStart"][0]["hooks"][0]["command"])
+    assert command == [sys.executable, "-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
+
+
+def test_disabled_setting_type(project):
     path = project / ".claude/settings.local.json"
     path.parent.mkdir()
     path.write_text('{"disableAllHooks": "false"}')
@@ -264,6 +290,77 @@ def test_missing_hook_executable_and_disabled_setting_type(project, monkeypatch)
     assert invalid.exit_code == 2
     assert "boolean" in invalid.output
     assert path.read_text() == '{"disableAllHooks": "false"}'
+
+
+def test_failed_validation_never_reports_ready_or_changes_settings(project, monkeypatch):
+    assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
+    paths = [project / ".claude/settings.local.json", project / ".maida/local.json", project / ".git/info/exclude"]
+    before = [path.read_bytes() for path in paths]
+
+    def broken(command):
+        raise ValueError("Cannot run the capture hook. Repair this Maida installation, then rerun maida init.")
+
+    monkeypatch.setattr("maida.first_run.validate_hook_command", broken)
+    result = runner.invoke(app, ["init"], input="y\n")
+    assert result.exit_code == 2, result.output
+    assert "Repair this Maida installation" in result.output
+    assert "ready" not in result.output
+    assert "[y/N]" not in result.output
+    assert before == [path.read_bytes() for path in paths]
+
+
+def test_init_legacy_local_hook_upgrade_requires_approval(project):
+    from maida.capture_setup import bound_hook_command, merged_settings
+
+    path = project / ".claude/settings.local.json"
+    path.parent.mkdir()
+    settings = merged_settings({"permissions": {"deny": ["Write"]}})[0]
+    path.write_text(json.dumps(settings))
+    before = path.read_bytes()
+    declined = runner.invoke(app, ["init"], input="n\n")
+    assert declined.exit_code == 0, declined.output
+    assert path.read_bytes() == before
+    updated = runner.invoke(app, ["init"], input="y\n")
+    assert updated.exit_code == 0, updated.output
+    assert updated.output.index(bound_hook_command()) < updated.output.index("[y/N]")
+    upgraded = json.loads(path.read_text())
+    assert upgraded["permissions"] == settings["permissions"]
+    assert all(len(groups) == 1 for groups in upgraded["hooks"].values())
+    assert runner.invoke(app, ["detach", "--agent", "claude-code"], input="y\n").exit_code == 0
+    assert json.loads(path.read_text()) == {"permissions": settings["permissions"]}
+
+
+@pytest.mark.parametrize("user_wide", [False, True])
+def test_inherited_legacy_hooks_have_specific_recovery_without_writes(project, user_wide):
+    from maida.capture_setup import merged_settings
+
+    path = (Path.home() if user_wide else project) / ".claude/settings.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(merged_settings({})[0]))
+    before = path.read_bytes()
+    result = runner.invoke(app, ["init"], input="y\n")
+    assert result.exit_code == 2, result.output
+    assert str(path) in result.output
+    assert ("/hooks" if user_wide else "maida detach --agent claude-code") in result.output
+    assert path.read_bytes() == before
+    assert not (project / ".maida").exists()
+
+
+@pytest.mark.parametrize("scope", ["group", "hook"])
+def test_disabled_inherited_legacy_hooks_do_not_block_local_setup(project, scope):
+    from maida.capture_setup import COMMAND
+
+    path = project / ".claude/settings.json"
+    path.parent.mkdir()
+    hook = {"type": "command", "command": COMMAND}
+    group = {"hooks": [hook]}
+    (group if scope == "group" else hook)["enabled"] = False
+    path.write_text(json.dumps({"hooks": {"SessionStart": [group]}}))
+    before = path.read_bytes()
+    result = runner.invoke(app, ["init"], input="y\n")
+    assert result.exit_code == 0, result.output
+    assert path.read_bytes() == before
+    assert (project / ".claude/settings.local.json").exists()
 
 
 def test_cancelled_input_and_io_failure_are_actionable(project, monkeypatch):
@@ -283,7 +380,7 @@ def test_existing_review_flow_after_first_run_setup(project):
 
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
     task(project, "first-task")
-    check_args = ["assert", "--expect-status", "ok", "--no-loops", "--no-guardrails", "--format", "json"]
+    check_args = ["check", "--format", "json"]
     first_check = runner.invoke(app, check_args)
     assert first_check.exit_code == 0, first_check.output
     first_id = json.loads(first_check.stdout)["run_id"]

@@ -52,9 +52,7 @@ def test_sdk_gate_and_claude_onboarding_survive_init_and_detach(
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["run_id"] == latest_python
     captured = resolve_latest_run_id(load_config(capture=True))
-    first_check = runner.invoke(
-        app, ["assert", "--expect-status", "ok", "--no-loops", "--no-guardrails", "--format", "json"]
-    )
+    first_check = runner.invoke(app, ["check", "--format", "json"])
     assert first_check.exit_code == 0, first_check.output
     assert json.loads(first_check.stdout)["run_id"] == captured
     # The local integration does not hide pre-init or current SDK runs.
@@ -72,6 +70,7 @@ def test_sdk_gate_and_claude_onboarding_survive_init_and_detach(
     )
     assert detached_check.exit_code == 0, detached_check.output
     assert json.loads(detached_check.stdout)["run_id"] == latest_python
+    assert runner.invoke(app, ["check"]).exit_code == 2
     assert runner.invoke(app, ["export", captured, "--out", "saved-claude.json"]).exit_code == 0
     # A checked-in baseline may have been captured on another developer's machine.
     foreign = json.loads(baseline.read_text())
@@ -118,7 +117,9 @@ def test_new_setup_does_not_add_hooks_to_shared_settings(project):
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
     assert shared.read_text() == original
     local = project / ".claude/settings.local.json"
-    assert "maida capture claude-hook" in local.read_text()
+    from maida.capture_setup import bound_hook_command
+
+    assert bound_hook_command() in local.read_text()
     assert subprocess.run(["git", "check-ignore", str(local)], capture_output=True).returncode == 0
 
 
@@ -284,11 +285,11 @@ def test_detach_race_and_write_failure_restore_configuration(project, monkeypatc
 
 
 def test_existing_global_observers_are_reused_and_not_removed(project, temp_data_dir):
-    from maida.capture_setup import merged_settings
+    from maida.capture_setup import bound_hook_command, merged_settings
 
     user = Path.home() / ".claude/settings.json"
     user.parent.mkdir()
-    user.write_text(json.dumps(merged_settings({})[0]))
+    user.write_text(json.dumps(merged_settings({}, observer_command=bound_hook_command())[0]))
     before = user.read_bytes()
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
     assert not (project / ".claude/settings.local.json").exists()

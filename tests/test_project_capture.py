@@ -44,7 +44,7 @@ def task(root, session="normal-task", failure=False):
 
 
 def report():
-    return runner.invoke(app, ["assert", "--expect-status", "ok", "--no-loops", "--no-guardrails"])
+    return runner.invoke(app, ["check"])
 
 
 def test_project_storage_and_subdirectories(tmp_path, temp_data_dir, monkeypatch):
