@@ -4,6 +4,8 @@ and loop detection integration (repeated pattern triggers LOOP_WARNING exactly o
 Uses temp dir via MAIDA_DATA_DIR; env restored by fixture.
 """
 
+import json
+
 import pytest
 
 from opentelemetry import trace as ot_trace
@@ -20,6 +22,7 @@ from maida import (
 from maida.config import load_config
 from maida.events import EventType
 from maida.events import spans_to_events
+from maida.loopdetect import compute_signature
 from maida.storage import list_runs, load_run_meta, load_spans
 from tests.conftest import get_latest_run_id
 
@@ -106,8 +109,9 @@ def test_loop_warning_emitted_once_for_repeated_pattern(temp_data_dir):
     assert payload.get("repetitions") == 3
 
 
-def test_loop_warning_runtime_pattern_includes_structural_tool_args(temp_data_dir):
-    """Runtime loop warnings include compact structural args for repeated tool calls."""
+def test_loop_warning_runtime_pattern_uses_redacted_argument_identity(temp_data_dir, monkeypatch):
+    """Changing secrets are redacted before fingerprinting; warning values stay private."""
+    monkeypatch.setenv("MAIDA_REDACT_KEYS", "private_value")
 
     @trace(name="structural-tool-loop")
     def _run():
@@ -115,8 +119,9 @@ def test_loop_warning_runtime_pattern_includes_structural_tool_args(temp_data_di
             record_tool_call(
                 "search_db",
                 args={
-                    "query": f"case-{i}",
-                    "filters": {"limit": i + 1, "include_archived": False},
+                    "query": "private-query",
+                    "private_value": f"secret-{i}",
+                    "filters": {"limit": 1, "include_archived": False},
                 },
                 result={"ok": True},
             )
@@ -131,7 +136,36 @@ def test_loop_warning_runtime_pattern_includes_structural_tool_args(temp_data_di
     payload = loop_warnings[0].get("payload", {})
     assert payload.get("pattern_type") == "repeated_call"
     assert payload.get("pattern_length") == 1
-    assert payload.get("pattern") == "TOOL_CALL:search_db args:{filters:{include_archived:bool,limit:int},query:str}"
+    tools = [e for e in events if e.get("event_type") == EventType.TOOL_CALL.value]
+    assert payload["pattern"] == compute_signature(tools[0])
+    assert "private-query" not in json.dumps(payload)
+    assert "private_value" not in json.dumps(payload)
+    assert all(f"secret-{i}" not in json.dumps(events) for i in range(3))
+
+
+def test_distinct_tool_arguments_do_not_abort_under_loop_guardrail(temp_data_dir):
+    with traced_run(name="distinct-commands", stop_on_loop=True):
+        for command in ("pytest", "git status", "cat pyproject.toml"):
+            record_tool_call("Bash", args={"command": command})
+    config = load_config()
+    meta = load_run_meta(get_latest_run_id(config), config)
+    assert meta["status"] == "ok"
+    assert meta["counts"]["loop_warnings"] == 0
+
+
+def test_loop_identity_respects_capture_truncation(temp_data_dir, monkeypatch):
+    monkeypatch.setenv("MAIDA_MAX_FIELD_BYTES", "100")
+    with traced_run(name="truncated-arguments"):
+        for i in range(3):
+            record_tool_call("Bash", args={"command": "private-prefix" * 100 + f"suffix-{i}"})
+    config = load_config()
+    events = spans_to_events(load_spans(get_latest_run_id(config), config))
+    tools = [e for e in events if e["event_type"] == "TOOL_CALL"]
+    warnings = [e for e in events if e["event_type"] == "LOOP_WARNING"]
+    assert len(warnings) == 1
+    assert warnings[0]["payload"]["pattern"] == compute_signature(tools[0])
+    assert "private-prefix" not in json.dumps(warnings)
+    assert "suffix-" not in json.dumps(events)
 
 
 def test_tool_call_records_error_status_and_error_object_on_exception(temp_data_dir):

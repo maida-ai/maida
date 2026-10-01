@@ -48,6 +48,19 @@ def test_stop_on_loop_enabled_and_threshold_crossed_aborts(temp_data_dir):
     assert payload.get("error_type") == "LoopAbort"
 
 
+def test_stop_on_loop_repeated_argument_identity_aborts_without_values(temp_data_dir):
+    with pytest.raises(LoopAbort) as exc:
+        with traced_run(name="repeated-command", stop_on_loop=True):
+            for _ in range(3):
+                record_tool_call("Bash", args={"command": "private-command"})
+    assert "private-command" not in str(exc.value)
+    config = load_config()
+    events = spans_to_events(load_spans(get_latest_run_id(config), config))
+    warnings = [event for event in events if event["event_type"] == "LOOP_WARNING"]
+    assert len(warnings) == 1
+    assert "private-command" not in str(warnings)
+
+
 @trace(stop_on_loop=False)
 def _run_loop_pattern_no_stop():
     for _ in range(3):

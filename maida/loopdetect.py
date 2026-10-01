@@ -5,49 +5,46 @@ Stdlib only. Pure functions, no I/O. Used to emit LOOP_WARNING when the last N
 events contain a consecutively repeating signature subsequence.
 """
 
+import hashlib
+import json
+import struct
 from typing import Any
 
 # Sentinel for evidence_event_ids when an event has no event_id (better UX than "")
 MISSING_EVENT_ID = "__MISSING__"
-_MAX_SIGNATURE_DEPTH = 4
-_MAX_SEQUENCE_ITEMS = 3
 
 
-def _type_name(value: Any) -> str:
-    if value is None:
-        return "null"
-    if isinstance(value, int) and not isinstance(value, bool):
-        return "int"
-    if isinstance(value, float):
-        return "float"
-    if isinstance(value, str):
-        return "str"
-    return type(value).__name__
+def _canonical_args(value: Any) -> Any:
+    """Canonicalize normalized JSON args, including numeric parity with JS.
 
-
-def _structural_signature(value: Any, depth: int = 0) -> str:
-    """Return a compact shape-only signature without raw scalar values."""
-    if depth >= _MAX_SIGNATURE_DEPTH:
-        # TODO: If value has infinite depth, this will silently accept it.
-        return "..."
+    Containers are tagged to distinguish them from scalar encodings. Numbers
+    use big-endian IEEE-754 bytes so 1 and 1.0 agree across producers without
+    depending on JSON float formatting. Nonrepresentable Python integers keep
+    their exact value. Object order is ignored; array order and all items matter.
+    """
+    if value is None or isinstance(value, (bool, str)):
+        return value
+    if isinstance(value, (int, float)):
+        try:
+            number = float(value)
+        except OverflowError:
+            return ["integer", str(value)]
+        if isinstance(value, int) and number != value:
+            return ["integer", str(value)]
+        return ["number", struct.pack("!d", number or 0.0).hex()]
     if isinstance(value, dict):
-        if not value:
-            return "{}"
-        parts = []
-        for key in sorted(value, key=lambda item: str(item)):
-            parts.append(f"{key}:{_structural_signature(value[key], depth + 1)}")
-        return "{" + ",".join(parts) + "}"
+        # Sort by UTF-16 code units to match JS Object.keys(...).sort().
+        keys = sorted(value, key=lambda key: key.encode("utf-16-be", errors="surrogatepass"))
+        return ["object", [[key, _canonical_args(value[key])] for key in keys]]
     if isinstance(value, (list, tuple)):
-        if not value:
-            return "[]"
-        item_shapes = []
-        for item in value[:_MAX_SEQUENCE_ITEMS]:
-            shape = _structural_signature(item, depth + 1)
-            if shape not in item_shapes:
-                item_shapes.append(shape)
-        suffix = ",..." if len(value) > _MAX_SEQUENCE_ITEMS else ""
-        return "[" + "|".join(item_shapes) + suffix + "]"
-    return _type_name(value)
+        return ["array", [_canonical_args(item) for item in value]]
+    raise TypeError("Loop arguments must be normalized JSON values")
+
+
+def _argument_fingerprint(args: Any) -> str:
+    """Fixed-size digest of already-redacted/truncated args; never render values."""
+    canonical = json.dumps(_canonical_args(args), ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("ascii")).hexdigest()
 
 
 def compute_signature(event: dict) -> str:
@@ -55,8 +52,10 @@ def compute_signature(event: dict) -> str:
     Produce a stable string signature for an event for loop detection.
 
     - LLM_CALL: "LLM_CALL:" + model (or "UNKNOWN" if missing)
-    - TOOL_CALL: "TOOL_CALL:" + tool_name, plus structural args when present
+    - TOOL_CALL: "TOOL_CALL:" + tool_name, plus a digest of sanitized args when present
     - Else: event_type (or empty string)
+
+    Callers must apply configured redaction/truncation before supplying args.
     """
     t = event.get("event_type")
     if t == "LLM_CALL":
@@ -68,7 +67,7 @@ def compute_signature(event: dict) -> str:
         signature = "TOOL_CALL:" + str(tool_name)
         args = payload.get("args", None)
         if args is not None:
-            signature += " args:" + _structural_signature(args)
+            signature += " args:sha256:" + _argument_fingerprint(args)
         return signature
     return str(t or "")
 

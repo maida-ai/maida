@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Loop argument identity** - loop equality now uses tool name and a bounded fingerprint of canonicalized, redacted arguments. Distinct commands or file paths no longer look like repeated actions; identical calls and alternating argument cycles still warn without displaying raw argument values. Previously captured warnings keep their original patterns.
 - **First task check** - `maida init` now ends with `maida check`, which selects the repository's captured task, checks completion, loops and guardrail events, and prints the exact viewer command. `maida assert` no longer changes run selection based on its assertion flags; SDK/Python baseline gates retain their defaults.
 - **Executable-bound capture hooks** - setup binds hooks to the active Maida environment and validates the command before reporting ready. `uv run maida init` supports plain `claude` afterward. Approved setup upgrades exact local legacy hooks; detach recognizes both legacy and bound commands while preserving other handlers and evidence.
 

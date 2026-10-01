@@ -320,7 +320,8 @@ def test_no_loops_fails_when_present(temp_data_dir):
     loop_result = next(r for r in report.results if r.check_name == "no_loops")
     assert loop_result.actual == "1"
     assert "cycle x3" in loop_result.message
-    assert "TOOL_CALL:t args:{} -> LLM_CALL:m" in loop_result.message
+    assert "TOOL_CALL:t args:sha256:" in loop_result.message
+    assert " -> LLM_CALL:m" in loop_result.message
     assert loop_result.reason_code == RegressionReasonCode.CYCLE_DETECTED.value
 
 
@@ -330,7 +331,7 @@ def test_no_loops_repeated_call_keeps_loop_reason_code(temp_data_dir):
         (
             EventType.TOOL_CALL,
             "poll_status",
-            {"args": {"request_id": f"req-{i}"}, "result": {"ok": True}},
+            {"args": {"request_id": "same-request"}, "result": {"ok": True}},
         )
         for i in range(3)
     ]
@@ -342,7 +343,8 @@ def test_no_loops_repeated_call_keeps_loop_reason_code(temp_data_dir):
     loop_result = next(r for r in report.results if r.check_name == "no_loops")
     assert loop_result.actual == "1"
     assert "repeated_call x3" in loop_result.message
-    assert "TOOL_CALL:poll_status args:{request_id:str}" in loop_result.message
+    assert "TOOL_CALL:poll_status args:sha256:" in loop_result.message
+    assert "same-request" not in loop_result.message
     assert loop_result.reason_code == RegressionReasonCode.LOOP_DETECTED.value
 
 

@@ -9,60 +9,115 @@
         {
           "event_id": "e-1",
           "event_type": "TOOL_CALL",
-          "payload": {"tool_name": "lookup", "args": {"id": "A"}}
+          "payload": {
+            "tool_name": "lookup",
+            "args": {
+              "id": "A"
+            }
+          }
         },
         {
           "event_id": "e-2",
           "event_type": "TOOL_CALL",
-          "payload": {"tool_name": "lookup", "args": {"ids": ["A", "B"]}}
+          "payload": {
+            "tool_name": "lookup",
+            "args": {
+              "ids": [
+                "A",
+                "B"
+              ]
+            }
+          }
         },
         {
           "event_id": "e-3",
           "event_type": "TOOL_CALL",
-          "payload": {"tool_name": "lookup", "args": {"query": {"id": "A"}}}
+          "payload": {
+            "tool_name": "lookup",
+            "args": {
+              "query": {
+                "id": "A"
+              }
+            }
+          }
         }
       ],
       "expected": null
     },
     {
-      "name": "same_structural_shape_ignores_scalar_values",
+      "name": "same_shape_different_scalar_values_is_not_a_loop",
       "window": 12,
       "repetitions": 3,
       "events": [
         {
           "event_id": "e-1",
           "event_type": "TOOL_CALL",
-          "payload": {"tool_name": "lookup", "args": {"id": "A", "retry": 1}}
+          "payload": {
+            "tool_name": "lookup",
+            "args": {
+              "id": "A",
+              "retry": 1
+            }
+          }
         },
         {
           "event_id": "e-2",
           "event_type": "TOOL_CALL",
-          "payload": {"tool_name": "lookup", "args": {"id": "B", "retry": 2}}
+          "payload": {
+            "tool_name": "lookup",
+            "args": {
+              "id": "B",
+              "retry": 2
+            }
+          }
         },
         {
           "event_id": "e-3",
           "event_type": "TOOL_CALL",
-          "payload": {"tool_name": "lookup", "args": {"id": "C", "retry": 3}}
+          "payload": {
+            "tool_name": "lookup",
+            "args": {
+              "id": "C",
+              "retry": 3
+            }
+          }
         }
       ],
-      "expected": {
-        "pattern": "TOOL_CALL:lookup args:{id:str,retry:int}",
-        "pattern_type": "repeated_call",
-        "pattern_length": 1,
-        "repetitions": 3,
-        "window_size": 3,
-        "evidence_event_ids": ["e-1", "e-2", "e-3"]
-      }
+      "expected": null
     },
     {
       "name": "alternating_calls_are_a_cycle",
       "window": 12,
       "repetitions": 2,
       "events": [
-        {"event_id": "e-1", "event_type": "TOOL_CALL", "payload": {"tool_name": "search"}},
-        {"event_id": "e-2", "event_type": "TOOL_CALL", "payload": {"tool_name": "summarize"}},
-        {"event_id": "e-3", "event_type": "TOOL_CALL", "payload": {"tool_name": "search"}},
-        {"event_id": "e-4", "event_type": "TOOL_CALL", "payload": {"tool_name": "summarize"}}
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "search"
+          }
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "summarize"
+          }
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "search"
+          }
+        },
+        {
+          "event_id": "e-4",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "summarize"
+          }
+        }
       ],
       "expected": {
         "pattern": "TOOL_CALL:search -> TOOL_CALL:summarize",
@@ -70,7 +125,272 @@
         "pattern_length": 2,
         "repetitions": 2,
         "window_size": 4,
-        "evidence_event_ids": ["e-1", "e-2", "e-3", "e-4"]
+        "evidence_event_ids": [
+          "e-1",
+          "e-2",
+          "e-3",
+          "e-4"
+        ]
+      }
+    },
+    {
+      "name": "identical_bash_commands_repeat",
+      "window": 12,
+      "repetitions": 3,
+      "events": [
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "pattern": "TOOL_CALL:Bash args:sha256:84e105b0e8e0476f3f3690953ecd00ca668bb735f301771e0ee883601aab59b4",
+        "pattern_type": "repeated_call",
+        "pattern_length": 1,
+        "repetitions": 3,
+        "window_size": 3,
+        "evidence_event_ids": [
+          "e-1",
+          "e-2",
+          "e-3"
+        ]
+      }
+    },
+    {
+      "name": "different_bash_commands_do_not_repeat",
+      "window": 12,
+      "repetitions": 3,
+      "events": [
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "git status"
+            }
+          }
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "cat pyproject.toml"
+            }
+          }
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "alternating_bash_arguments_are_a_two_step_cycle",
+      "window": 12,
+      "repetitions": 3,
+      "events": [
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "git status"
+            }
+          }
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        },
+        {
+          "event_id": "e-4",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "git status"
+            }
+          }
+        },
+        {
+          "event_id": "e-5",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "pytest"
+            }
+          }
+        },
+        {
+          "event_id": "e-6",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "Bash",
+            "args": {
+              "command": "git status"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "pattern": "TOOL_CALL:Bash args:sha256:84e105b0e8e0476f3f3690953ecd00ca668bb735f301771e0ee883601aab59b4 -> TOOL_CALL:Bash args:sha256:e2db0899374014a871eba417f43324080618a70537c7df455ae4e9603ad06ea7",
+        "pattern_type": "cycle",
+        "pattern_length": 2,
+        "repetitions": 3,
+        "window_size": 6,
+        "evidence_event_ids": [
+          "e-1",
+          "e-2",
+          "e-3",
+          "e-4",
+          "e-5",
+          "e-6"
+        ]
+      }
+    },
+    {
+      "name": "canonical_object_order_unicode_and_numeric_identity",
+      "window": 12,
+      "repetitions": 3,
+      "events": [
+        {
+          "event_id": "e-1",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "inspect",
+            "args": {
+              "\ud83d\ude00": "astral",
+              "\ue000": "bmp",
+              "2": "two",
+              "10": "ten",
+              "nested": {
+                "z": true,
+                "a": null
+              },
+              "list": [
+                1,
+                -0.0,
+                1.5,
+                1e-07,
+                "\u00e9\ud83d\ude00\u007f\n"
+              ]
+            }
+          }
+        },
+        {
+          "event_id": "e-2",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "inspect",
+            "args": {
+              "10": "ten",
+              "2": "two",
+              "\ue000": "bmp",
+              "\ud83d\ude00": "astral",
+              "list": [
+                1.0,
+                0,
+                1.5,
+                1e-07,
+                "\u00e9\ud83d\ude00\u007f\n"
+              ],
+              "nested": {
+                "a": null,
+                "z": true
+              }
+            }
+          }
+        },
+        {
+          "event_id": "e-3",
+          "event_type": "TOOL_CALL",
+          "payload": {
+            "tool_name": "inspect",
+            "args": {
+              "\ud83d\ude00": "astral",
+              "\ue000": "bmp",
+              "2": "two",
+              "10": "ten",
+              "nested": {
+                "z": true,
+                "a": null
+              },
+              "list": [
+                1,
+                0,
+                1.5,
+                1e-07,
+                "\u00e9\ud83d\ude00\u007f\n"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "pattern": "TOOL_CALL:inspect args:sha256:f414608266f8444186f1aa8c1b927f355a90e4958ae0b48a0a25ae4197353b39",
+        "pattern_type": "repeated_call",
+        "pattern_length": 1,
+        "repetitions": 3,
+        "window_size": 3,
+        "evidence_event_ids": [
+          "e-1",
+          "e-2",
+          "e-3"
+        ]
       }
     }
   ]
