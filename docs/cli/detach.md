@@ -1,6 +1,6 @@
 # `maida detach`
 
-Detach Maida's Claude Code capture from the current Git repository. This command is new after v0.6.0; check `maida detach --help` in your installed version.
+Detach Maida's Claude Code capture from the current Git repository. This command is available from v0.6.1.
 
 ```bash
 maida detach --agent claude-code

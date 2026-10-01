@@ -1,6 +1,6 @@
 # `maida init`
 
-**Automatic capture setup and `maida check` are new after shipped v0.6.0.** Check `maida init --help` for `--agent` and `maida check --help` before using the default setup path below. The reviewed starter workflow requires `--from-run`, available in v0.6.0.
+**Automatic capture setup and `maida check` are available from v0.6.1.** The reviewed starter workflow remains available through explicit `--from-run` and `--reviewed --reason` options.
 
 ## Set up your first task
 

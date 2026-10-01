@@ -5,7 +5,7 @@
 **Requirements:** `openai-agents` must be installed. Install Maida with the OpenAI extra:
 
 ```bash
-uv add "maida-ai[openai]>=0.6.0"
+uv add "maida-ai[openai]>=0.6.1"
 ```
 
 If `openai-agents` is not installed, importing the integration raises a clear `ImportError` with install instructions. The integration is optional; the core package does not depend on it.

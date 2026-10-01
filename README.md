@@ -35,11 +35,11 @@ explicit consent and a configured collector; no collector is configured by defau
 Use Python 3.12–3.14. Install the standalone CLI, then run setup inside your Git repository:
 
 ```bash
-uv tool install maida-ai
+uv tool install "maida-ai==0.6.1"
 maida init
 ```
 
-Automatic capture setup and `maida check` are new after shipped v0.6.0. These instructions require an installation whose `maida init --help` includes `--agent` and which provides `maida check`; until that release is published, use a wheel built from this checkout. See the [changelog](CHANGELOG.md) for released behavior.
+Automatic capture setup and `maida check` are available from v0.6.1. If you already have an older standalone install, upgrade with `uv tool install --force "maida-ai==0.6.1"` before following this flow. See the [changelog](CHANGELOG.md) for upgrade notes.
 
 Maida detects Claude Code, previews the passive hooks and local setup, and asks for one approval. Existing settings and other hooks are preserved. Start plain `claude` in this repository, run one bounded task such as finding its test command, then exit the session and run:
 
@@ -57,7 +57,7 @@ Setup uses local Claude settings and preserves shared team configuration and exi
 
 The setup target is under five minutes for one bounded task; it is not a measured activation claim. Review a small baseline and policy when the first report is useful; deliberate failure, repair and CI come later. Unsupported or ambiguous environments are explained before configuration changes.
 
-For an offline rehearsal with the currently shipped release, use `uv tool install "maida-ai==0.6.0"`, then `maida demo --regression`: expect a FAIL verdict and PR-comment preview on canned data. No clone or API keys are needed. The demo exits `0` after showing the failing gate; an actual failed check exits `1`.
+For an offline rehearsal, run `maida demo --regression`: expect a FAIL verdict and PR-comment preview on canned data. No clone or API keys are needed. The demo exits `0` after showing the failing gate; an actual failed check exits `1`.
 
 Building a Python tool-calling agent? Use the secondary [Python walkthrough](docs/python-agent.md), including installation into the project environment.
 
