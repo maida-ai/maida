@@ -80,6 +80,6 @@ jobs:
           cp "$ATTESTATION_BUNDLE" "$RUNNER_TEMP/release/provenance.jsonl"
           cd "$RUNNER_TEMP/release"
           sha256sum --check SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+          gh release create "Maida $GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             "${release_flags[@]}" \
             maida.tar.gz SHA256SUMS provenance.jsonl
