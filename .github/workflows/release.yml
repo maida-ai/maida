@@ -44,6 +44,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Build release archive and checksums
         id: archive
         shell: bash
@@ -72,14 +73,32 @@ jobs:
         run: |
           # Keep both stable and prerelease tags editable until manual publication.
           release_flags=(--draft --verify-tag --generate-notes --latest=false)
+
           case "$IS_PRERELEASE" in
             true) release_flags+=(--prerelease) ;;
             false) ;;
             *) echo '::error::Missing or invalid release classification.' >&2; exit 2 ;;
           esac
+
+          notes_flags=(--generate-notes)
+          if [[ "$(git cat-file -t "$GITHUB_REF_NAME")" == "tag" ]]; then
+            tag_notes="$(
+              git for-each-ref "refs/tags/$GITHUB_REF_NAME" \
+                --format='%(contents:subject)%0a%0a%(contents:body)'
+            )"
+            if [[ -n "${tag_notes//[[:space:]]/}" ]]; then
+              notes_flags+=(--notes "${tag_notes}"$'\n\n---\n\n')
+            fi
+          fi
+
           cp "$ATTESTATION_BUNDLE" "$RUNNER_TEMP/release/provenance.jsonl"
           cd "$RUNNER_TEMP/release"
           sha256sum --check SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+
+          gh release create \
+            "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
             "${release_flags[@]}" \
+            "${notes_flags[@]}" \
+            --title "Maida $GITHUB_REF_NAME" \
             maida.tar.gz SHA256SUMS provenance.jsonl
