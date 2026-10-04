@@ -1,92 +1,89 @@
 # Maida documentation
 
-> **This directory is the single source of truth for Maida's documentation.**
-> The published version lives at **[maida.ai/docs](https://maida.ai/docs/)**,
-> which builds these files at the pinned engine release. Edit them here, in the
-> same pull request as the behavior they describe -- never in the website repo.
->
-> This page is the only exception: `maida-ai.github.io` keeps its own docs
-> landing page, because that one is presentation rather than content.
+**Check an agent change before merge.** A coding agent can return a plausible answer while looping, skipping verification, or rewriting a test to hide a bug. Output tests and evals may pass; Maida also checks the agent's execution behavior.
 
-**Maida** is the pre-merge behavioral regression gate for AI agents. It captures
-structured traces (LLM calls, tool calls, state, errors), turns known-good
-behavior into checked-in baselines, and blocks changes when policy says
-structural behavior regressed.
+## Try Maida
 
-**What it is:** a local-first SDK and CLI for collecting behavioral evidence,
-comparing runs, and failing CI checks when agent behavior drifts beyond accepted
-thresholds.
-
-**What it is not:** a hosted telemetry product, a generic output eval platform,
-or a framework lock-in layer. The local viewer helps inspect evidence, but the
-core product is behavioral regression gating.
-
----
-
-## In 60 seconds
+Use Python 3.12–3.14 and your own Git repository with Claude Code:
 
 ```bash
 uv tool install "maida-ai==0.6.1"
-maida demo --regression
+
+cd my-repo
+maida init
+
+# Run one normal Claude Code task and exit the session.
+
+maida check
+# Follow the printed:
+maida view <TRACE_ID>
 ```
 
-This installs v0.6.1 on Python 3.12–3.14. Expect a FAIL verdict and a PR-comment preview: the simulated regression is intentional. The demo command exits `0` when the rehearsal completes; an actual failed gate exits `1`. Runs are stored locally under `~/.maida/runs/<trace_id>/`; this offline demo sends nothing over the network. See the [changelog](../CHANGELOG.md) for upgrade notes.
+Approve the setup preview and start a new agent session. **Success looks like `3 active checks passed`**, your task's trace ID, and its viewer command. No tutorial clone or agent-code changes are needed. **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida; your agent's normal provider use is separate. If Maida is in the project's uv environment, prefix its commands with `uv run`.
 
----
+[Follow the first-task walkthrough](getting-started.md). For secondary proof, the [storefront demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/pr-gate) shows **green application tests approving $15 VIP shipping while Maida fails the agent change**. The deterministic rehearsal uses released Maida v0.6.1. For a smaller canned report without a clone, run `maida demo --regression`.
 
-## Start here
+## Check an agent change
 
-| Page | What it covers |
-|---|---|
-| [Getting started](getting-started.md) | Install, first trace, first baseline, redaction |
-| [Regression testing](regression-testing.md) | The end-to-end baseline -> policy -> gate workflow |
-| [Guides index](guides/index.md) | All task-oriented walkthroughs |
+Instructions, skills, tools, model configuration, harness code, and application code can all change agent behavior. Maida gates the resulting change whether a human or the agent authored it.
 
-## Guides
+- [Check a normal task](getting-started.md): `init → task → check → view`, then compare the next change.
+- [What the first check covers](cli/check.md): completion, recorded loops, and guardrail events; it does not test answer correctness or compare a baseline.
+- [Repeat a coding-agent scenario](cli/scenario-run.md): controlled task execution for comparisons.
+- [Regression testing](regression-testing.md): reviewed requirements and comparative verdicts.
 
-| Page | What it covers |
-|---|---|
-| [Regression testing](regression-testing.md) | Policy-v2 baseline sampling and the candidate gate |
-| [Guardrails](guardrails.md) | Stop runaway runs with loop, count, and duration limits |
-| [Viewer](viewer.md) | Timeline UI usage, URL params, live refresh |
-| [Capture Claude Code](claude-code.md) | OTLP capture, import, and pinned scenarios |
-| [Scheduled checks](scheduled-checks.md) | Batch verdicts over completed trace windows |
-| [Gate draft extraction](extraction.md) | Derive policy and baseline drafts for human review |
+## Investigate a regression
 
-## Integrations
+**Open `maida view <TRACE_ID>` from the report**, inspect what the agent did, and repair an unintended change before repeating the task.
 
-| Page | What it covers |
-|---|---|
-| [Overview](integrations.md) | How adapters work and what they guarantee |
-| [LangChain / LangGraph](integrations/langchain-langgraph.md) | Callback handler |
-| [OpenAI Agents SDK](integrations/openai-agents.md) | Tracing adapter |
-| [CrewAI](integrations/crewai.md) | Unsupported after v0.5.3 (adapter retained) |
-| [Langfuse import](langfuse.md) | Import completed Langfuse traces and gate them |
+- [Viewer](viewer.md): the local execution timeline.
+- [Diff](cli/diff.md): what changed against the baseline.
+- [Capture recovery](claude-code.md): missing or incomplete evidence.
+- [Debug-gate skill](https://github.com/maida-ai/skills/tree/main/product/maida-debug-gate): guided report investigation.
+
+## Protect the next agent change
+
+Review the behavior you observed, keep a baseline and policy, then reproduce a safe failure and repair. Observed checks need human acceptance; one successful task does not guarantee future behavior.
+
+- [Review and keep your first requirements](getting-started.md#protect-the-next-agent-change).
+- [Reviewed setup](cli/init.md#keep-a-reviewed-contract-later) and [intentional baseline acceptance](cli/accept.md).
+- [Gate draft extraction](extraction.md): derive candidates for human review.
+- [Guardrails](guardrails.md): stop runaway runs during development.
+- [Scheduled checks](scheduled-checks.md): compare completed run windows.
+
+## Add the PR gate
+
+After the local comparison works, [add the Action and repository protection](https://github.com/maida-ai/maida-assert#add-the-merge-boundary). Keep ordinary correctness tests and security review. Required checks must reflect the current PR head; insufficient evidence is not approval.
+
+- [Gate skill](https://github.com/maida-ai/skills/tree/main/product/maida-add-regression-gate): prepare a repeatable task and reviewable CI setup.
+- [Python workflow generation](cli/init.md#add-a-python-gate-to-github): for an existing traced entrypoint.
+- [Action acceptance](https://github.com/maida-ai/maida-assert/blob/main/docs/acceptance.md): review an intentional change, then require fresh results.
+
+## Integrate another agent/framework
+
+- [Integration overview](integrations.md): supported capture options and their coverage.
+- [Claude Code](claude-code.md): automatic setup, recovery, and richer capture.
+- [Python agent walkthrough](python-agent.md): install in the project environment and connect an entrypoint.
+- [LangChain / LangGraph](integrations/langchain-langgraph.md) and [OpenAI Agents SDK](integrations/openai-agents.md): optional adapters.
+- [CrewAI compatibility](integrations/crewai.md): retained adapter and unsupported installation path.
+- [Langfuse import](langfuse.md): read existing runs into local Maida checks.
+- [External emitter guide](reference/trace-emitter.md): write native evidence without an SDK.
+- [Tutorials and examples](https://github.com/maida-ai/maida-tutorials): optional runnable practice; [all guides](guides/index.md).
 
 ## Reference
 
-| Page | What it covers |
+| Reference | Use it when you need |
 |---|---|
-| [CLI](cli.md) | Every command, option, output shape, and exit code |
-| [SDK](sdk.md) | `@trace`, `traced_run`, and the event recorders |
-| [Policy](reference/policy.md) | `.maida/policy.yaml` format and policy v2 semantics |
-| [Trace format](reference/trace-format.md) | The versioned public data contract |
-| [External emitter guide](reference/trace-emitter.md) | Emit native traces without an SDK |
-| [Configuration](reference/config.md) | Env vars, YAML precedence, redaction, truncation |
-| [Architecture](architecture.md) | Span schema, storage, viewer API, loop detection |
+| [CLI](cli.md) | Commands, options, output, run selection, and exit codes |
+| [SDK](sdk.md) | Python decorators, contexts, and recorders |
+| [Policy](reference/policy.md) | Requirements, metric kinds, and statistical semantics |
+| [Trace format](reference/trace-format.md) | The versioned data contract and storage layout |
+| [Configuration](reference/config.md) | Storage settings, redaction, and truncation |
+| [Architecture](architecture.md) | Capture, schema, comparison, and viewer internals |
+| [Privacy and optional usage counts](usage-ping.md) | Explicit consent and configured destinations |
 
----
+## Documentation maintenance
 
-## Demos and examples
+This directory owns the documentation content published at [maida.ai/docs](https://maida.ai/docs/) from a pinned engine release. Edit content here with the behavior it describes. The website repository maintains its own presentation landing page.
 
-[Start with one coding-agent task](getting-started.md), or follow the secondary [Python walkthrough](python-agent.md). Runnable examples, notebooks, and demo applications share one home in [maida-tutorials](https://github.com/maida-ai/maida-tutorials). Start with its guided task and open the reference pages only when needed.
-
----
-
-## Engine-only pages
-
-These are not published to maida.ai -- they are working documents for this
-repository:
-
-- [Calibration table (issue #187)](calibration-187.md) -- a seeded offline
-  measurement used to pick policy thresholds.
+[Calibration table](calibration-187.md) is an engine-only working document and is not published to the website.
