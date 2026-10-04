@@ -67,7 +67,8 @@ The local server (FastAPI) exposes:
 | `GET /api/runs/{trace_id}/rename` | Validate that a run can be renamed. |
 | `POST /api/runs/{trace_id}/rename` | Rename a run (body: `{"run_name": "..."}`, updates `meta.json`). |
 | `DELETE /api/runs/{trace_id}` | Delete a run directory and its contents (returns 204). |
-| `GET /` | Static UI (`maida/ui_static/index.html`). |
+| `GET /` | Static UI shell (`maida/ui_static/index.html`). |
+| `GET /static/*` | Viewer assets from `maida/ui_static/` (`StaticFiles`). |
 
 Default bind: `127.0.0.1:8712`. The UI fetches runs and span data from these endpoints and renders a timeline.
 
@@ -75,7 +76,7 @@ Default bind: `127.0.0.1:8712`. The UI fetches runs and span data from these end
 
 ## UI overview
 
-- **Multi-file static UI** (HTML, JS, CSS); no build step. Served from `maida/ui_static/`.
+- **Multi-file static UI** (HTML, JS, CSS); no build step. Shell at `/`; assets under `/static/` from `maida/ui_static/`. Theme tokens come from `/static/brand-tokens.css` (`--maida-*`).
 - Loads run list from `/api/runs`; when a run is selected (or `run_id` / `run` in query), loads `/api/runs/{trace_id}/spans`.
 - **Flat timeline:** the UI renders the compatibility `events` projection in chronological order. Each event can be expanded with payload/meta shown as formatted JSON.
 - **Span data available:** the `/spans` response also includes raw OTel span records for consumers that need trace/span hierarchy.

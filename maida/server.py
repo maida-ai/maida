@@ -3,13 +3,14 @@ Minimal FastAPI server for the local viewer.
 
 Serves trace (run) metadata and spans via OTel-based storage.
 GET /api/runs, GET /api/runs/{trace_id}, GET /api/runs/{trace_id}/spans,
-and GET / with static index.html.
+and GET / with static index.html. UI assets are served from /static/.
 """
 
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import maida.storage as storage
@@ -19,6 +20,7 @@ from maida.events import spans_to_events
 
 UI_STATIC_DIR = Path(__file__).resolve().parent / "ui_static"
 UI_INDEX_PATH = UI_STATIC_DIR / "index.html"
+UI_BRAND_TOKENS_PATH = UI_STATIC_DIR / "brand-tokens.css"
 UI_STYLES_PATH = UI_STATIC_DIR / "styles.css"
 UI_APP_JS_PATH = UI_STATIC_DIR / "app.js"
 FAVICON_PATH = UI_STATIC_DIR / "favicon.svg"
@@ -136,28 +138,6 @@ def create_app(config: MaidaConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="run not found")
         return Response(status_code=204)
 
-    @app.get("/favicon.svg")
-    def serve_favicon() -> FileResponse:
-        if not FAVICON_PATH.is_file():
-            raise HTTPException(status_code=404, detail="favicon not found")
-        return FileResponse(FAVICON_PATH, media_type="image/svg+xml")
-
-    @app.get("/styles.css")
-    def serve_styles() -> Response:
-        if not UI_STYLES_PATH.is_file():
-            raise HTTPException(status_code=404, detail="styles not found")
-        response = FileResponse(UI_STYLES_PATH, media_type="text/css")
-        response.headers["Cache-Control"] = "no-cache"
-        return response
-
-    @app.get("/app.js")
-    def serve_app_js() -> Response:
-        if not UI_APP_JS_PATH.is_file():
-            raise HTTPException(status_code=404, detail="app.js not found")
-        response = FileResponse(UI_APP_JS_PATH, media_type="application/javascript")
-        response.headers["Cache-Control"] = "no-store"
-        return response
-
     @app.get("/")
     def serve_ui() -> Response:
         if not UI_INDEX_PATH.is_file():
@@ -165,8 +145,9 @@ def create_app(config: MaidaConfig | None = None) -> FastAPI:
                 status_code=404,
                 detail="UI not found: maida/ui_static/index.html is missing",
             )
-        response = FileResponse(UI_INDEX_PATH, media_type="text/html")
-        response.headers["Cache-Control"] = "no-cache"
-        return response
+        return FileResponse(UI_INDEX_PATH, media_type="text/html")
+
+    # After API routes: directory-scoped static assets (path-safe; no per-file routes).
+    app.mount("/static", StaticFiles(directory=UI_STATIC_DIR), name="ui")
 
     return app

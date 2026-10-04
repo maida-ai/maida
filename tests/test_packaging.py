@@ -54,6 +54,7 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
     assert "maida/extract.py" in names
     assert "maida/server.py" in names
     assert "maida/ui_static/index.html" in names
+    assert "maida/ui_static/brand-tokens.css" in names
     assert "maida = maida.cli:main" in entry_points
     # Test the release path: uv builds the wheel from the source distribution.
     # Every published schema must survive both steps, including nested $refs.

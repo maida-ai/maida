@@ -1,0 +1,154 @@
+/*
+ * Maida Brand Kit v2
+ *
+ * Copied from Branding/spec/brand-tokens.css for the local viewer.
+ * Keep in sync with that source when the brand kit changes.
+ *
+ * Authoritative color tokens.
+ *
+ * Rules:
+ *   1. The four canonical palette colors never change with theme.
+ *   2. Components consume semantic tokens, not palette colors directly.
+ *   3. Explicit [data-maida-theme] overrides the OS preference.
+ *   4. Without an explicit theme, prefers-color-scheme is authoritative.
+ *   5. High-contrast / forced-colors mode takes precedence over branding.
+ *
+ * Canonical sRGB palette:
+ *   Paper  #F2F1EB
+ *   Ink    #171A17
+ *   Mint   #78D6A2
+ *   Coral  #ED7958
+ */
+
+
+/* --------------------------------------------------------------------------
+ * 1. Canonical palette
+ * -------------------------------------------------------------------------- */
+
+ :root {
+  --maida-paper: #F2F1EB;
+  --maida-ink:   #171A17;
+  --maida-mint:  #78D6A2;
+  --maida-coral: #ED7958;
+
+
+  /* ------------------------------------------------------------------------
+   * 2. Theme-independent identity tokens
+   * ------------------------------------------------------------------------ */
+
+  --maida-logo-dot: var(--maida-coral);
+
+  /*
+   * Both accent colors require ink for small/body text.
+   * Coral and mint are not small-text colors on paper.
+   */
+  --maida-text-on-paper: var(--maida-ink);
+  --maida-text-on-ink:   var(--maida-paper);
+  --maida-text-on-mint:  var(--maida-ink);
+  --maida-text-on-coral: var(--maida-ink);
+
+  /*
+   * Precomputed 16% rules.
+   *
+   * These intentionally avoid color-mix() so the authoritative tokens remain
+   * usable in older browsers, SVG renderers, conversion tools, and other
+   * production targets.
+   *
+   * Ink 16% over Paper   -> #CFCFC9
+   * Paper 16% over Ink   -> #3A3C39
+   */
+  --maida-rule-on-paper: #CFCFC9;  /* --maida-rule-on-paper: color-mix(in srgb, var(--maida-ink) 16%, var(--maida-paper)); */
+  --maida-rule-on-ink:   #3A3C39;  /* --maida-rule-on-ink: color-mix(in srgb, var(--maida-paper) 16%, var(--maida-ink)); */
+
+
+  /* ------------------------------------------------------------------------
+   * 3. Default semantic theme: light
+   * ------------------------------------------------------------------------ */
+
+  color-scheme: light;
+
+  --maida-bg:           var(--maida-paper);
+  --maida-surface:      var(--maida-paper);
+  --maida-text:         var(--maida-ink);
+  --maida-rule:         var(--maida-rule-on-paper);
+  --maida-icon:         var(--maida-ink);
+  --maida-logo-bracket: var(--maida-ink);
+}
+
+
+/* --------------------------------------------------------------------------
+ * 4. OS-selected dark theme
+ *
+ * Applied only when the application has NOT explicitly selected a theme.
+ * -------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-maida-theme]) {
+    color-scheme: dark;
+
+    --maida-bg:           var(--maida-ink);
+    --maida-surface:      var(--maida-ink);
+    --maida-text:         var(--maida-paper);
+    --maida-rule:         var(--maida-rule-on-ink);
+    --maida-icon:         var(--maida-paper);
+    --maida-logo-bracket: var(--maida-paper);
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+ * 5. Explicit themes
+ *
+ * These override prefers-color-scheme.
+ *
+ * They may be placed on <html> for the whole application or on a subtree
+ * when a particular surface intentionally uses the opposite theme.
+ * -------------------------------------------------------------------------- */
+
+[data-maida-theme="light"] {
+  color-scheme: light;
+
+  --maida-bg:           var(--maida-paper);
+  --maida-surface:      var(--maida-paper);
+  --maida-text:         var(--maida-ink);
+  --maida-rule:         var(--maida-rule-on-paper);
+  --maida-icon:         var(--maida-ink);
+  --maida-logo-bracket: var(--maida-ink);
+}
+
+[data-maida-theme="dark"] {
+  color-scheme: dark;
+
+  --maida-bg:           var(--maida-ink);
+  --maida-surface:      var(--maida-ink);
+  --maida-text:         var(--maida-paper);
+  --maida-rule:         var(--maida-rule-on-ink);
+  --maida-icon:         var(--maida-paper);
+  --maida-logo-bracket: var(--maida-paper);
+}
+
+
+/* --------------------------------------------------------------------------
+ * 6. Accessibility / forced-colors
+ *
+ * In high-contrast environments, legibility and the user's system palette
+ * take precedence over exact brand rendering.
+ *
+ * Canonical --maida-* palette tokens above remain unchanged. Only semantic
+ * rendering tokens are remapped.
+ * -------------------------------------------------------------------------- */
+
+@media (forced-colors: active) {
+  :root,
+  :root:not([data-maida-theme]),
+  [data-maida-theme="light"],
+  [data-maida-theme="dark"] {
+    --maida-bg:           Canvas;
+    --maida-surface:      Canvas;
+    --maida-text:         CanvasText;
+    --maida-rule:         CanvasText;
+    --maida-icon:         CanvasText;
+    --maida-logo-bracket: CanvasText;
+    --maida-logo-dot:     Highlight;
+  }
+}

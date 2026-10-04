@@ -62,14 +62,15 @@ These operations use `POST /api/runs/{trace_id}/rename` and `DELETE /api/runs/{t
 
 All viewer assets are under **`maida/ui_static/`**:
 
-| File         | Role |
-|--------------|------|
-| `index.html` | Single-page shell; loads `styles.css` and `app.js`. |
-| `app.js`     | Run list, timeline, polling, URL state, filters. |
-| `styles.css` | Layout, theme, run item and event styles, live-dot animation. |
-| `favicon.svg`| Tab icon. |
+| File               | Role |
+|--------------------|------|
+| `index.html`       | Single-page shell; loads brand tokens, `styles.css`, and `app.js`. |
+| `brand-tokens.css` | Canonical Maida palette and semantic theme tokens (`--maida-*`). |
+| `app.js`           | Run list, timeline, polling, URL state, filters. |
+| `styles.css`       | Layout and component styles mapped onto `--maida-*` semantic tokens. |
+| `favicon.svg`      | Tab icon (paper-backed brand mark). |
 
-The server (see [Architecture](architecture.md)) serves these at `/`, `/styles.css`, `/app.js`, and `/favicon.svg` with `Cache-Control: no-cache` so edits are visible after refresh.
+The server (see [Architecture](architecture.md)) serves the shell at `/` and UI assets from `/static/` via Starlette `StaticFiles` (for example `/static/styles.css`, `/static/app.js`). Theme follows `prefers-color-scheme` unless `data-maida-theme="light"` or `"dark"` is set on a root element.
 
 ### Key behavior (app.js)
 
