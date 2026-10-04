@@ -4,12 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Maida</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/brand-tokens.css" />
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
   <header class="page-header">
-    <h1>Maida</h1>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 144 128" aria-hidden="true" focusable="false">
+        <g transform="translate(16 16)">
+          <path class="logo-bracket" d="M0 0H36V16H16V80H36V96H0Z" />
+          <circle class="logo-dot" cx="56" cy="48" r="20" />
+          <path class="logo-bracket" d="M112 0H76V16H96V80H76V96H112Z" />
+        </g>
+      </svg>
+      <h1>Maida</h1>
+    </div>
     <div class="header-actions">
       <button type="button" id="btn-copy-link" class="btn-header" title="Copy link to this run" aria-label="Copy link to this run" disabled>Copy link</button>
       <button type="button" id="btn-copy-run-id" class="btn-header" title="Copy run ID" aria-label="Copy run ID" disabled>Copy run ID</button>
@@ -47,6 +57,6 @@
     </main>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/static/app.js"></script>
 </body>
 </html>

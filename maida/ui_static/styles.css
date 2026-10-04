@@ -1,23 +1,27 @@
-/* Brand tokens, mirroring maida.ai and the documentation theme. Keep these in
-   sync with tailwind.config.js in maida-ai.github.io -- the viewer is a product
-   surface and should not look like a different product. */
+/* Viewer UI tokens map onto Branding/spec semantic nodes (brand-tokens.css).
+   Components use the local aliases below; those aliases resolve to --maida-*.
+   Do not hard-code brand hex values here -- change brand-tokens.css instead. */
 :root {
-  --bg: #0f1110;
-  --surface: #161916;
-  --border: #292d2a;
-  --border-light: #3b403c;
-  --text: #f3f2ed;
-  --muted: #aeb3ad;
-  --accent: #78d6a2;
-  --ok-bg: rgba(120, 214, 162, 0.14);
-  --ok-border: #5fc48c;
-  --ok-text: #b9e8cd;
-  --warning-bg: #32271d;
-  --warning-border: #e8a35f;
-  --warning-text: #f0c48f;
-  --error-bg: #35231e;
-  --error-border: #ed7958;
-  --error-text: #f6cfc2;
+  --bg: var(--maida-bg);
+  --surface: var(--maida-surface);
+  --border: var(--maida-rule);
+  --text: var(--maida-text);
+  --muted: color-mix(in srgb, var(--maida-text) 62%, var(--maida-bg));
+  --accent: var(--maida-mint);
+  --icon: var(--maida-icon);
+  --hover: color-mix(in srgb, var(--maida-text) 8%, var(--maida-bg));
+  --accent-soft: color-mix(in srgb, var(--maida-mint) 18%, var(--maida-bg));
+
+  /* Status accents are derived from the canonical mint/coral palette only. */
+  --ok-bg: color-mix(in srgb, var(--maida-mint) 18%, var(--maida-bg));
+  --ok-border: var(--maida-mint);
+  --ok-text: var(--maida-text);
+  --warning-bg: color-mix(in srgb, var(--maida-coral) 12%, var(--maida-bg));
+  --warning-border: color-mix(in srgb, var(--maida-coral) 70%, var(--maida-ink));
+  --warning-text: var(--maida-text);
+  --error-bg: color-mix(in srgb, var(--maida-coral) 18%, var(--maida-bg));
+  --error-border: var(--maida-coral);
+  --error-text: var(--maida-text);
 }
 * { box-sizing: border-box; }
 html {
@@ -46,7 +50,22 @@ body {
   flex-wrap: wrap;
   flex-shrink: 0;
 }
-.page-header h1 { font-size: 1.25rem; margin: 0; color: var(--accent); }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text);
+}
+.brand-mark {
+  display: block;
+  width: 1.5rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+  color: var(--maida-icon);
+}
+.brand-mark .logo-bracket { fill: var(--maida-logo-bracket); }
+.brand-mark .logo-dot { fill: var(--maida-logo-dot); }
+.page-header h1 { font-size: 1.25rem; margin: 0; color: var(--text); }
 .header-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 .btn-header {
   font-size: 0.8rem;
@@ -58,7 +77,7 @@ body {
   cursor: pointer;
   font-family: inherit;
 }
-.btn-header:hover:not(:disabled) { background: var(--border); }
+.btn-header:hover:not(:disabled) { background: var(--hover); }
 .btn-header:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-header-danger {
   border-color: var(--error-border);
@@ -67,7 +86,7 @@ body {
 .btn-header-danger:hover:not(:disabled) {
   background: var(--error-bg);
 }
-h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
+h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--text); }
 .layout {
   display: flex;
   gap: 1rem;
@@ -98,8 +117,8 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   cursor: pointer;
   border: 1px solid transparent;
 }
-.run-item:hover { background: var(--border); }
-.run-item.selected { background: var(--border); border-color: var(--accent); }
+.run-item:hover { background: var(--hover); }
+.run-item.selected { background: var(--hover); border-color: var(--accent); }
 .run-item .run-name { font-weight: 600; }
 .run-item .run-meta { font-size: 0.75rem; color: var(--muted); }
 /* Status pill: same tokens as timeline .event / .event.loop-warning / .event.error */
@@ -125,7 +144,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   color: var(--text);
 }
 .run-item .run-meta .run-item-status.running {
-  background: rgba(77, 171, 247, 0.2);
+  background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -176,12 +195,12 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
 .summary-status-strip .status-badge.ok { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok-text); }
 .summary-status-strip .status-badge.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); }
 .summary-status-strip .status-badge.error { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
-.summary-status-strip .status-badge.running { background: rgba(77, 171, 247, 0.2); border: 1px solid var(--accent); color: var(--accent); }
+.summary-status-strip .status-badge.running { background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent); }
 .summary-status-strip .run-name { font-weight: 600; font-size: 1rem; }
 .summary-status-strip .run-meta { font-size: 0.8rem; color: var(--muted); }
 .summary-status-strip .run-id-wrap { display: inline-flex; align-items: center; gap: 0.25rem; }
 .summary-status-strip .run-id-wrap .btn-copy-id { font-size: 0.7rem; padding: 0.15rem 0.35rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-family: inherit; }
-.summary-status-strip .btn-copy-id:hover { background: var(--border); }
+.summary-status-strip .btn-copy-id:hover { background: var(--hover); }
 .summary-kpis {
   display: flex;
   flex-wrap: wrap;
@@ -217,7 +236,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
 }
 .summary-callouts .callout.error { border-color: var(--error-border); background: var(--error-bg); }
 .summary-callouts .callout:hover { opacity: 0.9; }
-.summary-callouts .callout-refresh { border-color: var(--accent); background: rgba(77, 171, 247, 0.15); }
+.summary-callouts .callout-refresh { border-color: var(--accent); background: var(--accent-soft); }
 .summary-filters {
   display: flex;
   flex-wrap: wrap;
@@ -234,8 +253,8 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   cursor: pointer;
   font-family: inherit;
 }
-.summary-filters .filter-chip:hover { background: var(--border); }
-.summary-filters .filter-chip.active { border-color: var(--accent); background: rgba(77, 171, 247, 0.15); }
+.summary-filters .filter-chip:hover { background: var(--hover); }
+.summary-filters .filter-chip.active { border-color: var(--accent); background: var(--accent-soft); }
 .event.highlight { animation: highlight-flash 2s ease-out; }
 @keyframes highlight-flash {
   0% { box-shadow: 0 0 0 2px var(--accent); }
@@ -260,8 +279,8 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   color: var(--text);
   cursor: pointer;
 }
-.filter-chip:hover { background: var(--border); }
-.filter-chip.active { border-color: var(--accent); background: rgba(77, 171, 247, 0.15); }
+.filter-chip:hover { background: var(--hover); }
+.filter-chip.active { border-color: var(--accent); background: var(--accent-soft); }
 .timeline {
   flex: 1;
   min-height: 0;
@@ -289,7 +308,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   align-items: center;
   gap: 0.5rem;
 }
-.event-summary:hover { background: rgba(255,255,255,0.04); }
+.event-summary:hover { background: var(--hover); }
 .event-summary .toggle { color: var(--muted); font-size: 0.7rem; }
 .event-summary .type { font-weight: 600; min-width: 6rem; }
 .event-summary .name { color: var(--muted); flex: 0 1 auto; min-width: 0; }
@@ -349,7 +368,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--surface);
-  color: var(--muted);
+  color: var(--icon);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
@@ -357,7 +376,7 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem 0; color: var(--accent); }
   align-items: center;
   justify-content: center;
 }
-.btn-refresh:hover { background: var(--border); color: var(--text); }
+.btn-refresh:hover { background: var(--hover); color: var(--text); }
 .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 .run-not-found-banner {
   background: var(--warning-bg);

@@ -12,7 +12,13 @@ from fastapi.testclient import TestClient
 from maida import storage
 from maida.config import load_config
 from maida.demo import run_good_agent
-from maida.server import UI_APP_JS_PATH, UI_STYLES_PATH, create_app
+from maida.server import (
+    UI_APP_JS_PATH,
+    UI_BRAND_TOKENS_PATH,
+    UI_INDEX_PATH,
+    UI_STYLES_PATH,
+    create_app,
+)
 
 
 def _write_run(config, trace_id, run_name="test"):
@@ -228,6 +234,58 @@ def test_viewer_assets_highlight_and_filter_all_failed_events(temp_data_dir):
     assert "currentFilter === 'ERROR' ? isFailedEvent(ev)" in javascript
     assert "event-status error" in javascript
     assert ".event-summary .event-status.error" in styles
+
+
+def test_viewer_uses_brand_semantic_tokens(temp_data_dir):
+    """Viewer CSS must consume Branding/spec semantic tokens, not a private palette."""
+    index = UI_INDEX_PATH.read_text(encoding="utf-8")
+    styles = UI_STYLES_PATH.read_text(encoding="utf-8")
+    tokens = UI_BRAND_TOKENS_PATH.read_text(encoding="utf-8")
+
+    brand_link = '<link rel="stylesheet" href="/static/brand-tokens.css" />'
+    styles_link = '<link rel="stylesheet" href="/static/styles.css" />'
+    assert brand_link in index
+    assert styles_link in index
+    assert index.index(brand_link) < index.index(styles_link)
+    assert 'src="/static/app.js"' in index
+    assert 'href="/static/favicon.svg"' in index
+
+    assert "--maida-bg:" in tokens
+    assert "--maida-surface:" in tokens
+    assert "--maida-text:" in tokens
+    assert "--maida-rule:" in tokens
+    assert "--maida-icon:" in tokens
+
+    assert "var(--maida-bg)" in styles
+    assert "var(--maida-surface)" in styles
+    assert "var(--maida-text)" in styles
+    assert "var(--maida-rule)" in styles
+    assert "var(--maida-mint)" in styles
+    assert "var(--maida-coral)" in styles
+    assert "var(--maida-logo-bracket)" in styles
+    assert "var(--maida-logo-dot)" in styles
+    assert "#0f1110" not in styles
+    assert "#161916" not in styles
+    assert "rgba(77, 171, 247" not in styles
+    assert 'class="brand-mark"' in index
+
+    client = TestClient(create_app())
+    response = client.get("/static/brand-tokens.css")
+    assert response.status_code == 200
+    assert "--maida-bg" in response.text
+    favicon = client.get("/static/favicon.svg")
+    assert favicon.status_code == 200
+    assert "#F2F1EB" in favicon.text
+    assert "#ED7958" in favicon.text
+    assert client.get("/brand-tokens.css").status_code == 404
+    assert client.get("/styles.css").status_code == 404
+
+
+def test_viewer_static_files_do_not_escape_ui_dir(temp_data_dir):
+    """StaticFiles must not serve paths outside maida/ui_static."""
+    client = TestClient(create_app())
+    response = client.get("/static/../server.py")
+    assert response.status_code in {404, 400}
 
 
 def test_server_rename_invalid_and_missing_run_id(temp_data_dir):
