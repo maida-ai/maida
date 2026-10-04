@@ -87,7 +87,7 @@ jobs:
                 --format='%(contents:subject)%0a%0a%(contents:body)'
             )"
             if [[ -n "${tag_notes//[[:space:]]/}" ]]; then
-              notes_flags+=(--notes "${tag_notes}"$'\n\n---\n\n')
+              notes_flags+=(--notes "${tag_notes}")
             fi
           fi
 
