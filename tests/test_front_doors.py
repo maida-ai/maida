@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import re
+import subprocess
 
 import pytest
 
@@ -19,10 +20,40 @@ def test_first_workflow_uses_released_setup_check_and_printed_view(relative):
     assert f'uv tool install "maida-ai=={RELEASE}"' in block
     assert text[: text.index("```bash")].count("\n") < 40
     assert "cd my-repo" in block
-    assert block.index("maida init") < block.index("maida check") < block.index("maida view <TRACE_ID>")
+    assert block.index("maida init") < block.index("maida check") < block.index('exact "View:" command')
     assert "Claude Code task" in block and "exit" in block
     assert "3 active checks passed" in text
-    assert text.index("maida view <TRACE_ID>") < text.index("## Protect the next agent change")
+    assert text.index("maida view 83aa19e3") < text.index("## Protect the next agent change")
+
+
+@pytest.mark.parametrize("relative", PAGES)
+def test_bash_examples_do_not_use_redirection_placeholders(relative):
+    text = (ROOT / relative).read_text()
+    for block in re.findall(r"```bash\n(.*?)```", text, re.S):
+        assert not re.search(r"<[A-Z][A-Z_]*>", block)
+
+
+def test_run_id_examples_reach_maida_as_arguments():
+    text = (ROOT / "docs/getting-started.md").read_text()
+    examples = [
+        block
+        for block in re.findall(r"```bash\n(.*?)```", text, re.S)
+        if "--from-run" in block or "--baseline" in block
+    ]
+    assert len(examples) == 2
+    for block in examples:
+        result = subprocess.run(
+            ["bash", "-eu", "-c", 'maida() { printf "%s\\n" "$@"; };\n' + block],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        arguments = result.stdout.splitlines()
+        if "--from-run" in block:
+            assert arguments == ["init", "--from-run", "paste-the-id-from-maida-check"]
+        else:
+            assert arguments[:3] == ["check", "assert", "paste-the-new-id-here"]
+            assert arguments[3:] == ["--baseline", ".maida/baselines/agent.json", "--policy", ".maida/policy.yaml"]
 
 
 @pytest.mark.parametrize("relative", PAGES)

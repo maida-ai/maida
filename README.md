@@ -27,21 +27,22 @@ maida init
 # Run one normal Claude Code task and exit the session.
 
 maida check
-# Follow the printed:
-maida view <TRACE_ID>
+# Then run the exact "View:" command printed by Maida.
 ```
 
 Approve init's setup preview, then start a **new** session with `claude`. Complete one normal task and exit normally. **Success looks like `3 active checks passed`**, your task's trace ID, and its viewer command. Open it to see the execution timeline. No agent-code changes or tutorial clone are needed.
 
+For example: `maida view 83aa19e3`. Use the command from your own report.
+
 **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida; your coding agent still uses its normal provider, permissions, and costs.
 
-If Maida is already installed in the project's uv environment, use `uv run maida init`, `uv run maida check`, and the printed `uv run maida view <TRACE_ID>`. Init connects that installation to the agent, so plain `claude` works afterward.
+If Maida is already installed in the project's uv environment, use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the agent, so plain `claude` works afterward.
 
 **[Get your first report →](https://maida.ai/docs/getting-started/)**
 
 ## Investigate a regression
 
-**Follow `maida view <TRACE_ID>` from the report.** See the tool calls and named failure, repair the cause, and repeat the task.
+**Run the exact `View:` command printed in the report.** See the tool calls and named failure, repair the cause, and repeat the task.
 
 <img src="docs/assets/viewer-regression.png" alt="The Maida timeline viewer showing a demo support agent with seven tool calls and search_kb repeated five times" width="840">
 

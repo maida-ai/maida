@@ -15,21 +15,22 @@ maida init
 # Run one normal Claude Code task and exit the session.
 
 maida check
-# Follow the printed:
-maida view <TRACE_ID>
+# Then run the exact "View:" command printed by Maida.
 ```
 
 Approve init's setup preview, then start a **new** Claude Code session with `claude`. Do one normal task and exit normally. For a small first task, ask: **“Find this repository's test command and cite the configuration file that defines it. Do not edit files or install dependencies.”** Check the answer against that file.
 
-**A successful report says `3 active checks passed`**, shows your task's trace ID, and prints the exact viewer command. Replace `<TRACE_ID>` with that printed ID to open the same task's timeline. You have a useful report without creating a baseline or policy, changing agent code, or cloning tutorials.
+**A successful report says `3 active checks passed`**, shows your task's trace ID, and prints the exact viewer command. Run that command to open the same task's timeline. You have a useful report without creating a baseline or policy, changing agent code, or cloning tutorials.
+
+For example: `maida view 83aa19e3`. Use the command from your own report.
 
 **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida. Your coding agent still uses its usual model provider, permissions, and costs.
 
-Already installed Maida in the project's uv environment? Use `uv run maida init`, `uv run maida check`, and the printed `uv run maida view <TRACE_ID>`. Init connects that installation to the agent; start plain `claude` afterward.
+Already installed Maida in the project's uv environment? Use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the agent; start plain `claude` afterward.
 
 ## Investigate a regression
 
-**Follow `maida view <TRACE_ID>` from the report.** Inspect the named failure and the sequence of tool calls. Fix its cause and repeat the task. Missing or unfinished capture gives recovery guidance instead of showing an older successful task.
+**Run the exact `View:` command printed in the report.** Inspect the named failure and the sequence of tool calls. Fix its cause and repeat the task. Missing or unfinished capture gives recovery guidance instead of showing an older successful task.
 
 The first `maida check` requires successful completion, no recorded loop warnings, and no recorded guardrail events. It does not yet compare the task with a known-good run or use an existing policy. It observes tool activity and session lifecycle; answer correctness and complete model-call, token, and latency coverage are outside this check. Keep your ordinary tests and evals.
 
@@ -40,7 +41,8 @@ The first `maida check` requires successful completion, no recorded loop warning
 Choose a successful task you understand. Keep its task text, starting commit, agent/model versions, and configuration with the review. Use the trace ID printed by `maida check`:
 
 ```bash
-maida init --from-run <TRACE_ID>
+TRACE_ID="paste-the-id-from-maida-check"
+maida init --from-run "$TRACE_ID"
 ```
 
 Review `.maida/starter/policy.yaml`. It proposes a few checks from the observed task: completion, no recorded loops, and no recorded guardrail events. Delete requirements the task does not need; keep at least one meaningful check. These are **candidates for your review**, not guarantees inferred from one task. The draft is inactive until you accept it:
@@ -54,7 +56,8 @@ This keeps a baseline (the reviewed observation), a policy (the requirements), a
 ```bash
 maida check
 # Use the new trace ID from this report:
-maida assert <CANDIDATE_TRACE_ID> --baseline .maida/baselines/agent.json --policy .maida/policy.yaml
+CANDIDATE_TRACE_ID="paste-the-new-id-here"
+maida assert "$CANDIDATE_TRACE_ID" --baseline .maida/baselines/agent.json --policy .maida/policy.yaml
 ```
 
 Read the verdict itself: **PASS** means the evidence met the selected checks; **FAIL** names a violation; **INCONCLUSIVE** means the evidence did not settle the claim. Exit `0` alone is not approval. Captured task IDs are explicit here because an assertion without an ID retains SDK/Python run selection.

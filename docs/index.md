@@ -15,11 +15,12 @@ maida init
 # Run one normal Claude Code task and exit the session.
 
 maida check
-# Follow the printed:
-maida view <TRACE_ID>
+# Then run the exact "View:" command printed by Maida.
 ```
 
 Approve the setup preview and start a new agent session. **Success looks like `3 active checks passed`**, your task's trace ID, and its viewer command. No tutorial clone or agent-code changes are needed. **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida; your agent's normal provider use is separate. If Maida is in the project's uv environment, prefix its commands with `uv run`.
+
+For example: `maida view 83aa19e3`. Use the command from your own report.
 
 [Follow the first-task walkthrough](getting-started.md). For secondary proof, the [storefront demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/pr-gate) shows **green application tests approving $15 VIP shipping while Maida fails the agent change**. The deterministic rehearsal uses released Maida v0.6.1. For a smaller canned report without a clone, run `maida demo --regression`.
 
@@ -34,7 +35,7 @@ Instructions, skills, tools, model configuration, harness code, and application 
 
 ## Investigate a regression
 
-**Open `maida view <TRACE_ID>` from the report**, inspect what the agent did, and repair an unintended change before repeating the task.
+**Run the exact `View:` command printed in the report**, inspect what the agent did, and repair an unintended change before repeating the task.
 
 - [Viewer](viewer.md): the local execution timeline.
 - [Diff](cli/diff.md): what changed against the baseline.
