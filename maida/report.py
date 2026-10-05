@@ -1,4 +1,8 @@
-"""Human and machine-readable assertion report formatting."""
+"""Human and machine-readable gate report formatting.
+
+Formats assertion results for the CLI and PR comment. Presentation only;
+evaluation lives in ``maida.assertions``.
+"""
 
 from __future__ import annotations
 

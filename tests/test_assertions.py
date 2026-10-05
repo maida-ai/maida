@@ -1,4 +1,4 @@
-"""Tests for maida.assertions: policy checks, exit codes, report formatting."""
+"""Tests for maida.assertions and maida.report: policy checks and report formatting."""
 
 import json
 from textwrap import dedent
@@ -11,15 +11,13 @@ from maida.assertions import (
     AssertionReport,
     AssertionResult,
     RegressionReasonCode,
-    format_report_json,
-    format_report_markdown,
-    format_report_text,
     run_assertions,
 )
 from maida._assertions.engine import _check_threshold
 from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.events import EventType
+from maida.report import format_report_json, format_report_markdown, format_report_text
 from tests.conftest import get_latest_run_id
 
 

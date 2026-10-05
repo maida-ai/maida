@@ -31,9 +31,6 @@ import maida.storage as storage
 from maida import __version__
 from maida.assertions import (
     AssertionPolicy,
-    format_report_json,
-    format_report_markdown,
-    format_report_text,
     run_assertions,
 )
 from maida.acceptance import AcceptanceSource, accept_baseline_update
@@ -65,6 +62,7 @@ from maida.demo import (
 from maida.diff import compute_diff, format_diff_text
 from maida.drift import DriftWindowError, run_drift
 from maida.evaluation import evaluate_stored_run_against_baseline
+from maida.report import format_report_json, format_report_markdown, format_report_text
 from maida.extract import ExtractionInputError, extract_window
 from maida.integrations.langfuse import (
     LangfuseImportError,

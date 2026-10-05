@@ -21,8 +21,6 @@ from maida.assertions import (
     AssertionPolicy,
     AssertionReport,
     AssertionResult,
-    markdown_baseline_provenance,
-    markdown_table_cell,
     run_assertions,
 )
 from maida.baseline import extract_run_metrics
@@ -37,6 +35,7 @@ from maida.gate import (
 )
 from maida.policy import merge_policy
 from maida.plan_contract import PlanEvidence
+from maida.report import markdown_baseline_provenance, markdown_table_cell
 from maida.statistics import GateVerdict, StatisticalResult, aggregate_verdict
 from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.storage import load_run_for_analysis
