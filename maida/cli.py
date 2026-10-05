@@ -51,7 +51,8 @@ from maida.capture.claude_hook import (
     parse_claude_hook_json,
 )
 from maida.config import MaidaConfig, load_config
-from maida.capture.providers import provider_enabled
+from maida.capture.providers import provider_enabled, runtime_enabled
+from maida.capture.codex_hook import DEFAULT_MAX_HOOK_BYTES, parse_codex_hook_json
 from maida.project_local import installation, onboarding_run
 from maida.first_run import detach_capture, initialize_capture, maida_command
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
@@ -460,6 +461,33 @@ def capture_claude_hook_cmd() -> None:
     except Exception as exc:
         typer.echo(f"error: {exc}", err=True)
         raise Exit(EXIT_INTERNAL)
+
+
+@capture_app.command("codex-hook")
+def capture_codex_hook_cmd() -> None:
+    """Record one local Codex-runtime hook delivery; never emit an agent decision."""
+    try:
+        stream = sys.stdin.buffer if hasattr(sys.stdin, "buffer") else sys.stdin
+        raw = stream.read(DEFAULT_MAX_HOOK_BYTES + 1)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or not isinstance(payload.get("cwd"), str) or not payload["cwd"]:
+            raise ValueError("cwd must identify the local session repository")
+        origin = Path(payload["cwd"])
+        if not origin.is_absolute():
+            raise ValueError("cwd must be an absolute path")
+        local = installation(origin)
+        # Already-open sessions cannot re-enable detached capture.
+        if local is None or not runtime_enabled(local[1], "codex"):
+            return
+        parse_codex_hook_json(raw, load_config(project_root=local[0], capture=True))
+    except (ValueError, UnicodeError) as exc:
+        typer.echo(f"Invalid Codex hook payload: {exc}", err=True)
+        raise Exit(EXIT_INTERNAL) from exc
+    except Exception as exc:
+        typer.echo("Codex hook capture failed. Preserve capture state and rerun maida init --agent codex.", err=True)
+        raise Exit(EXIT_INTERNAL) from exc
 
 
 @import_app.command("claude-code")

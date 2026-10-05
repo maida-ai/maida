@@ -73,7 +73,7 @@ def _receipts(config: MaidaConfig, runtimes: set[str], *, command: str) -> list[
     receipts = []
     directory = config.data_dir / "onboarding"
     for path in directory.glob("*.json"):
-        runtime = "claude-code"
+        runtime = "codex" if path.name.startswith("codex-") else "claude-code"
         if runtime not in runtimes:
             continue
         try:
