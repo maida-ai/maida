@@ -14,15 +14,7 @@
 
 Your coding agent returns a plausible answer and the tests pass, but it now loops, skips verification, or rewrites a test to hide a bug. **Maida checks an agent change before merge.** Output tests and evals may pass; Maida also checks how the agent worked.
 
-## Green tests can hide a broken agent change
-
-The task: simplify shipping without changing what customers pay. One instruction tells the coding agent to refresh test expectations.
-
-<img src="docs/assets/storefront-proof.png" alt="Without the agent change: VIP shipping $0, original test preserved, application tests pass, reviewed Maida check PASS. With the change: VIP shipping $15, test expectation rewritten, application tests pass, reviewed Maida check FAIL." width="840">
-
-**[Check a Claude Code task](#try-maida-in-your-repository)** · **[Try the offline example](https://github.com/maida-ai/maida-tutorials/tree/main/demos/pr-gate#try-the-offline-example)**
-
-The [canonical storefront teaching harness](https://github.com/maida-ai/maida-tutorials/tree/main/demos/pr-gate) changes the VIP test to approve **$15 instead of $0**. The reviewed Maida policy rejects `rewrite_regression_test`. It uses real file edits, four real application tests, and released Maida v0.6.1. It needs no capture setup or credentials and runs offline after installation. Its reviewed policy explicitly protects test rewriting; starter checks in your own repository need their own review.
+This is the core product repository: the engine, CLI, and public contracts. Start here, use [maida-tutorials](https://github.com/maida-ai/maida-tutorials) for the canonical runnable experience, and add [maida-assert](https://github.com/maida-ai/maida-assert) for the GitHub PR boundary.
 
 ## Try Maida in your repository
 
@@ -56,6 +48,8 @@ If Maida is already installed in the project's uv environment, use `uv run maida
 
 **Run the exact `View:` command printed in the report.** See the tool calls and named failure, repair the cause, and repeat the task.
 
+<img src="docs/assets/viewer-regression.png" alt="The Maida timeline viewer showing a demo support agent with seven tool calls and search_kb repeated five times" width="840">
+
 The first `maida check` checks successful completion, recorded loops, and guardrail events. It does not compare a baseline or use an existing policy. Capture observes tool activity and lifecycle, not answer correctness or complete model-call, token, or latency coverage. Missing or unfinished capture gives recovery guidance instead of showing an older task. Keep ordinary correctness tests alongside Maida.
 
 ## Protect the next agent change
@@ -65,6 +59,18 @@ The first `maida check` checks successful completion, recorded loops, and guardr
 Follow [Protect the next agent change](docs/getting-started.md#protect-the-next-agent-change) to review a small contract, reproduce a safe failure, and repair it without replacing the baseline. The starter requirements are candidates for human review; they do not automatically protect test execution or prevent test rewriting.
 
 Read the comparative verdict: **PASS**, **FAIL**, or **INCONCLUSIVE**. It applies to the observed evidence and selected requirements. Exit `0` includes INCONCLUSIVE, so process success alone is not approval.
+
+## See why green tests are not enough
+
+In the [canonical storefront demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/pr-gate), a coding agent simplifies shipping, then rewrites the VIP regression test to approve **$15 shipping instead of $0**. All four application tests pass. **Maida fails the agent change** for rewriting the protected test. The same project shows skipped verification and an agent weakening its own instructions.
+
+The deterministic rehearsal uses released Maida v0.6.1 and runs offline after installation. It is optional practice, not a prerequisite for your own repository. For a quick canned report without cloning anything:
+
+```bash
+maida demo --regression
+```
+
+Expect FAIL and a PR-comment preview. The rehearsal exits `0` when the expected failure is reproduced; an actual failed check exits `1`.
 
 ## Add the PR gate
 
@@ -86,8 +92,6 @@ Your coding-agent repository can use any language. Building a Python tool-callin
 Adapters are optional; the core works without a framework installed. See the [integration overview](docs/integrations.md) for coverage and setup.
 
 ## Documentation and reference
-
-This is the core product repository: the engine, CLI, and public contracts. Start here, use [maida-tutorials](https://github.com/maida-ai/maida-tutorials) for the canonical runnable experience, and add [maida-assert](https://github.com/maida-ai/maida-assert) for the GitHub PR boundary.
 
 Start at **[maida.ai/docs](https://maida.ai/docs/)** or the [local documentation index](docs/index.md).
 
