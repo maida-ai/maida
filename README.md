@@ -14,6 +14,8 @@
 
 Your coding agent returns a plausible answer and the tests pass, but it now loops, skips verification, or rewrites a test to hide a bug. **Maida checks an agent change before merge.** Output tests and evals may pass; Maida also checks how the agent worked.
 
+This is the core product repository: the engine, CLI, and public contracts. Start here, use [maida-tutorials](https://github.com/maida-ai/maida-tutorials) for the canonical runnable experience, and add [maida-assert](https://github.com/maida-ai/maida-assert) for the GitHub PR boundary.
+
 ## Try Maida in your repository
 
 Use Python 3.12–3.14 and a Git repository where you use Claude Code:
