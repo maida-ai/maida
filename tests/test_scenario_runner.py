@@ -17,11 +17,10 @@ from maida.scenario import (
     ScenarioInputError,
     ScenarioRunReport,
     ScenarioStatus,
-    _claude_receiver,
-    _run_claude_process,
     load_scenario_manifest,
     run_scenario_manifest,
 )
+from maida._scenario.executor import _claude_receiver, _run_claude_process
 
 
 def _git(project: Path, *args: str) -> None:
