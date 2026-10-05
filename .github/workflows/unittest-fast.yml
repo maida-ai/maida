@@ -73,4 +73,5 @@ jobs:
             --all-groups
           pytest
             --config-file=pytest.toml
-            -vm "not slow and not long and not longrunning"
+            -qm "not slow and not long and not longrunning"
+            --durations=25
