@@ -5,6 +5,7 @@ Commands: list, export, validate-trace, extract, view, baseline, accept, assert,
 Entrypoint: main() for console script maida.cli:main.
 """
 
+import codecs
 import getpass
 import json
 import logging
@@ -438,7 +439,12 @@ def capture_claude_hook_cmd() -> None:
                 typer.echo(diagnostic, err=True)
             return
         project_root = local[0] if local else None
-        parse_claude_hook_json(sys.stdin.read(), load_config(project_root=project_root, capture=True))
+        # Hook producers send UTF-8 JSON, regardless of Windows' pipe encoding.
+        try:
+            raw = sys.stdin.buffer.read().decode("utf-8") if hasattr(sys.stdin, "buffer") else sys.stdin.read()
+        except UnicodeDecodeError:
+            raise ClaudeHookInputError("hook payload must be UTF-8 JSON") from None
+        parse_claude_hook_json(raw, load_config(project_root=project_root, capture=True))
     except ClaudeHookInputError as exc:
         typer.echo(f"Invalid Claude hook payload: {exc}", err=True)
         # Claude assigns blocking semantics to hook exit code 2. This capture
@@ -1575,7 +1581,7 @@ def init_cmd(
         else:
             verify_active_starter()
         if github:
-            targets[WORKFLOW_RELPATH] = render_workflow(script, str(ACTIVE_BASELINE))
+            targets[WORKFLOW_RELPATH] = render_workflow(script, ACTIVE_BASELINE.as_posix())
         # Preflight active files together; an invalid workflow never partly activates a policy.
         if review_record is not None:
             targets[STARTER_REVIEW] = json.dumps(review_record, ensure_ascii=False, indent=2) + "\n"
@@ -1829,6 +1835,20 @@ def diff_cmd(
 
 def main() -> None:
     """CLI entrypoint (console script maida.cli:main)."""
+
+    # Preserve the caller's encoding, including redirected Windows streams,
+    # while keeping report symbols from turning a verdict into an I/O failure.
+    def escape_output(error):
+        if not isinstance(error, UnicodeEncodeError):
+            raise error
+        # JSON uses surrogate pairs for non-BMP characters; backslashreplace
+        # emits invalid JSON escapes such as \U0001f600 instead.
+        return json.dumps(error.object[error.start : error.end], ensure_ascii=True)[1:-1], error.end
+
+    codecs.register_error("maida_cli_escape", escape_output)
+    for stream in (sys.stdout, sys.stderr):
+        if getattr(stream, "errors", None) == "strict" and callable(getattr(stream, "reconfigure", None)):
+            stream.reconfigure(errors="maida_cli_escape")
     app()
 
 

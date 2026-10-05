@@ -1,6 +1,7 @@
 """Safe, additive installation of passive Claude observers."""
 
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -13,6 +14,7 @@ from maida.capture_setup import (
     EVENTS,
     atomic_replace,
     bound_hook_command,
+    hook_arguments,
     install,
     is_maida_hook_command,
     merged_settings,
@@ -93,7 +95,7 @@ def test_malformed_settings_are_preserved(tmp_path, content):
     assert path.read_text() == content
 
 
-def test_symlink_and_mode(tmp_path):
+def test_symlink_and_mode(tmp_path, symlink_supported):
     path = tmp_path / ".claude/settings.json"
     path.parent.mkdir()
     target = tmp_path / "original.json"
@@ -106,7 +108,8 @@ def test_symlink_and_mode(tmp_path):
     path.write_text("{}")
     path.chmod(0o600)
     install(tmp_path, apply=True)
-    assert path.stat().st_mode & 0o777 == 0o600
+    if os.name == "posix":
+        assert path.stat().st_mode & 0o777 == 0o600
 
 
 def test_settings_changed_after_preview_are_not_overwritten(tmp_path):
@@ -133,18 +136,18 @@ def test_write_failure_preserves_original_and_cleans_temporary(tmp_path, monkeyp
     assert list(tmp_path.iterdir()) == [path]
 
 
-def test_bound_command_preserves_venv_path_and_shell_quoting(tmp_path, monkeypatch):
+def test_bound_command_preserves_venv_path_and_shell_quoting(tmp_path, monkeypatch, symlink_supported):
     alias = tmp_path / "environment with ' spaces"
-    alias.symlink_to(Path(sys.executable).parent.parent, target_is_directory=True)
-    executable = str(alias / "bin" / Path(sys.executable).name)
+    alias.symlink_to(Path(sys.prefix), target_is_directory=True)
+    executable = str(alias / Path(sys.executable).relative_to(sys.prefix))
     monkeypatch.setattr("maida.capture_setup.sys.executable", executable)
     command = bound_hook_command()
-    assert shlex.split(command) == [executable, "-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
+    assert hook_arguments(command) == [executable, "-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
     assert is_maida_hook_command(command)
     validate_hook_command(command)
 
 
-def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch):
+def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch, symlink_supported):
     import sysconfig
     import venv
 
@@ -154,7 +157,7 @@ def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch):
     dependencies = sysconfig.get_path("purelib")
     environment = tmp_path / "python-environment"
     venv.EnvBuilder(with_pip=False, system_site_packages=True).create(environment)
-    executable = str(environment / "bin/python")
+    executable = str(environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
     locations = subprocess.run(
         [
             executable,
@@ -186,7 +189,9 @@ def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch):
         "hook_event_name": "SessionStart",
         "source": "startup",
     }
-    result = subprocess.run(shlex.split(command), input=json.dumps(payload), text=True, capture_output=True, timeout=15)
+    result = subprocess.run(
+        hook_arguments(command), input=json.dumps(payload), text=True, capture_output=True, timeout=15
+    )
     assert result.returncode == 0, result.stderr
     assert result.stdout == result.stderr == ""
     assert list((load_config(capture=True).data_dir / "onboarding").glob("*.json"))
@@ -208,8 +213,8 @@ def test_bound_command_validation_failures_are_actionable(monkeypatch, failure):
         validate_hook_command(bound_hook_command())
 
 
-def test_local_legacy_and_old_bound_hooks_migrate_without_duplicates():
-    old = shlex.join(["/old/environment/bin/python", "-m", "maida.cli", "capture", "claude-hook"])
+def test_local_legacy_and_old_bound_hooks_migrate_without_duplicates(tmp_path):
+    old = shlex.join([str(tmp_path / "old/environment/python"), "-m", "maida.cli", "capture", "claude-hook"])
     for previous in (COMMAND, old):
         settings = merged_settings({}, observer_command=previous)[0]
         settings["permissions"] = {"deny": ["Write"]}

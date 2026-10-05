@@ -5,20 +5,37 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 EVENTS = ("SessionStart", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied", "SessionEnd")
 COMMAND = "maida capture claude-hook"
+_WINDOWS = os.name == "nt"
+_HOOK_ARGUMENTS = ["-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
 
 
 def bound_hook_command() -> str:
     """Keep the active environment's interpreter path, including venv symlinks."""
     # Exclude cwd and Python import overrides, retaining user-site installations.
-    return shlex.join([str(Path(sys.executable).absolute()), "-E", "-P", "-m", "maida.cli", "capture", "claude-hook"])
+    if _WINDOWS:
+        executable = str(PureWindowsPath(sys.executable)).replace("'", "''")
+        return f"& '{executable}' {' '.join(_HOOK_ARGUMENTS)}"
+    return shlex.join([str(Path(sys.executable).absolute()), *_HOOK_ARGUMENTS])
+
+
+def hook_arguments(command: str) -> list[str]:
+    """Parse our exact bound PowerShell invocation or a legacy POSIX command."""
+    match = re.fullmatch(r"& '((?:[^']|'')+)' " + re.escape(" ".join(_HOOK_ARGUMENTS)), command)
+    if match:
+        executable = match[1].replace("''", "'")
+        if PureWindowsPath(executable).is_absolute():
+            return [executable, *_HOOK_ARGUMENTS]
+        raise ValueError("Hook interpreter must be an absolute path")
+    return shlex.split(command)
 
 
 def is_maida_hook_command(command: object) -> bool:
@@ -28,19 +45,19 @@ def is_maida_hook_command(command: object) -> bool:
     if not isinstance(command, str):
         return False
     try:
-        arguments = shlex.split(command)
+        arguments = hook_arguments(command)
     except ValueError:
         return False
     return (
         len(arguments) in (5, 6, 7)
-        and Path(arguments[0]).is_absolute()
+        and (Path(arguments[0]).is_absolute() or PureWindowsPath(arguments[0]).is_absolute())
         and arguments[1:]
         in (
             ["-E", "-P", "-m", "maida.cli", "capture", "claude-hook"],
             ["-I", "-m", "maida.cli", "capture", "claude-hook"],
             ["-m", "maida.cli", "capture", "claude-hook"],
         )
-        and shlex.join(arguments) == command
+        and (shlex.join(arguments) == command or command.startswith("& '"))
     )
 
 
@@ -53,7 +70,7 @@ def validate_hook_command(command: str) -> None:
     try:
         with tempfile.TemporaryDirectory(prefix="maida-hook-check-") as directory:
             result = subprocess.run(
-                [*shlex.split(command), "--help"],
+                [*hook_arguments(command), "--help"],
                 cwd=directory,
                 env=environment,
                 capture_output=True,
@@ -148,6 +165,8 @@ def merged_settings(
                     and hook["command"] != observer_command
                 ):
                     hook["command"] = observer_command
+                    if observer_command.startswith("& '"):
+                        hook["shell"] = "powershell"
                     updated = True
         inherited_groups = []
         for source in inherited:
@@ -184,6 +203,8 @@ def merged_settings(
                 added.append(event)
             continue
         observer = {"type": "command", "command": observer_command}
+        if observer_command.startswith("& '"):
+            observer["shell"] = "powershell"
         if event == "SessionEnd":
             observer["timeout"] = 30
         groups.append({"hooks": [observer]})

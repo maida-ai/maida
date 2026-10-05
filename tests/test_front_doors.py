@@ -1,6 +1,7 @@
 """Keep the first report reachable without learning capture internals."""
 
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -48,6 +49,7 @@ def test_bash_examples_do_not_use_redirection_placeholders(relative):
         assert not re.search(r"<[A-Z][A-Z_]*>", block)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Exercises documented Bash snippets")
 def test_run_id_examples_reach_maida_as_arguments():
     text = (ROOT / "docs/getting-started.md").read_text()
     examples = [

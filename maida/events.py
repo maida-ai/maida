@@ -401,7 +401,10 @@ def spans_to_events(spans: list[dict]) -> list[dict[str, Any]]:
             }
         )
 
-    events.sort(key=lambda e: e.get("ts", ""))
+    # Children are exported before their root. For tied timestamps, preserve
+    # lifecycle boundaries and keep the existing order among ordinary events.
+    lifecycle_order = {EventType.RUN_START.value: -1, EventType.RUN_END.value: 1}
+    events.sort(key=lambda e: (e.get("ts", ""), lifecycle_order.get(e.get("event_type"), 0)))
     return events
 
 

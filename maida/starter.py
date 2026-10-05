@@ -56,13 +56,16 @@ def write_files(targets: dict[Path, str], *, force: bool = False, update: set[Pa
     try:
         for path, content in targets.items():
             path.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
-                temporary = Path(stream.name)
-                try:
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
+                    temporary = Path(stream.name)
                     stream.write(content.encode("utf-8"))
                     stream.flush()
-                    os.replace(temporary, path)
-                finally:
+                # Windows cannot rename or unlink a temporary file while open.
+                os.replace(temporary, path)
+            finally:
+                if temporary is not None:
                     temporary.unlink(missing_ok=True)
             written.append(path)
     except Exception:

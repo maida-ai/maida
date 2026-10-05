@@ -2,7 +2,7 @@
 
 import json
 import subprocess
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 import yaml
@@ -142,7 +142,7 @@ def test_starter_review_rejects_unobserved_plan_invariants(temp_data_dir, tmp_pa
     assert not Path(".maida/policy.yaml").exists()
 
 
-def test_starter_refuses_symlinked_output(temp_data_dir, tmp_path, monkeypatch):
+def test_starter_refuses_symlinked_output(temp_data_dir, tmp_path, monkeypatch, symlink_supported):
     monkeypatch.chdir(tmp_path)
     outside = tmp_path / "other"
     outside.mkdir()
@@ -174,7 +174,14 @@ def test_starter_activation_rolls_back_on_persistence_error(temp_data_dir, tmp_p
     assert Path(".maida/starter/review.json").read_bytes() == review_before
 
 
-def test_github_scaffold_uses_real_entrypoint_and_reviewed_baseline(temp_data_dir, tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "baseline_path", [Path(".maida/baselines/agent.json"), PureWindowsPath(".maida/baselines/agent.json")]
+)
+def test_github_scaffold_uses_real_entrypoint_and_reviewed_baseline(
+    temp_data_dir, tmp_path, monkeypatch, baseline_path
+):
+    # The generated workflow runs on Ubuntu, including when init runs on Windows.
+    monkeypatch.setattr("maida.cli.ACTIVE_BASELINE", baseline_path)
     monkeypatch.chdir(tmp_path)
     subprocess.run(["git", "init", "-q"], check=True)
     Path("agent.py").write_text("from maida import traced_run\nwith traced_run(name='repo-agent'): pass\n")

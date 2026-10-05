@@ -1,6 +1,7 @@
 """The default init journey needs no tutorial checkout or policy knowledge."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,7 @@ def project(tmp_path, monkeypatch):
     monkeypatch.chdir(root)
     monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.delenv("MAIDA_DATA_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
     monkeypatch.setattr("maida.first_run.is_interactive", lambda: True)
@@ -166,6 +168,7 @@ def test_concurrent_change_and_write_failure_do_not_partially_install(project, m
     assert not (project / ".maida/local.json").exists()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="Exercises POSIX pty and shell integration")
 def test_uv_init_plain_claude_hooks_and_check_produce_first_report(project, monkeypatch):
     """Exercise uv's executable, then plain Claude's environment, without a global Maida."""
     import os
@@ -276,9 +279,9 @@ def test_init_does_not_require_maida_on_path(project, monkeypatch):
     result = runner.invoke(app, ["init"], input="y\n")
     assert result.exit_code == 0, result.output
     settings = json.loads((project / ".claude/settings.local.json").read_text())
-    import shlex
+    from maida.capture_setup import hook_arguments
 
-    command = shlex.split(settings["hooks"]["SessionStart"][0]["hooks"][0]["command"])
+    command = hook_arguments(settings["hooks"]["SessionStart"][0]["hooks"][0]["command"])
     assert command == [sys.executable, "-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
 
 

@@ -1366,7 +1366,7 @@ def test_demo_plan_discovers_printed_policy_recovery_path(
     assert first.exit_code == 0
     assert selected_policies == [None]
     assert "policy source: bundled demo refusal policy" in first.output
-    assert "update .maida/policy.yaml" in first.output
+    assert f"update {Path('.maida/policy.yaml')}" in first.output
 
     policy = tmp_path / ".maida" / "policy.yaml"
     policy.parent.mkdir()
@@ -1379,7 +1379,7 @@ def test_demo_plan_discovers_printed_policy_recovery_path(
 
     assert second.exit_code == 0
     assert selected_policies == [None, Path(".maida/policy.yaml")]
-    assert "policy source: .maida/policy.yaml" in second.output
+    assert f"policy source: {Path('.maida/policy.yaml')}" in second.output
 
 
 def test_demo_plan_explicit_policy_wins_over_discovered_default(

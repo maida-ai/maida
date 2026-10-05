@@ -6,6 +6,8 @@ import subprocess
 
 import pytest
 
+pytestmark = pytest.mark.skipif(os.name == "nt", reason="Tests POSIX shell scripts used by Linux CI")
+
 
 @pytest.mark.parametrize("status", [200, 301, 500, 503])
 def test_smoke_fails_on_unexpected_http_status(tmp_path, status):

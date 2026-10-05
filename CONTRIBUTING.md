@@ -53,6 +53,8 @@ Pushing a full stable or `rcN` tag runs `.github/workflows/release.yml`: it test
 uv run pytest
 ```
 
+Fast unit CI runs on Ubuntu and Windows with Python 3.12–3.14, including optional integrations. It sets `PYTHONUTF8=1` for UTF-8 source and fixtures; explicit ASCII and CP1252 regression tests check redirected CLI output separately. POSIX shell-script and pseudo-terminal tests run on Ubuntu. Symlink safety tests run wherever the runner permits symlink creation, and native PowerShell hook and process-tree timeout tests run on Windows.
+
 Run a specific file or test:
 
 ```bash
