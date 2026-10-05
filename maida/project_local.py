@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from maida.capture_setup import read_safe
-from maida.capture.providers import PROVIDERS
+from maida.capture.providers import PROVIDERS, attached_providers
 
 if TYPE_CHECKING:
     from maida.config import MaidaConfig
@@ -86,7 +86,11 @@ def _receipts(config: MaidaConfig, runtimes: set[str], *, command: str) -> list[
             receipt = {**receipt, "_runtime": runtime, "_started": started}
             receipts.append(receipt)
         except (OSError, ValueError, UnicodeError) as exc:
-            recovery = "capture a new Claude Code task, exit the session"
+            recovery = (
+                "capture a new Codex task, let it finish and exit Codex"
+                if runtime == "codex"
+                else "capture a new Claude Code task, exit the session"
+            )
             raise ValueError(
                 f"Local capture state is unreadable at {path}. Preserve and move that receipt aside, then {recovery} "
                 f"and rerun {command}."
@@ -123,3 +127,48 @@ def _claude_run(latest: dict, *, command: str) -> str:
             f"exit, then rerun {command}."
         )
     return trace_id
+
+
+def captured_task(
+    config: MaidaConfig, pointer: dict, *, agent: str | None = None, command: str = "maida check"
+) -> tuple[str, str]:
+    """Choose the newest task before import; a newer unusable task never falls back."""
+    attached = attached_providers(pointer)
+    if agent is not None and agent not in PROVIDERS:
+        raise ValueError("--agent must be claude-code or codex. Rerun maida check with a supported agent.")
+    if agent is not None and agent not in attached:
+        raise ValueError(f"Capture is not attached for {agent}. Run maida init --agent {agent} in this repository.")
+    runtimes = {PROVIDERS[name].runtime for name in ({agent} if agent else attached)}
+    if not runtimes:
+        raise FileNotFoundError("Capture is not attached here. Run maida init in this repository to attach it.")
+    receipts = _receipts(config, runtimes, command=command)
+    if not receipts:
+        if runtimes == {"claude-code"}:
+            return onboarding_run(config, command=command), "claude-code"
+        raise FileNotFoundError(
+            "No task captured in this repository. Review and trust the configured native hooks, start a new local "
+            "Codex session, run one bounded task, exit Codex, then rerun " + command + "."
+        )
+    latest = max(receipts, key=lambda item: item["_started"])
+    if latest["_runtime"] == "claude-code":
+        return _claude_run(latest, command=command), "claude-code"
+    if latest.get("state") != "closed":
+        raise FileNotFoundError(
+            f"The newest Codex turn is {latest.get('state', 'unreadable')}. Finish or rerun that task "
+            f"and let its root turn stop, exit Codex, then rerun {command}. Session closure does not complete a turn."
+        )
+    if latest.get("has_start") is not True or latest.get("complete_tools") is not True:
+        raise FileNotFoundError(
+            "The newest Codex turn has incomplete lifecycle or tool pairs. Review and trust the capture "
+            f"hooks, run a new bounded task that reads a repository file, let it finish, exit Codex, then rerun {command}."
+        )
+    from maida.capture.codex_hook import materialize_turn
+
+    try:
+        trace_id = materialize_turn(config, latest)
+    except (ValueError, RuntimeError, FileNotFoundError) as exc:
+        raise FileNotFoundError(
+            "The newest Codex turn could not be imported. Preserve its evidence, review and trust the "
+            f"capture hooks, run a new bounded task and rerun {command}."
+        ) from exc
+    return trace_id, "codex"

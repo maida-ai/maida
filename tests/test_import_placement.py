@@ -8,6 +8,13 @@ from pathlib import Path
 
 _ALLOWED_FUNCTION_IMPORTS = {
     (
+        "maida/project_local.py",
+        "captured_task",
+        "from",
+        "maida.capture.codex_hook",
+        ("materialize_turn",),
+    ),  # Avoid configuration import cycle; materialize selected task only.
+    (
         "maida/capture/codex_hook.py",
         "materialize_turn",
         "from",
