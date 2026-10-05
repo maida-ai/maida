@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="128" viewBox="0 0 144 128" role="img" aria-labelledby="title desc">
+  <style>
+    :root {
+      --maida-paper: #F2F1EB;
+      --maida-ink: #171A17;
+      --maida-coral: #ED7958;
+      --maida-logo-bracket: var(--maida-ink);
+      --maida-logo-dot: var(--maida-coral);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --maida-logo-bracket: var(--maida-paper);
+      }
+    }
+    #left-bracket,
+    #right-bracket {
+      fill: var(--maida-logo-bracket);
+    }
+    #core-dot {
+      fill: var(--maida-logo-dot);
+    }
+  </style>
+  <title id="title">Maida symbol</title>
+  <desc id="desc">A solid circle inside two open square brackets. Follows the OS light or dark color scheme.</desc>
+  <g transform="translate(16 16) scale(1)">
+    <g id="maida-symbol">
+      <path id="left-bracket" d="M0 0H36V16H16V80H36V96H0Z"/>
+      <circle id="core-dot" cx="56" cy="48" r="20"/>
+      <path id="right-bracket" d="M112 0H76V16H96V80H76V96H112Z"/>
+    </g>
+  </g>
+</svg>

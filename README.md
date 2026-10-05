@@ -1,6 +1,6 @@
 <div align="center">
 
-# Maida
+# <img src="docs/assets/maida-symbol-dynamic.svg" alt="" width="36" height="32"> Maida
 
 ### Don't let broken agent changes merge.
 
@@ -35,6 +35,8 @@ maida check
 Approve init's setup preview, then start a **new** session with `claude`. Complete one normal task and exit normally. **Success looks like `3 active checks passed`**, your task's trace ID, and its viewer command. Open it to see the execution timeline. No agent-code changes or tutorial clone are needed.
 
 For example: `maida view 83aa19e3`. Use the command from your own report.
+
+If Maida gave you a useful signal on your agent, ⭐ [star the repo](https://github.com/maida-ai/maida) — it helps other teams find the project.
 
 **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida; your coding agent still uses its normal provider, permissions, and costs.
 
@@ -131,9 +133,3 @@ Contributions welcome -- see [CONTRIBUTING.md](CONTRIBUTING.md) and
 ## 📄 License
 
 Apache License 2.0. See [LICENSE](LICENSE).
-
----
-
-<div align="center">
-<sub>If Maida catches a regression for you, a ⭐ helps other teams find it.</sub>
-</div>

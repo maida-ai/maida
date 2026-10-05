@@ -13,6 +13,21 @@ CONTRACT = json.loads((ROOT / "contracts/current-main.json").read_text())
 RELEASE = CONTRACT["engine_ref"].removeprefix("v")
 
 
+def test_readme_star_request_follows_the_own_agent_report():
+    text = (ROOT / "README.md").read_text()
+    requests = re.findall(r"(?m)^.*(?:⭐|\bstar\b).*$", text)
+    assert len(requests) == 1
+    request = requests[0]
+    assert "If Maida gave you a useful signal on your agent" in request
+    assert "[star the repo](https://github.com/maida-ai/maida)" in request
+    before = text[: text.index(request)].rstrip()
+    report = before.split("\n\n")[-2:]
+    assert "3 active checks passed" in report[0]
+    assert "trace ID" in report[0] and "viewer command" in report[0]
+    assert "maida view" in report[1] and "your own report" in report[1]
+    assert text.index(request) < text.index("## Investigate a regression")
+
+
 @pytest.mark.parametrize("relative", PAGES)
 def test_first_workflow_uses_released_setup_check_and_printed_view(relative):
     text = (ROOT / relative).read_text()
