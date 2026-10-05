@@ -12,7 +12,7 @@ from pathlib import Path
 
 import typer
 
-from maida.capture.providers import provider_enabled, updated_pointer
+from maida.capture.providers import PROVIDERS, attached_providers, updated_pointer
 from maida.capture_setup import (
     atomic_replace,
     bound_hook_command,
@@ -23,6 +23,13 @@ from maida.capture_setup import (
     validate_hook_command,
 )
 from maida.project_local import LOCAL_POINTER, installation, repository_root
+from maida.codex_setup import (
+    NATIVE_HOOKS,
+    check_hooks_enabled,
+    encoded,
+    prepare_native_hooks,
+    prepare_runtime_detach,
+)
 
 NEXT_ACTION = (
     "Next: Start a new Claude Code session here, run one bounded task\n"
@@ -31,8 +38,7 @@ NEXT_ACTION = (
     "  {command} check"
 )
 _AGENTS = {
-    "Claude Code": ("claude", (".claude", "CLAUDE.md")),
-    "Codex": ("codex", (".codex",)),
+    **{provider.label: (provider.executable, provider.markers) for provider in PROVIDERS.values()},
     "Cursor": ("cursor-agent", (".cursor",)),
     "OpenCode": ("opencode", ("opencode.json", "opencode.jsonc")),
 }
@@ -48,31 +54,44 @@ def maida_command() -> str:
 
 
 def detect_agent(root: Path, explicit: str | None, *, command: str = "maida init") -> str:
+    return _select_agent(root, explicit, command=command)[1]
+
+
+def _select_agent(root: Path, explicit: str | None, *, command: str = "maida init") -> tuple[str, str]:
+    choices = ", ".join(f"{command} --agent {name}" for name in PROVIDERS)
     if explicit is not None:
-        if explicit != "claude-code":
-            raise ValueError(f"Unsupported agent {explicit!r}. Use {command} --agent claude-code for Claude Code.")
-        return "Claude Code (explicit selection)"
-    if installation(root, command=command) is not None:
-        return "Claude Code (existing local setup)"
+        if explicit not in PROVIDERS:
+            raise ValueError(f"Unsupported agent {explicit!r}. Use one of: {choices}.")
+        return explicit, f"{PROVIDERS[explicit].label} (explicit selection)"
+    local = installation(root, command=command)
+    if local is not None:
+        attached = attached_providers(local[1], enabled_only=False)
+        if len(attached) == 1:
+            selected = next(iter(attached))
+            return selected, f"{PROVIDERS[selected].label} (existing local setup)"
+        raise ValueError(f"Ambiguous capture setup: multiple providers are attached. Select one explicitly: {choices}.")
     projects = [name for name, (_, paths) in _AGENTS.items() if any((root / path).exists() for path in paths)]
-    installed = [name for name, (command, _) in _AGENTS.items() if shutil.which(command)]
+    installed = [name for name, (executable, _) in _AGENTS.items() if executable and shutil.which(executable)]
     selected = projects or installed
-    if selected == ["Claude Code"]:
-        return "Claude Code (repository configuration)" if projects else "Claude Code (installed command)"
+    supported = {provider.label: name for name, provider in PROVIDERS.items()}
+    if len(selected) == 1 and selected[0] in supported:
+        return supported[
+            selected[0]
+        ], f"{selected[0]} ({'repository configuration' if projects else 'installed command'})"
     if len(selected) > 1:
         raise ValueError(
             f"Ambiguous agent environment: detected {', '.join(selected)} "
             f"in {'repository configuration' if projects else 'installed commands'}. "
-            f"If this task uses Claude Code, run {command} --agent claude-code."
+            f"Select the capture provider explicitly: {choices}."
         )
     if selected:
         raise ValueError(
-            f"Detected {selected[0]}; automatic capture setup currently supports Claude Code. "
-            f"For a local Claude Code task, run {command} --agent claude-code."
+            f"Detected {selected[0]}; automatic capture setup supports Claude Code and Codex. "
+            f"Select a supported provider: {choices}."
         )
     raise ValueError(
         "No supported coding agent detected (checked repository configuration and installed agent commands). "
-        f"Start Claude Code in this repository, then rerun {command}."
+        f"Start a supported coding agent in this repository, or select explicitly: {choices}."
     )
 
 
@@ -100,8 +119,10 @@ def initialize_capture(agent: str | None = None) -> bool:
     root = repository_root(Path.cwd())
     if root is None or _git(root, "rev-parse", "--show-toplevel").returncode:
         raise ValueError("No Git repository detected. Run maida init from your Git checkout.")
-    detected = detect_agent(root, agent)
+    provider, detected = _select_agent(root, agent)
     typer.echo(f"Detected {detected}.")
+    if provider != "claude-code":
+        return _initialize_codex(root, provider)
     _check_hooks_enabled(root)
     observer_command = bound_hook_command()
     settings_path, settings_before, settings_after, events = prepare_settings(
@@ -227,8 +248,23 @@ def detach_capture(agent: str | None = None) -> None:
     root = repository_root(Path.cwd())
     if root is None or _git(root, "rev-parse", "--show-toplevel").returncode:
         raise ValueError("No Git repository detected. Run maida detach from your Git checkout.")
-    if agent is not None and agent != "claude-code":
-        raise ValueError(f"Unsupported agent {agent!r}. Use maida detach --agent claude-code for Claude Code.")
+    if agent == "codex":
+        _detach_codex(root, agent)
+        return
+    if agent is not None and agent not in PROVIDERS:
+        raise ValueError(f"Unsupported agent {agent!r}. Use maida detach --agent claude-code or codex.")
+    if agent is None:
+        try:
+            installation(root, command="maida detach")
+        except ValueError:
+            # Preserve legacy recovery when a malformed pointer still has
+            # recognizable Claude observers. Ambiguous setups need selection.
+            selected = "claude-code"
+        else:
+            selected, _ = _select_agent(root, None, command="maida detach")
+        if selected != "claude-code":
+            _detach_codex(root, selected)
+            return
     files = []
     removed = 0
     command = "maida detach --agent claude-code"
@@ -249,13 +285,11 @@ def detach_capture(agent: str | None = None) -> None:
     if not removed and local is None:
         if agent is None:
             detect_agent(root, None, command="maida detach")
-    if local:
+    if local and "claude-code" in attached_providers(local[1], enabled_only=False):
         path = root / LOCAL_POINTER
         before = read_safe(path, command=command)
         pointer = updated_pointer(local[1], "claude-code", enabled=False)
-        after = (
-            before if not provider_enabled(local[1], "claude-code") else (json.dumps(pointer, indent=2) + "\n").encode()
-        )
+        after = before if pointer == local[1] else (json.dumps(pointer, indent=2) + "\n").encode()
         files.append((path, before, after))
     if not any(before != after for _, before, after in files):
         typer.echo("No active repository Maida hooks to detach.")
@@ -295,3 +329,136 @@ def detach_capture(agent: str | None = None) -> None:
         "Repository Maida hooks detached. Exit and restart any existing Claude Code session to reload its settings."
     )
     typer.echo("To reconnect: maida init --agent claude-code")
+
+
+def _local_excludes(root: Path, rules: list[Path]) -> tuple[Path, bytes | None, bytes]:
+    result = _git(root, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude")
+    if result.returncode:
+        raise ValueError("Cannot locate Git's local exclude file. Repair Git metadata and rerun maida init.")
+    path = Path(result.stdout.strip())
+    before = read_safe(path)
+    after = before or b""
+    for relative in rules:
+        rule = ("/" + relative.as_posix()).encode()
+        if rule not in after.splitlines():
+            if after and not after.endswith(b"\n"):
+                after += b"\n"
+            after += rule + b"\n"
+    return path, before, after
+
+
+def _preview_capture_files(root: Path, files: list[tuple[Path, bytes | None, bytes | None]]) -> None:
+    for path, before, after in files:
+        if before == after:
+            continue
+        typer.echo(f"Would {'create' if before is None else 'update'} {path}")
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        if _git(root, "ls-files", "--error-unmatch", "--", str(relative)).returncode == 0:
+            typer.echo(
+                "  TRACKED: this file is shared with your team; setup changes version-controlled configuration. Review its Git diff before committing."
+            )
+
+
+def _codex_next_action(provider: str) -> None:
+    command = maida_command()
+    typer.echo(
+        "Next: run codex in this repository. Review/trust Maida hooks if Codex requests it "
+        "(use /hooks for native review). Changed hook commands require renewed native trust. "
+        "Run one bounded task (for example, find the test command without editing files), "
+        "then exit Codex and run:\n"
+        f"  {command} check"
+    )
+
+
+def _initialize_codex(root: Path, provider: str) -> bool:
+    command = f"{maida_command()} init --agent {provider}"
+    config_files = check_hooks_enabled(root)
+    observer = bound_hook_command(receiver="codex-hook")
+    validate_hook_command(observer)
+    files = [prepare_native_hooks(root, observer)]
+    files.extend(config_files)
+    pointer_path = root / LOCAL_POINTER
+    before = read_safe(pointer_path)
+    local = installation(root)
+    if _git(root, "ls-files", "--error-unmatch", "--", str(LOCAL_POINTER)).returncode == 0:
+        raise ValueError(
+            ".maida/local.json is tracked by Git. Run git rm --cached -- .maida/local.json, then rerun maida init."
+        )
+    previous = local[1] if local else {"version": 2, "project_id": uuid.uuid4().hex, "providers": {}}
+    pointer = updated_pointer(previous, provider)
+    files.append((pointer_path, before, before if pointer == previous and local else encoded(pointer)))
+    rules = [LOCAL_POINTER, NATIVE_HOOKS]
+    files.append(_local_excludes(root, rules))
+    label = PROVIDERS[provider].label
+    if not any(before != after for _, before, after in files):
+        typer.echo(
+            f"{label} capture is configured; awaiting first capture (configuration alone does not verify capture)."
+        )
+        _codex_next_action(provider)
+        return True
+    typer.echo(f"Repository: {root}")
+    _preview_capture_files(root, files)
+    typer.echo(f"Observer command: {observer}")
+    typer.echo("Capture is passive and synchronous; redaction follows Maida settings. Evidence stays on this machine.")
+    typer.echo("Setup configures capture; native activation and hook trust review remain your next step.")
+    if not is_interactive():
+        raise ValueError(
+            f"Setup needs one explicit approval. Rerun {command} in an interactive terminal to approve this preview."
+        )
+    try:
+        approved = typer.confirm(f"Configure {label} capture for this repository?", default=False)
+    except (typer.Abort, EOFError):
+        approved = False
+    if not approved:
+        typer.echo(f"Setup cancelled. Rerun {command} when ready.")
+        return False
+    _write_previewed(files, f"init --agent {provider}")
+    typer.echo(f"{label} capture is configured; awaiting first capture (configuration alone does not verify capture).")
+    _codex_next_action(provider)
+    return True
+
+
+def _detach_codex(root: Path, provider: str) -> None:
+    command = f"detach --agent {provider}"
+    files = prepare_runtime_detach(root)
+    damaged = False
+    try:
+        local = installation(root, command=f"maida {command}")
+    except ValueError:
+        local = None
+        damaged = True
+    if local:
+        path = root / LOCAL_POINTER
+        before = read_safe(path, command=f"maida {command}")
+        pointer = local[1]
+        for name in attached_providers(pointer, enabled_only=False) & {"codex"}:
+            pointer = updated_pointer(pointer, name, enabled=False)
+        files.append((path, before, before if pointer == local[1] else encoded(pointer)))
+    if not any(before != after for _, before, after in files):
+        typer.echo("No active repository Maida Codex hooks to detach.")
+        return
+    typer.echo(f"Repository: {root}")
+    typer.echo("Warning: detaching disables Codex capture in this repository.")
+    _preview_capture_files(root, files)
+    typer.echo(
+        "Other hooks, Claude capture and saved evidence are preserved. Existing session handlers become inert through provider disablement."
+    )
+    if damaged:
+        typer.echo(
+            "Local capture identity is unreadable and preserved. Exit Codex before continuing; cached handlers cannot capture through this damaged pointer."
+        )
+    if not is_interactive():
+        raise ValueError(f"Detach needs one explicit approval. Rerun maida {command} in an interactive terminal.")
+    try:
+        approved = typer.confirm("Detach Maida Codex capture from this repository?", default=False)
+    except (typer.Abort, EOFError):
+        approved = False
+    if not approved:
+        typer.echo("Detach cancelled. Capture configuration is unchanged.")
+        return
+    _write_previewed(files, command)
+    typer.echo("Codex capture detached. Exit and restart Codex to reload its hooks.")
+    typer.echo(f"To reconnect: {maida_command()} init --agent {provider}")

@@ -16,8 +16,8 @@ class Provider:
 
 
 PROVIDERS = {
-    "codex": Provider("codex", "Codex", "codex", "codex", (".codex",)),
     "claude-code": Provider("claude-code", "Claude Code", "claude-code", "claude", (".claude", "CLAUDE.md")),
+    "codex": Provider("codex", "Codex", "codex", "codex", (".codex",)),
 }
 
 

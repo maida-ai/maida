@@ -104,6 +104,11 @@ def test_run_trials_shares_budget_and_checks_final_processing(agent_repo, temp_d
     run = subprocess.run
 
     def run_and_consume_budget(args, **kwargs):
+        if args[0] == sys.executable:
+            assert kwargs["timeout"] == 1.0
+            # The deadline uses the fake clock; interpreter startup uses real time.
+            # Give the real process its own safety cap without changing the budget.
+            kwargs["timeout"] = 30
         result = run(args, **kwargs)
         if args[0] == sys.executable:
             executions.append(args)

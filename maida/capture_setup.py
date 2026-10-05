@@ -18,22 +18,27 @@ _WINDOWS = os.name == "nt"
 _HOOK_ARGUMENTS = ["-E", "-P", "-m", "maida.cli", "capture", "claude-hook"]
 
 
-def bound_hook_command() -> str:
+def bound_hook_command(receiver: str = "claude-hook") -> str:
     """Keep the active environment's interpreter path, including venv symlinks."""
     # Exclude cwd and Python import overrides, retaining user-site installations.
+    if receiver not in {"claude-hook", "codex-hook"}:
+        raise ValueError("Unsupported capture hook receiver")
+    arguments = [*_HOOK_ARGUMENTS[:-1], receiver]
     if _WINDOWS:
         executable = str(PureWindowsPath(sys.executable)).replace("'", "''")
-        return f"& '{executable}' {' '.join(_HOOK_ARGUMENTS)}"
-    return shlex.join([str(Path(sys.executable).absolute()), *_HOOK_ARGUMENTS])
+        return f"& '{executable}' {' '.join(arguments)}"
+    return shlex.join([str(Path(sys.executable).absolute()), *arguments])
 
 
 def hook_arguments(command: str) -> list[str]:
     """Parse our exact bound PowerShell invocation or a legacy POSIX command."""
-    match = re.fullmatch(r"& '((?:[^']|'')+)' " + re.escape(" ".join(_HOOK_ARGUMENTS)), command)
+    match = re.fullmatch(
+        r"& '((?:[^']|'')+)' " + re.escape(" ".join(_HOOK_ARGUMENTS[:-1])) + r" (claude-hook|codex-hook)", command
+    )
     if match:
         executable = match[1].replace("''", "'")
         if PureWindowsPath(executable).is_absolute():
-            return [executable, *_HOOK_ARGUMENTS]
+            return [executable, *_HOOK_ARGUMENTS[:-1], match[2]]
         raise ValueError("Hook interpreter must be an absolute path")
     return shlex.split(command)
 
@@ -82,7 +87,7 @@ def validate_hook_command(command: str) -> None:
     except (OSError, subprocess.TimeoutExpired):
         pass
     raise ValueError(
-        "The Maida environment cannot run its Claude capture hook independently. "
+        "The Maida environment cannot run its capture hook independently. "
         "Reinstall Maida in this environment, then rerun maida init."
     )
 
