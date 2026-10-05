@@ -116,9 +116,11 @@ _DEMO_TRACE_DURATION_MS = 120
 _PLAN_BACKEND_INSTALL_COMMAND = 'uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.6.1"'
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
+
 capture_app = typer.Typer(help="Capture external agent behavior locally.")
 import_app = typer.Typer(help="Import existing traces into local Maida storage.")
 scenario_app = typer.Typer(help="Run isolated capture-backed agent scenarios.")
+
 app.add_typer(capture_app, name="capture")
 app.add_typer(import_app, name="import")
 app.add_typer(scenario_app, name="scenario")
