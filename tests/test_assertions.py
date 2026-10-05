@@ -11,12 +11,12 @@ from maida.assertions import (
     AssertionReport,
     AssertionResult,
     RegressionReasonCode,
-    _check_threshold,
     format_report_json,
     format_report_markdown,
     format_report_text,
     run_assertions,
 )
+from maida._assertions.engine import _check_threshold
 from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.events import EventType

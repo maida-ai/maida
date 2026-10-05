@@ -22,14 +22,14 @@ _ALLOWED_FUNCTION_IMPORTS = {
         ("import_codex_turn",),
     ),  # Normalization is deferred until check to keep hooks short.
     (
-        "maida/assertions.py",
+        "maida/_assertions/engine.py",
         "_run_metric_assertions",
         "from",
         "maida.baseline_bind",
         ("validate_policy_against_baseline",),
     ),  # Baseline binding imports AssertionPolicy; defer to avoid a cycle.
     (
-        "maida/assertions.py",
+        "maida/_assertions/engine.py",
         "_run_metric_assertions",
         "from",
         "maida.gate",

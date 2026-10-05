@@ -21,8 +21,8 @@ from maida.assertions import (
     AssertionPolicy,
     AssertionReport,
     AssertionResult,
-    _markdown_baseline_provenance,
-    _markdown_table_cell,
+    markdown_baseline_provenance,
+    markdown_table_cell,
     run_assertions,
 )
 from maida.baseline import extract_run_metrics
@@ -229,7 +229,7 @@ def _number(value: object) -> str:
     if isinstance(value, (int, float)):
         numeric = float(value)
         return str(int(numeric)) if numeric.is_integer() else f"{numeric:g}"
-    return _markdown_table_cell(value)
+    return markdown_table_cell(value)
 
 
 def _signed_number(value: object) -> str:
@@ -241,7 +241,7 @@ def _signed_number(value: object) -> str:
 
 
 def _inline(value: object) -> str:
-    escaped = _markdown_table_cell(value).replace("`", "&#96;")
+    escaped = markdown_table_cell(value).replace("`", "&#96;")
     return f"`{escaped}`"
 
 
@@ -459,7 +459,7 @@ def _count_summary(report: TrialRunReport) -> str:
 
 def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
     short_trace = report.trials[0].trace_id[:8] if report.trials else "TRACE_ID"
-    safe_baseline = _markdown_table_cell(baseline_path) if baseline_path else None
+    safe_baseline = markdown_table_cell(baseline_path) if baseline_path else None
     if report.verdict is GateVerdict.PASS:
         if report.trials:
             return [f"- No gate action needed. Inspect the trace: `maida view {short_trace}`"]
@@ -549,7 +549,7 @@ def _render_trial_report_markdown(report: TrialRunReport, *, baseline_path: str 
                 ]
             )
 
-    lines.extend(_markdown_baseline_provenance(report.baseline_acceptance))
+    lines.extend(markdown_baseline_provenance(report.baseline_acceptance))
     if lines[-1]:
         lines.append("")
     lines.extend(["### Next steps", "", *_next_steps(report, baseline_path)])
