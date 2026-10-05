@@ -1,5 +1,7 @@
 # `maida detach`
 
+**Unreleased extension:** `maida detach --agent codex` or `--agent chatgpt-work` detaches the shared runtime and disables both Codex and local-only Work capture, including cached plugin handlers. Other attached providers and saved imported IDs remain usable. Only Maida-owned hooks and marketplace entries are removed after preview and approval; restart clients to refresh configuration. See [Codex and local-only Work recovery](../codex-work.md#recovery-and-detach). Released v0.6.1 behavior below applies to Claude Code.
+
 Detach Maida's Claude Code capture from the current Git repository. This command is available from v0.6.1.
 
 ```bash

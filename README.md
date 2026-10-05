@@ -78,6 +78,8 @@ Once a local pass → safe failure → repair works, follow the [Action setup an
 
 ## Integrate another agent/framework
 
+Development checkouts also contain [unreleased Codex and local-only ChatGPT Work capture](docs/codex-work.md). Published v0.6.1 installation examples below do not provide those commands. The Work desktop activation journey must be verified before claiming desktop support.
+
 Your coding-agent repository can use any language. Building a Python tool-calling agent? Follow the secondary [Python walkthrough](docs/python-agent.md), including installation into the project environment.
 
 | Integration | Setup | Guide |

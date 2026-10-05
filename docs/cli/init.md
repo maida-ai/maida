@@ -1,5 +1,7 @@
 # `maida init`
 
+**Unreleased extension:** `maida init --agent codex` attaches repository-native hooks; `maida init --agent chatgpt-work` prepares a local capture plugin and merges its repository marketplace entry. Explicit attachment upgrades version-1 Claude pointers without changing project identity or evidence paths. Setup never grants native trust and remains configured, awaiting first capture until real evidence arrives. See [Codex and local-only Work](../codex-work.md) for client restart, plugin installation, hook review, moved-environment recovery, and desktop acceptance requirements. Released v0.6.1 installation instructions below remain Claude-specific.
+
 **Automatic capture setup and `maida check` are available from v0.6.1.** The reviewed starter workflow remains available through explicit `--from-run` and `--reviewed --reason` options.
 
 ## Set up your first task

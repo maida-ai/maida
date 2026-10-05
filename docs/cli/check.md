@@ -1,5 +1,7 @@
 # `maida check`
 
+**Unreleased extension:** `--agent claude-code|codex|chatgpt-work` selects an attached provider. Plain `check` selects the most recently started task across attached providers. Codex and local-only Work tasks are runtime turns that can be checked while the session remains open; Claude retains session-based completion. A newer unfinished, interrupted, corrupt, or unimportable task produces recovery guidance without stale fallback. See [Codex and local-only Work](../codex-work.md) for activation, coverage, immutable snapshots, and the unverified desktop acceptance journey. The released v0.6.1 behavior described below is Claude-specific.
+
 Check the latest Claude Code task captured in this initialized repository, then open the same task using the printed viewer command. This command is available from v0.6.1.
 
 ```bash

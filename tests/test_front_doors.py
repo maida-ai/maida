@@ -76,7 +76,11 @@ def test_run_id_examples_reach_maida_as_arguments():
 @pytest.mark.parametrize("relative", PAGES)
 def test_front_doors_do_not_restore_obsolete_onboarding(relative):
     text = (ROOT / relative).read_text()
-    assert not re.search(r"unreleased|wheel.{0,50}main|main.{0,50}wheel", text, re.I)
+    # The published first workflow stays released. A secondary development
+    # integration may be explicitly unreleased without replacing that workflow.
+    first_workflow = text.split("```", 2)[0:2]
+    assert not re.search(r"unreleased|wheel.{0,50}main|main.{0,50}wheel", "\n".join(first_workflow), re.I)
+    assert not re.search(r"wheel.{0,50}main|main.{0,50}wheel", text, re.I)
     for obsolete in (
         "onboarding/install_capture",
         "MAIDA_DATA_DIR",
@@ -90,6 +94,19 @@ def test_front_doors_do_not_restore_obsolete_onboarding(relative):
     assert set(re.findall(r"maida-ai(?:\[[^]]+\])?==([\d.]+)", text)) == {RELEASE}
     assert set(re.findall(r"Maida (?:v)?(\d+\.\d+\.\d+)", text)) <= {RELEASE}
     assert "$15" in text and "VIP" in text
+
+
+def test_development_capture_notice_keeps_released_installation_truthful():
+    for relative in ("README.md", "docs/index.md"):
+        text = (ROOT / relative).read_text()
+        notice = next(line for line in text.splitlines() if "codex-work.md" in line)
+        assert "unreleased" in notice.lower()
+        assert text.index(notice) > text.index("## Integrate another agent/framework")
+    readme = (ROOT / "README.md").read_text()
+    assert f"Published v{RELEASE} installation examples below do not provide those commands" in readme
+    guide = (ROOT / "docs/codex-work.md").read_text()
+    assert "**Unreleased.**" in guide
+    assert "fixture tests do not establish desktop support" in guide
 
 
 def test_job_index_keeps_technical_reference_discoverable():

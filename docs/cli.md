@@ -47,6 +47,7 @@ machine-readable when you redirect JSON or Markdown output.
 |---|---|
 | [`maida capture claude-code`](cli/capture-claude-code.md) | Receive local Claude Code OTLP telemetry |
 | [`maida capture claude-hook`](cli/capture-claude-hook.md) | Append one passive Claude Code hook event |
+| [`maida capture codex-hook`](cli/capture-codex-hook.md) | Unreleased: append one native Codex/local-only Work hook event |
 | [`maida import claude-code`](cli/import-claude-code.md) | Normalize a captured Claude Code session |
 | [`maida import langfuse`](cli/import-langfuse.md) | Import completed traces through Langfuse's read-only API |
 | [`maida validate-trace`](cli/validate-trace.md) | Validate an externally emitted native trace |
@@ -77,6 +78,7 @@ cli/view
 cli/list
 cli/capture-claude-code
 cli/capture-claude-hook
+cli/capture-codex-hook
 cli/import-claude-code
 cli/import-langfuse
 cli/validate-trace

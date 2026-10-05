@@ -64,6 +64,7 @@ After the local comparison works, [add the Action and repository protection](htt
 
 - [Integration overview](integrations.md): supported capture options and their coverage.
 - [Claude Code](claude-code.md): automatic setup, recovery, and richer capture.
+- [Codex and local-only ChatGPT Work](codex-work.md): unreleased setup and native hook capture; desktop acceptance remains required.
 - [Python agent walkthrough](python-agent.md): install in the project environment and connect an entrypoint.
 - [LangChain / LangGraph](integrations/langchain-langgraph.md) and [OpenAI Agents SDK](integrations/openai-agents.md): optional adapters.
 - [CrewAI compatibility](integrations/crewai.md): retained adapter and unsupported installation path.
