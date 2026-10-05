@@ -36,42 +36,42 @@ _ALLOWED_FUNCTION_IMPORTS = {
         ("aggregate_metrics", "invariant_outcomes", "numeric_metrics"),
     ),  # Shared gate evaluation imports AssertionPolicy from this module.
     (
-        "maida/_tracing/_context.py",
+        "maida/_tracing/context.py",
         "_finalize_implicit_run",
         "from",
         "opentelemetry",
         ("context",),
     ),  # Detach only if an implicit run was activated.
     (
-        "maida/_tracing/_context.py",
+        "maida/_tracing/context.py",
         "_ensure_run",
         "from",
-        "maida._tracing._otel",
+        "maida._tracing.otel",
         ("_setup_otel", "_get_tracer"),
     ),  # Avoid import cycle during normal tracing module import.
     (
-        "maida/_tracing/_context.py",
+        "maida/_tracing/context.py",
         "_ensure_run",
         "from",
         "opentelemetry",
         ("context",),
     ),  # Only needed when MAIDA_IMPLICIT_RUN creates an OTel context.
     (
-        "maida/_tracing/_context.py",
+        "maida/_tracing/context.py",
         "_ensure_run",
         "from",
         "opentelemetry.trace.propagation",
         ("set_span_in_context",),
     ),  # Only needed when MAIDA_IMPLICIT_RUN creates an OTel context.
     (
-        "maida/_tracing/_otel.py",
+        "maida/_tracing/otel.py",
         "_setup_otel",
         "from",
         "opentelemetry.exporter.otlp.proto.http.trace_exporter",
         ("OTLPSpanExporter",),
     ),  # Optional exporter dependency path, loaded only when configured.
     (
-        "maida/_tracing/_otel.py",
+        "maida/_tracing/otel.py",
         "_shutdown_otel",
         "import",
         "opentelemetry.trace",

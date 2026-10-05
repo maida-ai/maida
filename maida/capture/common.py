@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from maida._file_lock import file_lock
-from maida._tracing._redact import _key_matches_redact, _truncate_string
+from maida._tracing.redact import _key_matches_redact, _truncate_string
 from maida.config import MaidaConfig
 from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 

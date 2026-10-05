@@ -23,20 +23,7 @@ from maida.constants import default_counts
 from maida.exceptions import GuardrailExceeded, _MaidaAbortSignal
 from maida.guardrails import GuardrailParams, merge_guardrail_params
 from maida.events import utc_now_iso_ms_z
-from maida._tracing._context import (
-    _config_var,
-    _counts_var,
-    _event_count_var,
-    _event_window_var,
-    _guardrail_params_var,
-    _loop_emitted_var,
-    _resolve_run_name,
-    _run_id_var,
-    _started_at_var,
-)
-from maida._tracing._otel import (
-    _get_tracer,
-    _setup_otel,
+from maida._tracing.attributes import (
     MAIDA_ARGV,
     MAIDA_CWD,
     MAIDA_ERROR_COUNT,
@@ -50,7 +37,22 @@ from maida._tracing._otel import (
     MAIDA_RUN_NAME,
     MAIDA_TOOL_COUNT,
 )
-from maida._tracing._redact import _redact_and_truncate, _redact_argv
+from maida._tracing.context import (
+    _config_var,
+    _counts_var,
+    _event_count_var,
+    _event_window_var,
+    _guardrail_params_var,
+    _loop_emitted_var,
+    _resolve_run_name,
+    _run_id_var,
+    _started_at_var,
+)
+from maida._tracing.otel import (
+    _get_tracer,
+    _setup_otel,
+)
+from maida._tracing.redact import _redact_and_truncate, _redact_argv
 from maida._integration_utils import _invoke_run_enter, _invoke_run_exit
 
 P = ParamSpec("P")

@@ -36,7 +36,7 @@ def isolated_local_environment(tmp_path_factory):
 def reset_otel(isolated_local_environment):
     """Reset OTel singleton state before each test so MaidaLocalSpanExporter
     picks up the correct MAIDA_DATA_DIR for this test's temp dir."""
-    from maida._tracing._otel import _shutdown_otel
+    from maida._tracing.otel import _shutdown_otel
 
     _shutdown_otel()
     yield

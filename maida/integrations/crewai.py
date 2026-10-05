@@ -14,7 +14,7 @@ from types import TracebackType
 from typing import Any
 
 from maida._integration_utils import register_run_enter, register_run_exit
-from maida._tracing._context import _ensure_run
+from maida._tracing.context import _ensure_run
 from maida.exceptions import GuardrailExceeded, _MaidaAbortSignal
 from maida.integrations._error import MissingOptionalDependencyError
 from maida.tracing import record_llm_call, record_tool_call

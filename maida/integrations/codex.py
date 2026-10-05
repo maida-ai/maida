@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from maida._tracing._otel import (
+from maida._tracing.attributes import (
     MAIDA_ERROR_COUNT,
     MAIDA_ERROR_MESSAGE,
     MAIDA_ERROR_TYPE,

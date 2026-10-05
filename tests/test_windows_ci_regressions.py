@@ -7,7 +7,7 @@ import pytest
 
 from maida import record_tool_call, traced_run
 from maida import baseline, starter
-from maida._tracing._otel import span_to_dict
+from maida._tracing.otel import span_to_dict
 from maida.assertions import AssertionPolicy, run_assertions
 from maida.config import load_config
 from maida.events import spans_to_events

@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from opentelemetry import trace as ot_trace
 
-from maida._tracing._redact import _redact_and_truncate
+from maida._tracing.redact import _redact_and_truncate
 from maida.assertions import AssertionPolicy, format_report_markdown, run_assertions
 from maida.baseline import create_baseline
 from maida.config import MaidaConfig, load_config

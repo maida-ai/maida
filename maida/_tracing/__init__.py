@@ -1,26 +1,18 @@
+"""OTel-backed run tracing: context, lifecycle, and recorders.
+
+Private implementation behind ``maida.tracing``. Captures agent runs as
+OpenTelemetry traces with redaction, implicit-run support, and local span
+export. Import the public API from ``maida.tracing`` (or ``maida``). This
+``__init__`` re-exports nothing so importing a leaf submodule cannot pull the
+full tracing stack or create package-init cycles.
+
+Dependencies: stdlib + maida.config + maida.constants + maida.events +
+maida.storage.
+
+TODO(concurrency): Safe for single-threaded agent loops. If tools run
+concurrently (e.g. thread pool), context does not propagate to worker threads
+and the event window ordering can be non-deterministic. For v0.2+: propagate
+context into workers (contextvars.copy_context().run(...)) and use a
+thread-safe window (e.g. lock around appends) with a well-defined ordering
+rule so loop detection remains meaningful.
 """
-Tracing context, @trace decorator, and manual recorders for Maida.
-
-Uses contextvars for run_id, counts, and config. Recorders no-op when no active run,
-or create an implicit run when MAIDA_IMPLICIT_RUN=1.
-Dependencies: stdlib + maida.config + maida.constants + maida.events + maida.storage.
-
-TODO(concurrency): Safe for single-threaded agent loops. If tools run concurrently
-(e.g. thread pool), context does not propagate to worker threads and the event window
-ordering can be non-deterministic. For v0.2+: propagate context into workers
-(contextvars.copy_context().run(...)) and use a thread-safe window (e.g. lock around
-appends) with a well-defined ordering rule so loop detection remains meaningful.
-"""
-
-from ._lifecycle import trace, traced_run
-from ._recorders import record_llm_call, record_tool_call, record_state
-from ._context import has_active_run
-
-__all__ = [
-    "trace",
-    "traced_run",
-    "has_active_run",
-    "record_llm_call",
-    "record_tool_call",
-    "record_state",
-]
