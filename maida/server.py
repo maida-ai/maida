@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import maida.storage as storage
+from maida._storage.paths import _validate_trace_id
 from maida.config import MaidaConfig, load_config
 from maida.constants import SPEC_VERSION
 from maida.events import spans_to_events
@@ -32,7 +33,7 @@ def _get_config(request: Request) -> MaidaConfig:
 
 def _validated_trace_id(trace_id: str) -> str:
     try:
-        return storage._validate_trace_id(trace_id)
+        return _validate_trace_id(trace_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="invalid trace_id")
 
