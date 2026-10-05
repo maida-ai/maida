@@ -18,7 +18,14 @@ This is the core product repository: the engine, CLI, and public contracts. Star
 
 ## Try Maida in your repository
 
-Use Python 3.12–3.14 and a Git repository where you use Claude Code:
+Use Python 3.12–3.14 and your own Git repository. Claude Code and Codex follow the same `init → task → exit → check → printed view` flow. **Codex is unreleased**; use a development installation containing this stack before selecting it. The published installation example below supports Claude Code.
+
+| Coding agent | Launch a new session | Setup distinction |
+| --- | --- | --- |
+| Claude Code | `claude` | `maida init --agent claude-code` |
+| Codex (unreleased) | `codex` | `maida init --agent codex`; review/trust native Maida hooks when requested |
+
+Complete one bounded task, exit the agent, then run `maida check` and its exact printed viewer command. See [Codex capture and native acceptance](docs/codex.md) for the development install, coverage and recovery details.
 
 ```bash
 uv tool install "maida-ai==0.6.1"
@@ -40,7 +47,7 @@ If Maida gave you a useful signal on your agent, ⭐ [star the repo](https://git
 
 **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida; your coding agent still uses its normal provider, permissions, and costs.
 
-If Maida is already installed in the project's uv environment, use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the agent, so plain `claude` works afterward.
+If Maida is already installed in the project's uv environment, use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the selected agent; launch its command from the table afterward.
 
 **[Get your first report →](https://maida.ai/docs/getting-started/)**
 
@@ -82,7 +89,8 @@ Your coding-agent repository can use any language. Building a Python tool-callin
 
 | Integration | Setup | Guide |
 |---|---|---|
-| Claude Code | `maida init` | [Capture and recovery](docs/claude-code.md) |
+| Claude Code | `maida init --agent claude-code` | [Capture and recovery](docs/claude-code.md) |
+| Codex (unreleased) | Development installation: `maida init --agent codex` | [Capture and recovery](docs/codex.md) |
 | LangChain / LangGraph | `maida-ai[langchain]==0.6.1` | [Guide](docs/integrations/langchain-langgraph.md) |
 | OpenAI Agents SDK | `maida-ai[openai]==0.6.1` | [Guide](docs/integrations/openai-agents.md) |
 | CrewAI | Unsupported installation path; adapter retained | [Compatibility](docs/integrations/crewai.md) |
@@ -103,7 +111,7 @@ Start at **[maida.ai/docs](https://maida.ai/docs/)** or the [local documentation
 
 ## Setup help and privacy
 
-Init previews automatic local capture setup and preserves existing settings and other hooks. If detection is ambiguous, use `maida init --agent claude-code`. Upgrade an older standalone install with `uv tool install --force "maida-ai==0.6.1"`, rerun init, and follow its recovery guidance. To stop capture, use `maida detach --agent claude-code`; restart the agent session after setup or detach. Saved evidence is preserved. See the [init reference](docs/cli/init.md) for detailed setup and upgrade handling.
+Init previews automatic local capture setup and preserves existing settings and other hooks. If detection is ambiguous, use `maida init --agent claude-code` or, with the unreleased development installation, `maida init --agent codex`. Upgrade an older standalone install with `uv tool install --force "maida-ai==0.6.1"`, rerun init, and follow its recovery guidance. To stop capture, use `maida detach --agent claude-code`; restart the agent session after setup or detach. Saved evidence is preserved. See the [init reference](docs/cli/init.md) for detailed setup and upgrade handling.
 
 Redaction is on by default and large fields are truncated. [Configuration](docs/reference/config.md) explains storage and redaction settings. No task evidence is uploaded to Maida by default. Capture integrations may use a local telemetry receiver; that is not telemetry to Maida. [Optional usage counts](docs/usage-ping.md) require explicit consent and a configured collector; none is configured by default.
 

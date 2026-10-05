@@ -20,4 +20,8 @@ Reconnect using the same identity and saved evidence:
 maida init --agent claude-code
 ```
 
-Repeated detach is a no-op. Declining changes nothing. Noninteractive detach shows the preview and exits `2`; run it in an interactive terminal to approve. Malformed settings, symlinks, concurrent edits and write failures identify the file or repair action, preserve existing configuration, and exit `2`. Only Claude Code is currently supported.
+Repeated detach is a no-op. Declining changes nothing. Noninteractive detach shows the preview and exits `2`; run it in an interactive terminal to approve. Malformed settings, symlinks, concurrent edits and write failures identify the file or repair action, preserve existing configuration, and exit `2`. The released command supports Claude Code.
+
+## Codex detach (unreleased)
+
+The development stack supports `maida detach --agent codex`. After preview and approval, it removes only Maida-owned native registrations and disables `providers.codex.enabled`. Existing session handlers become inert. Claude capture, other hooks, policy, baselines and saved traces remain usable, including explicit captured IDs. Exit and restart Codex to reload hook settings. Reconnect with `maida init --agent codex` and complete renewed native trust review when requested. This route creates no plugin or marketplace files.

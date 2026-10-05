@@ -4,7 +4,14 @@
 
 ## Try Maida
 
-Use Python 3.12–3.14 and your own Git repository with Claude Code:
+Use Python 3.12–3.14 and your own Git repository. Claude Code and Codex follow the same `init → task → exit → check → printed view` flow. **Codex is unreleased**; use a development installation containing this stack before selecting it. The published installation example below supports Claude Code.
+
+| Coding agent | Launch a new session | Setup distinction |
+| --- | --- | --- |
+| Claude Code | `claude` | `maida init --agent claude-code` |
+| Codex (unreleased) | `codex` | `maida init --agent codex`; review/trust native Maida hooks when requested |
+
+Complete one bounded task, exit the agent, then run `maida check` and its exact printed viewer command. See [Codex capture and native acceptance](codex.md) for the development install, coverage and recovery details.
 
 ```bash
 uv tool install "maida-ai==0.6.1"
