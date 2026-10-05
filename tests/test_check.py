@@ -111,7 +111,7 @@ def test_check_without_setup_or_after_detach_has_one_setup_action(project):
     missing = runner.invoke(app, ["check"])
     assert missing.exit_code == 2, missing.output
     assert "maida init" in missing.stderr
-    data["enabled"] = False
+    data["providers"]["claude-code"]["enabled"] = False
     pointer.write_text(json.dumps(data))
     detached = runner.invoke(app, ["check"])
     assert detached.exit_code == 2, detached.output

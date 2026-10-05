@@ -49,8 +49,8 @@ def test_fresh_preview_approval_and_repeat(project):
     assert not (project / ".maida/policy.yaml").exists()
     assert not (project / ".maida/starter").exists()
     pointer = json.loads((project / ".maida/local.json").read_text())
-    assert pointer["version"] == 1
-    assert pointer["capture"] == "claude-code"
+    assert pointer["version"] == 2
+    assert pointer["providers"] == {"claude-code": {"enabled": True}}
     assert load_config(capture=True).data_dir == Path.home() / ".maida/projects" / pointer["project_id"]
     excluded = subprocess.run(["git", "check-ignore", ".maida/local.json"], text=True, capture_output=True, check=True)
     assert excluded.stdout.strip() == ".maida/local.json"

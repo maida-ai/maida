@@ -19,7 +19,7 @@ def initialized(root):
     (root / ".maida").mkdir()
     project_id = uuid.uuid4().hex
     (root / ".maida/local.json").write_text(
-        json.dumps({"version": 1, "project_id": project_id, "capture": "claude-code"})
+        json.dumps({"version": 2, "project_id": project_id, "providers": {"claude-code": {"enabled": True}}})
     )
     return project_id
 
@@ -168,7 +168,7 @@ def test_malformed_pointer_is_actionable(tmp_path, temp_data_dir, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = report()
     assert result.exit_code == 2
-    assert "Move it aside" in result.output
+    assert "aside and rerun maida init" in result.output
 
 
 def test_capture_uses_original_project_after_cd(tmp_path, temp_data_dir, monkeypatch):

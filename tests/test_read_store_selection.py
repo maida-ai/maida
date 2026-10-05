@@ -35,7 +35,7 @@ def test_ordinary_reads_keep_sdk_defaults_after_attach_and_detach(runs, detached
     if detached:
         pointer = project / ".maida/local.json"
         data = json.loads(pointer.read_text())
-        data["enabled"] = False
+        data["providers"]["claude-code"]["enabled"] = False
         pointer.write_text(json.dumps(data))
     listed = runner.invoke(app, ["list", "--json"])
     assert listed.exit_code == 0, listed.output
@@ -131,7 +131,7 @@ def test_damaged_pointer_reports_recovery_for_explicit_capture_reads(runs, comma
     result = runner.invoke(app, [command, capture, *options])
     assert result.exit_code == 2, result.output
     assert "local.json" in result.stderr
-    assert "Move it aside" in result.stderr
+    assert "aside and rerun maida init" in result.stderr
     assert not result.stdout
 
 
@@ -141,7 +141,7 @@ def test_explicit_capture_ids_remain_readable(runs, detached):
     if detached:
         pointer = project / ".maida/local.json"
         data = json.loads(pointer.read_text())
-        data["enabled"] = False
+        data["providers"]["claude-code"]["enabled"] = False
         pointer.write_text(json.dumps(data))
     result = runner.invoke(app, ["export", capture[:8], "--out", "claude.json"])
     assert result.exit_code == 0, result.output
