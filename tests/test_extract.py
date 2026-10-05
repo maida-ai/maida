@@ -357,13 +357,6 @@ def test_extract_window_rejects_unsafe_output_and_cleans_failed_staging(
         extract_window(runs_dir, out_dir=existing, config=load_config())
     assert (existing / "keep.txt").read_text(encoding="utf-8") == "keep"
 
-    dangling = tmp_path / "dangling"
-    dangling.symlink_to(tmp_path / "missing-target", target_is_directory=True)
-    with pytest.raises(ExtractionInputError, match="already exists"):
-        extract_window(runs_dir, out_dir=dangling, config=load_config())
-    assert dangling.is_symlink()
-    assert not (tmp_path / "missing-target").exists()
-
     with pytest.raises(ExtractionInputError, match="inside the trace window"):
         extract_window(
             runs_dir,
@@ -382,6 +375,16 @@ def test_extract_window_rejects_unsafe_output_and_cleans_failed_staging(
     assert not failed_out.exists()
     assert not list(tmp_path.glob(".failed-draft.*.tmp"))
     assert _read_tree(runs_dir)
+
+
+def test_extract_window_rejects_dangling_symlink_output(tmp_path, symlink_supported):
+    runs_dir = _window(tmp_path)
+    dangling = tmp_path / "dangling"
+    dangling.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+    with pytest.raises(ExtractionInputError, match="already exists"):
+        extract_window(runs_dir, out_dir=dangling, config=load_config())
+    assert dangling.is_symlink()
+    assert not (tmp_path / "missing-target").exists()
 
 
 def test_completed_error_window_fails_self_consistency_without_installing_output(

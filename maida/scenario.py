@@ -61,6 +61,8 @@ _SAFE_ENVIRONMENT_KEYS = frozenset(
         "ANTHROPIC_BASE_URL",
         "CLAUDE_CODE_OAUTH_TOKEN",
         "COMSPEC",
+        "APPDATA",
+        "LOCALAPPDATA",
         "HOME",
         "HTTP_PROXY",
         "HTTPS_PROXY",
@@ -75,8 +77,11 @@ _SAFE_ENVIRONMENT_KEYS = frozenset(
         "SSL_CERT_FILE",
         "SYSTEMROOT",
         "TERM",
+        "TEMP",
+        "TMP",
         "TMPDIR",
         "USER",
+        "USERPROFILE",
     }
 )
 
@@ -545,10 +550,20 @@ def _stop_process_group(process: subprocess.Popen[str], *, force: bool) -> None:
     if process.poll() is not None:
         return
     if os.name == "nt":
-        if force:
-            process.kill()
-        else:
-            process.terminate()
+        # terminate()/kill() only stop the parent on Windows. Tool children can
+        # keep the capture pipes open, defeating communicate()'s timeout.
+        try:
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+        finally:
+            if process.poll() is None:
+                process.kill()
+        if result.returncode != 0:
+            raise OSError("Could not stop the Windows scenario process tree")
         return
     group = os.getpgid(process.pid)
     os.killpg(group, signal.SIGKILL if force else signal.SIGTERM)

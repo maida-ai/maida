@@ -144,6 +144,10 @@ def save_baseline(baseline: dict, path: Path, force: bool = False) -> None:
     """Write pretty-printed JSON, refusing replacement unless ``force=True``."""
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
+        # Windows exclusive-create can follow a dangling symlink and create
+        # its target. Refuse it explicitly before attempting to open the path.
+        if not force and path.is_symlink():
+            raise FileExistsError(path)
         f = open(path, "w" if force else "x", encoding="utf-8")
     except FileExistsError:
         raise FileExistsError(

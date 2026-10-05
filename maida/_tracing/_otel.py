@@ -157,8 +157,10 @@ def span_to_dict(span: ReadableSpan, config: MaidaConfig | None = None) -> dict[
     sc = span.context
     parent_sc = span.parent
     start_nanos = span.start_time or 0
-    end_nanos = span.end_time or 0
-    duration_ms = nanos_to_ms(end_nanos - start_nanos) if end_nanos > start_nanos else None
+    end_nanos = span.end_time
+    # Coarse clocks can give a completed span identical start and end times.
+    # That measures zero elapsed time; it does not mean timing is unavailable.
+    duration_ms = nanos_to_ms(end_nanos - start_nanos) if end_nanos is not None and end_nanos >= start_nanos else None
 
     attrs = _sanitize_attribute_mapping(
         span.attributes,
@@ -197,7 +199,7 @@ def span_to_dict(span: ReadableSpan, config: MaidaConfig | None = None) -> dict[
         "name": span.name or "",
         "kind": span_kind_str(span.kind) if span.kind else "INTERNAL",
         "start_time": nanos_to_iso(start_nanos),
-        "end_time": nanos_to_iso(end_nanos) if end_nanos else None,
+        "end_time": nanos_to_iso(end_nanos) if end_nanos is not None else None,
         "duration_ms": duration_ms,
         "attributes": attrs,
         "events": events_list,

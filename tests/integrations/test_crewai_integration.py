@@ -408,12 +408,15 @@ def test_crewai_success_persists_exact_signature_and_namespaced_metadata(
     assert events[-1]["payload"] == {"status": "ok"}
 
 
+@pytest.mark.parametrize("tied_timestamps", [False, True])
 def test_crewai_missing_completion_hooks_persist_failed_calls_before_run_end(
-    crewai_module_with_mocked_hooks, temp_data_dir
+    crewai_module_with_mocked_hooks, temp_data_dir, monkeypatch, tied_timestamps
 ):
     from maida import trace
 
     crewai = crewai_module_with_mocked_hooks
+    if tied_timestamps:
+        monkeypatch.setattr("opentelemetry.sdk.trace.time_ns", lambda: 1_767_225_600_000_000_000)
 
     @trace(name="CrewAI incomplete calls")
     def run():
@@ -425,14 +428,16 @@ def test_crewai_missing_completion_hooks_persist_failed_calls_before_run_end(
         run()
 
     _, meta, events = _load_latest_events()
-    assert [event["event_type"] for event in events] == [
-        "RUN_START",
-        "ERROR",
-        "LLM_CALL",
-        "TOOL_CALL",
-        "RUN_END",
-    ]
-    for event in events[2:4]:
+    event_types = [event["event_type"] for event in events]
+    assert event_types[0] == "RUN_START"
+    assert event_types[-1] == "RUN_END"
+    assert event_types.count("ERROR") == 1
+    assert len(events) == 5
+    # Teardown records can share the exception's timestamp on coarse clocks.
+    # Require both failed calls before RUN_END without ordering tied ERRORs.
+    calls = [event for event in events[1:-1] if event["event_type"] in {"LLM_CALL", "TOOL_CALL"}]
+    assert [event["event_type"] for event in calls] == ["LLM_CALL", "TOOL_CALL"]
+    for event in calls:
         assert event["payload"]["status"] == "error"
         assert event["payload"]["error"]["error_type"] == "RuntimeError"
         assert event["meta"]["crewai"]["completion"] == "missing_after_hook"

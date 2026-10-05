@@ -124,7 +124,7 @@ def test_new_setup_does_not_add_hooks_to_shared_settings(project):
     local = project / ".claude/settings.local.json"
     from maida.capture_setup import bound_hook_command
 
-    assert bound_hook_command() in local.read_text()
+    assert json.loads(local.read_text())["hooks"]["SessionStart"][0]["hooks"][0]["command"] == bound_hook_command()
     assert subprocess.run(["git", "check-ignore", str(local)], capture_output=True).returncode == 0
 
 
@@ -311,7 +311,7 @@ def test_existing_global_observers_are_reused_and_not_removed(project, temp_data
     assert saved == {p.relative_to(evidence): p.read_bytes() for p in evidence.rglob("*") if p.is_file()}
 
 
-def test_init_refuses_tracked_local_settings_and_symlinked_settings(project):
+def test_init_refuses_tracked_local_settings(project):
     local = project / ".claude/settings.local.json"
     local.parent.mkdir()
     local.write_text("{}")
@@ -320,7 +320,11 @@ def test_init_refuses_tracked_local_settings_and_symlinked_settings(project):
     assert result.exit_code == 2
     assert "git rm --cached -- .claude/settings.local.json" in result.output
     assert not (project / ".maida").exists()
-    local.unlink()
+
+
+def test_init_refuses_symlinked_settings(project, symlink_supported):
+    local = project / ".claude/settings.local.json"
+    local.parent.mkdir()
     outside = project.parent / "external-settings.json"
     outside.write_text("{}")
     local.symlink_to(outside)

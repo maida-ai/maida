@@ -10,6 +10,8 @@ import tarfile
 import pytest
 import yaml
 
+pytestmark = pytest.mark.skipif(os.name == "nt", reason="Tests POSIX shell scripts used by Linux CI")
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
 RELEASE_TAG = json.loads((ROOT / "contracts/current-main.json").read_text())["engine_ref"]

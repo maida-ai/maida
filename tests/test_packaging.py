@@ -59,7 +59,7 @@ def test_built_wheel_contains_importable_package_and_cli(tmp_path):
     # Test the release path: uv builds the wheel from the source distribution.
     # Every published schema must survive both steps, including nested $refs.
     for schema in (ROOT / "schemas").rglob("*.json"):
-        assert f"maida/schemas/{schema.relative_to(ROOT / 'schemas')}" in names
+        assert f"maida/schemas/{schema.relative_to(ROOT / 'schemas').as_posix()}" in names
 
     # PyPI cannot resolve relative README links; METADATA must carry the rewrite.
     readme = (ROOT / "README.md").read_text(encoding="utf-8")

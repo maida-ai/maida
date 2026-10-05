@@ -29,6 +29,8 @@ Choose one entry point:
 - `maida scenario run` for pinned, isolated prompt fixtures and automatic
   capture/import/evaluation.
 
+On native Windows, `maida init` binds passive hooks to the installed Python interpreter and explicitly selects PowerShell, quoting paths with spaces or apostrophes. Rerun init after upgrading to review migration of older hooks, then restart the agent session. Hook input is UTF-8 JSON. CLI reports preserve the terminal or pipe encoding and escape symbols that encoding cannot represent, keeping JSON output parseable. Windows scenario subprocesses retain the runtime's home and temporary-directory settings; timeout cleanup stops the process tree.
+
 Start the receiver:
 
 ```bash

@@ -166,7 +166,7 @@ def test_save_baseline_force_overwrites(tmp_path):
     assert '"replacement": true' in path.read_text()
 
 
-def test_save_baseline_refuses_dangling_symlink(tmp_path):
+def test_save_baseline_refuses_dangling_symlink(tmp_path, symlink_supported):
     target = tmp_path / "missing.json"
     path = tmp_path / "baseline.json"
     path.symlink_to(target)

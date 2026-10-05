@@ -21,6 +21,9 @@ def isolated_local_environment(tmp_path_factory):
     # monkeypatch.undo() between assertions and must remain in the sandbox.
     with pytest.MonkeyPatch.context() as isolation:
         isolation.setenv("HOME", str(home))
+        isolation.setenv("USERPROFILE", str(home))
+        isolation.setenv("APPDATA", str(home / "AppData/Roaming"))
+        isolation.setenv("LOCALAPPDATA", str(home / "AppData/Local"))
         isolation.setattr(Path, "home", staticmethod(lambda: home))
         isolation.chdir(project)
         for key in list(os.environ):
@@ -44,10 +47,13 @@ def reset_otel(isolated_local_environment):
 def temp_data_dir():
     """Create a temporary directory and set MAIDA_DATA_DIR to it for the test."""
     with tempfile.TemporaryDirectory() as tmp:
+        # Windows temp paths may contain a short-name alias (e.g. RUNNER~1).
+        # Match the canonical storage paths returned by project configuration.
+        directory = Path(tmp).resolve()
         old = os.environ.get("MAIDA_DATA_DIR")
         try:
-            os.environ["MAIDA_DATA_DIR"] = tmp
-            yield Path(tmp)
+            os.environ["MAIDA_DATA_DIR"] = str(directory)
+            yield directory
         finally:
             if old is not None:
                 os.environ["MAIDA_DATA_DIR"] = old
@@ -69,3 +75,19 @@ def get_latest_run_id(config):
     runs = list_runs(limit=1, config=config)
     assert runs, "expected at least one run"
     return runs[0].get("run_id") or runs[0].get("trace_id")
+
+
+@pytest.fixture
+def symlink_supported(tmp_path):
+    """Run symlink safety checks wherever the runner permits their creation."""
+    target = tmp_path / "symlink-probe-target"
+    link = tmp_path / "symlink-probe"
+    target.mkdir()
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"Runner cannot create symlinks: {exc}")
+    else:
+        link.unlink()
+    finally:
+        target.rmdir()
