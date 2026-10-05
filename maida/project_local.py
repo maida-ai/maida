@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from maida.capture_setup import read_safe
+from maida.capture.providers import PROVIDERS
 
 if TYPE_CHECKING:
     from maida.config import MaidaConfig
@@ -40,14 +41,29 @@ def installation(start: Path, *, command: str = "maida init") -> tuple[Path, dic
     if (
         not isinstance(pointer, dict)
         or type(pointer.get("version")) is not int
-        or pointer["version"] != 1
+        or pointer["version"] not in (1, 2)
         or not isinstance(pointer.get("project_id"), str)
         or not _PROJECT_ID.fullmatch(pointer["project_id"])
-        or pointer.get("capture") != "claude-code"
-        or ("enabled" in pointer and not isinstance(pointer["enabled"], bool))
+        or not _valid_providers(pointer)
     ):
         raise ValueError(f"Invalid {path}. Move it aside and rerun {command} to create a new local identity.")
     return root, pointer
+
+
+def _valid_providers(pointer: dict) -> bool:
+    if pointer["version"] == 1:
+        return pointer.get("capture") == "claude-code" and (
+            "enabled" not in pointer or isinstance(pointer["enabled"], bool)
+        )
+    providers = pointer.get("providers")
+    return (
+        isinstance(providers, dict)
+        and bool(providers)
+        and all(
+            name in PROVIDERS and isinstance(state, dict) and type(state.get("enabled")) is bool
+            for name, state in providers.items()
+        )
+    )
 
 
 def onboarding_run(config: MaidaConfig, *, command: str = "maida check") -> str:
