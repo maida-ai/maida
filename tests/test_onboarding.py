@@ -206,7 +206,8 @@ def test_unsupported_journals_fail_safely_with_recovery(temp_data_dir, tmp_path,
 
 
 def test_funnel_times_conversion_and_abandoned_denominator(temp_data_dir, tmp_path, monkeypatch):
-    from maida.onboarding import summarize, _load, _path
+    from maida._onboarding.utils import _load, _path
+    from maida.onboarding import summarize
 
     monkeypatch.chdir(tmp_path)
     command("start", "--assistance", "none")

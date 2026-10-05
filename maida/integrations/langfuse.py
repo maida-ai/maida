@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
-from maida._tracing._otel import (
+from maida._tracing.attributes import (
     GEN_AI_OPERATION_NAME,
     GEN_AI_REQUEST_MODEL,
     GEN_AI_REQUEST_TEMPERATURE,
@@ -32,7 +32,7 @@ from maida._tracing._otel import (
     MAIDA_TOOL_COUNT,
     MAIDA_TOOL_NAME,
 )
-from maida._tracing._redact import _redact_and_truncate
+from maida._tracing.redact import _redact_and_truncate
 from maida.config import MaidaConfig
 from maida.constants import SPEC_VERSION
 from maida.loopdetect import detect_loop, pattern_key

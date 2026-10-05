@@ -309,7 +309,7 @@ def test_record_llm_call_accepts_float_token_counts(temp_data_dir, monkeypatch):
 
 def test_normalize_usage_accepts_floats_and_mixed_types():
     """_normalize_usage accepts float token counts and casts to int; mixed int/float and None allowed."""
-    from maida._tracing._redact import _normalize_usage
+    from maida._tracing.redact import _normalize_usage
 
     # All floats (common from some LLM APIs)
     out = _normalize_usage({"prompt_tokens": 100.0, "completion_tokens": 50.0, "total_tokens": 150.0})
@@ -350,7 +350,7 @@ def test_trace_sets_name(monkeypatch, name, as_kwarg):
         captured["func"] = func
         return DummyContext()
 
-    monkeypatch.setattr("maida._tracing._lifecycle._run_context", fake_run_context)
+    monkeypatch.setattr("maida._tracing.lifecycle._run_context", fake_run_context)
 
     def dummy_func(*args, **kwargs):
         pass

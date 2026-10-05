@@ -31,9 +31,6 @@ import maida.storage as storage
 from maida import __version__
 from maida.assertions import (
     AssertionPolicy,
-    format_report_json,
-    format_report_markdown,
-    format_report_text,
     run_assertions,
 )
 from maida.acceptance import AcceptanceSource, accept_baseline_update
@@ -65,6 +62,7 @@ from maida.demo import (
 from maida.diff import compute_diff, format_diff_text
 from maida.drift import DriftWindowError, run_drift
 from maida.evaluation import evaluate_stored_run_against_baseline
+from maida.report import format_report_json, format_report_markdown, format_report_text
 from maida.extract import ExtractionInputError, extract_window
 from maida.integrations.langfuse import (
     LangfuseImportError,
@@ -116,9 +114,11 @@ _DEMO_TRACE_DURATION_MS = 120
 _PLAN_BACKEND_INSTALL_COMMAND = 'uv tool install --force --python 3.12 --with "maida-workflows>=0.2" "maida-ai>=0.6.1"'
 
 app = typer.Typer(help="Capture, inspect, and gate agent behavior.")
+
 capture_app = typer.Typer(help="Capture external agent behavior locally.")
 import_app = typer.Typer(help="Import existing traces into local Maida storage.")
 scenario_app = typer.Typer(help="Run isolated capture-backed agent scenarios.")
+
 app.add_typer(capture_app, name="capture")
 app.add_typer(import_app, name="import")
 app.add_typer(scenario_app, name="scenario")

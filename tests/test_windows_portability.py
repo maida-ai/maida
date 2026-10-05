@@ -10,7 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from maida import cli, capture_setup, scenario
+from maida import cli, capture_setup
+from maida._scenario import executor as scenario
 
 
 @pytest.mark.parametrize("encoding", ["ascii", "cp1252", "utf-8"])

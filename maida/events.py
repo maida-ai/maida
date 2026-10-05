@@ -409,7 +409,7 @@ def spans_to_events(spans: list[dict]) -> list[dict[str, Any]]:
 
 
 try:
-    from maida._tracing._otel import (
+    from maida._tracing.attributes import (
         GEN_AI_OPERATION_NAME,
         MAIDA_ERROR_TYPE,
         MAIDA_ERROR_MESSAGE,

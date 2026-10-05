@@ -256,7 +256,7 @@ def test_measurement_io_failures_do_not_change_product_outcomes(project, monkeyp
         raise PermissionError("measurement save unavailable")
 
     monkeypatch.setattr(
-        "maida.onboarding.file_lock" if failure == "lock" else "maida.onboarding._save",
+        "maida._onboarding.utils.file_lock" if failure == "lock" else "maida._onboarding.recording._save",
         denied_lock if failure == "lock" else denied_save,
     )
     assert "onboarding" not in invoke("init", input="y\n").output

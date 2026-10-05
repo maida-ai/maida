@@ -22,7 +22,7 @@ from maida.config import MaidaConfig, load_config
 from maida.constants import default_counts
 from maida.events import utc_now_iso_ms_z
 from maida.guardrails import GuardrailParams, check_after_event
-from maida._tracing._redact import _redact_and_truncate, _redact_argv
+from maida._tracing.redact import _redact_and_truncate, _redact_argv
 
 _run_id_var: ContextVar[str | None] = ContextVar("maida_run_id", default=None)
 _counts_var: ContextVar[dict | None] = ContextVar("maida_counts", default=None)
@@ -203,7 +203,7 @@ def _ensure_run() -> tuple[str, dict, MaidaConfig, list[dict], set[str]] | None:
                 _implicit_loop_emitted,
             )
         config = load_config()
-        from maida._tracing._otel import _setup_otel, _get_tracer
+        from maida._tracing.otel import _setup_otel, _get_tracer
 
         _setup_otel()
         # Exit handlers run in reverse order: finish the root span before the

@@ -27,14 +27,14 @@ def test_cli_import_without_posix_locking_module():
 
 
 def test_journal_updates_serialize_across_processes(tmp_path):
-    from maida.onboarding import _load
+    from maida._onboarding.utils import _load
 
     root = Path(__file__).resolve().parents[1]
     path = tmp_path / "journal.json"
     path.write_text('{"journal_version": 2, "attempts": []}')
     script = """import json, sys, time
 from pathlib import Path
-from maida.onboarding import _locked, _load, _save
+from maida._onboarding.utils import _locked, _load, _save
 path = Path(sys.argv[1])
 for i in range(5):
     with _locked(path):
@@ -114,10 +114,11 @@ def test_unavailable_lock_backend_is_an_io_failure(tmp_path, monkeypatch):
 
 
 def test_journal_temp_file_is_closed_before_atomic_replace(tmp_path, monkeypatch):
-    from maida import onboarding
+    from maida._onboarding import utils as onboarding_utils
+    from maida._onboarding.utils import _load, _save
 
     created = []
-    create = onboarding.tempfile.NamedTemporaryFile
+    create = onboarding_utils.tempfile.NamedTemporaryFile
     replace = os.replace
 
     def track_file(**kwargs):
@@ -129,17 +130,18 @@ def test_journal_temp_file_is_closed_before_atomic_replace(tmp_path, monkeypatch
         assert created[-1].closed
         replace(source, target)
 
-    monkeypatch.setattr(onboarding.tempfile, "NamedTemporaryFile", track_file)
-    monkeypatch.setattr(onboarding.os, "replace", replace_closed)
+    monkeypatch.setattr(onboarding_utils.tempfile, "NamedTemporaryFile", track_file)
+    monkeypatch.setattr(onboarding_utils.os, "replace", replace_closed)
     path = tmp_path / "journal.json"
     payload = {"journal_version": 2, "attempts": []}
-    onboarding._save(path, payload)
-    assert onboarding._load(path) == payload
+    _save(path, payload)
+    assert _load(path) == payload
     assert list(tmp_path.iterdir()) == [path]
 
 
 def test_failed_atomic_replace_preserves_journal_and_cleans_temp_file(tmp_path, monkeypatch):
-    from maida import onboarding
+    from maida._onboarding import utils as onboarding_utils
+    from maida._onboarding.utils import _save
 
     path = tmp_path / "journal.json"
     path.write_bytes(b"original journal bytes")
@@ -147,15 +149,16 @@ def test_failed_atomic_replace_preserves_journal_and_cleans_temp_file(tmp_path, 
     def failed(*args):
         raise PermissionError("replacement denied")
 
-    monkeypatch.setattr(onboarding.os, "replace", failed)
+    monkeypatch.setattr(onboarding_utils.os, "replace", failed)
     with pytest.raises(PermissionError, match="replacement denied"):
-        onboarding._save(path, {"journal_version": 2, "attempts": []})
+        _save(path, {"journal_version": 2, "attempts": []})
     assert path.read_bytes() == b"original journal bytes"
     assert list(tmp_path.iterdir()) == [path]
 
 
 def test_failed_temp_file_creation_preserves_journal(tmp_path, monkeypatch):
-    from maida import onboarding
+    from maida._onboarding import utils as onboarding_utils
+    from maida._onboarding.utils import _save
 
     path = tmp_path / "journal.json"
     path.write_bytes(b"original journal bytes")
@@ -163,9 +166,9 @@ def test_failed_temp_file_creation_preserves_journal(tmp_path, monkeypatch):
     def failed(**kwargs):
         raise PermissionError("temporary file denied")
 
-    monkeypatch.setattr(onboarding.tempfile, "NamedTemporaryFile", failed)
+    monkeypatch.setattr(onboarding_utils.tempfile, "NamedTemporaryFile", failed)
     with pytest.raises(PermissionError, match="temporary file denied"):
-        onboarding._save(path, {"journal_version": 2, "attempts": []})
+        _save(path, {"journal_version": 2, "attempts": []})
     assert path.read_bytes() == b"original journal bytes"
     assert list(tmp_path.iterdir()) == [path]
 

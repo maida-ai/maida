@@ -20,7 +20,8 @@ from maida.gate import (
     structural_signature,
 )
 from maida.policy import merge_policy
-from maida.runner_v2 import TrialRecord, TrialRunReport, _v2_assertion_report
+from maida.runner import TrialRecord, TrialRunReport
+from maida._runner.trials import invariant_assertion_report
 
 
 class DriftWindowError(ValueError):
@@ -169,7 +170,7 @@ def run_drift(
                 config=window_config,
             )
             if policy.source_format == "cli"
-            else _v2_assertion_report(item.trace_id, invariants)
+            else invariant_assertion_report(item.trace_id, invariants)
         )
         records.append(
             TrialRecord(

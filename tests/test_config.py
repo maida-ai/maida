@@ -125,7 +125,7 @@ def test_yaml_redact_off_disables_redaction(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
 
     from maida.config import load_config
-    from maida._tracing._redact import _redact_and_truncate
+    from maida._tracing.redact import _redact_and_truncate
 
     cfg = load_config(project_root=tmp_path)
     assert cfg.redact is False

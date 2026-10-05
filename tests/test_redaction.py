@@ -11,13 +11,14 @@ from unittest.mock import patch
 import pytest
 from opentelemetry import trace as ot_trace
 
-from maida._tracing._redact import _redact_and_truncate
-from maida.assertions import AssertionPolicy, format_report_markdown, run_assertions
+from maida._tracing.redact import _redact_and_truncate
+from maida.assertions import AssertionPolicy, run_assertions
 from maida.baseline import create_baseline
 from maida.config import MaidaConfig, load_config
 from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.events import EventType, spans_to_events
 from maida.guardrails import GuardrailParams
+from maida.report import format_report_markdown
 from maida.storage import list_runs, load_spans
 from maida.tracing import record_llm_call, record_tool_call, trace, traced_run
 

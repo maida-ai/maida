@@ -26,7 +26,7 @@ from maida.plan_contract import (
     plan_metric_values,
 )
 from maida.policy import load_policy
-from maida.runner_v2 import TrialRunReport
+from maida.runner import TrialRunReport
 from maida.schema_versions import (
     BASELINE_SCHEMA_VERSION,
     PLAN_SCHEMA_VERSION,

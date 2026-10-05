@@ -7,22 +7,21 @@ import json
 
 import pytest
 
+from maida._storage.paths import _validate_trace_id
 from maida.config import load_config
 from maida.events import EventType, spans_to_events
 from maida.storage import (
     RunValidationError,
-    _validate_trace_id,
     delete_run,
     install_validated_run,
     list_runs,
-    load_validated_run,
     load_run_meta,
     load_spans,
+    load_validated_run,
     rename_run,
-    resolve_trace_id_for_read,
     resolve_trace_id,
+    resolve_trace_id_for_read,
 )
-
 
 # ---------------------------------------------------------------------------
 # _validate_trace_id

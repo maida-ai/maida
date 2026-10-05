@@ -18,13 +18,7 @@ from maida.events import EventType, new_event
 from maida.exceptions import LoopAbort
 from maida.loopdetect import detect_loop, pattern_key as loop_pattern_key
 
-from maida._tracing._context import (
-    _append_event_and_check_guardrails,
-    _ensure_run,
-    _guardrail_params_var,
-)
-from maida._tracing._otel import (
-    _get_tracer,
+from maida._tracing.attributes import (
     GEN_AI_OPERATION_NAME,
     GEN_AI_REQUEST_MODEL,
     GEN_AI_REQUEST_TEMPERATURE,
@@ -40,7 +34,15 @@ from maida._tracing._otel import (
     MAIDA_STATUS,
     MAIDA_TOOL_NAME,
 )
-from maida._tracing._redact import (
+from maida._tracing.context import (
+    _append_event_and_check_guardrails,
+    _ensure_run,
+    _guardrail_params_var,
+)
+from maida._tracing.otel import (
+    _get_tracer,
+)
+from maida._tracing.redact import (
     _apply_redaction_truncation,
     _build_error_payload,
     _normalize_usage,

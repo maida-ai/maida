@@ -13,13 +13,11 @@ from pathlib import Path
 from maida.assertions import (
     AssertionPolicy,
     AssertionReport,
-    format_report_json,
-    format_report_markdown,
-    format_report_text,
     run_assertions,
 )
 from maida.config import MaidaConfig, load_config
 from maida.diff import RunDiff, compute_diff
+from maida.report import format_report_json, format_report_markdown, format_report_text
 
 
 @dataclass(frozen=True)

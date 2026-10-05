@@ -9,7 +9,7 @@ from textwrap import dedent
 import pytest
 
 from maida.assertions import AssertionReport
-from maida.runner_v2 import TrialRecord, TrialRunReport
+from maida.runner import TrialRecord, TrialRunReport
 from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict, StatisticalResult
 

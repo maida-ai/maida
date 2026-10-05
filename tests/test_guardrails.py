@@ -212,7 +212,7 @@ def test_max_duration_s_triggers_after_timeout(temp_data_dir, monkeypatch):
     start_ts = "2026-01-01T12:00:00.000Z"
     end_ts = "2026-01-01T12:01:40.000Z"  # 100s later
 
-    monkeypatch.setattr("maida._tracing._lifecycle.utc_now_iso_ms_z", lambda: start_ts)
+    monkeypatch.setattr("maida._tracing.lifecycle.utc_now_iso_ms_z", lambda: start_ts)
     monkeypatch.setattr(guardrails_mod, "utc_now_iso_ms_z", lambda: end_ts)
 
     with pytest.raises(GuardrailExceeded) as exc_info:
@@ -405,7 +405,7 @@ def test_max_duration_s_zero_triggers_immediately(temp_data_dir, monkeypatch):
     from maida import guardrails as guardrails_mod
 
     ts = "2026-01-01T12:00:00.000Z"
-    monkeypatch.setattr("maida._tracing._lifecycle.utc_now_iso_ms_z", lambda: ts)
+    monkeypatch.setattr("maida._tracing.lifecycle.utc_now_iso_ms_z", lambda: ts)
     monkeypatch.setattr(guardrails_mod, "utc_now_iso_ms_z", lambda: ts)
 
     with pytest.raises(GuardrailExceeded) as exc_info:

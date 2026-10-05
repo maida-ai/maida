@@ -1,5 +1,5 @@
 """
-Public re-export shim for the _tracing module.
+Public re-export shim for the _tracing package.
 
 This module provides the public API for Maida tracing:
 - trace: Decorator that starts a new run as an OTel trace.
@@ -10,14 +10,9 @@ This module provides the public API for Maida tracing:
 - record_state: Record a state update as an event on the current span.
 """
 
-from maida._tracing import (
-    trace,
-    traced_run,
-    has_active_run,
-    record_llm_call,
-    record_tool_call,
-    record_state,
-)
+from maida._tracing.context import has_active_run
+from maida._tracing.lifecycle import trace, traced_run
+from maida._tracing.recorders import record_llm_call, record_state, record_tool_call
 
 __all__ = [
     "trace",
