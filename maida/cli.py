@@ -51,9 +51,9 @@ from maida.capture.claude_hook import (
     parse_claude_hook_json,
 )
 from maida.config import MaidaConfig, load_config
-from maida.capture.providers import provider_enabled, runtime_enabled
+from maida.capture.providers import attached_providers, provider_enabled, runtime_enabled
 from maida.capture.codex_hook import DEFAULT_MAX_HOOK_BYTES, parse_codex_hook_json
-from maida.project_local import installation, onboarding_run
+from maida.project_local import captured_task, installation
 from maida.first_run import detach_capture, initialize_capture, maida_command
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
 from maida.demo import (
@@ -1323,23 +1323,24 @@ def assert_cmd(
 @app.command("check")
 def check_cmd(
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, json, markdown"),
+    agent: str | None = typer.Option(None, "--agent", help="Capture provider: claude-code or codex"),
 ) -> None:
-    """Check your latest completed Claude task and show how to inspect it."""
+    """Check the latest captured task and show how to inspect the same evidence."""
     command = f"{maida_command()} check"
     if output_format not in {"text", "json", "markdown"}:
         typer.echo(f"Unknown report format. Use {command} --format text, json or markdown.", err=True)
         raise Exit(EXIT_NOT_FOUND)
     try:
         local = installation(Path.cwd(), command=f"{maida_command()} init")
-        if local is None or not provider_enabled(local[1], "claude-code"):
+        if local is None or not attached_providers(local[1]):
             typer.echo(
-                f"Claude capture is not attached here. Run {maida_command()} init in this repository to attach it.",
+                f"Capture is not attached here. Run {maida_command()} init in this repository to attach it.",
                 err=True,
             )
             raise Exit(EXIT_NOT_FOUND)
         config = load_config(project_root=local[0], capture=True)
         try:
-            run_id = onboarding_run(config, command=command)
+            run_id, runtime = captured_task(config, local[1], agent=agent, command=command)
         except FileNotFoundError as exc:
             typer.echo(str(exc), err=True)
             raise Exit(EXIT_NOT_FOUND)
@@ -1348,8 +1349,13 @@ def check_cmd(
             report = run_assertions(run_id, policy, config=config)
         except (FileNotFoundError, storage.RunValidationError, storage.UnsupportedTraceFormatError) as exc:
             typer.echo(
-                "The captured task cannot be read. Start a new Claude Code session here, run one bounded task, "
-                f"exit, then rerun {command}.",
+                "The captured task cannot be read. Start a new "
+                + (
+                    "Claude Code session here, run one bounded task, exit"
+                    if runtime == "claude-code"
+                    else "Codex session, run one bounded task, let it finish and exit Codex"
+                )
+                + f", then rerun {command}.",
                 err=True,
             )
             raise Exit(EXIT_NOT_FOUND) from exc
@@ -1357,9 +1363,11 @@ def check_cmd(
         typer.echo(render[output_format](report))
         if output_format == "text":
             typer.echo(f"\nRepository: {config.project_root}")
+            if runtime == "codex":
+                typer.echo("Source: native Codex hooks (turn completion and paired observed tools).")
             typer.echo(
-                "Coverage: observed tool activity and session lifecycle; answer correctness and "
-                "complete model-call, token, and latency coverage are outside this check."
+                "Coverage: observed tool activity and lifecycle; answer correctness and "
+                "complete tool, model-call, token, cost, and latency coverage are outside this check."
             )
         typer.echo(f"Trace: {run_id}\nView: {maida_command()} view {run_id}", err=output_format != "text")
         record_automatically("own-task-captured", root=local[0])
