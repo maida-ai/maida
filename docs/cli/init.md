@@ -87,3 +87,5 @@ All Action components use the `v0.6.0` release tag, including `maida-ai/maida-as
 Use `--force` only after reviewing the starter or workflow files that will be replaced. Maida preflights all target files, refuses symlinked or escaping outputs, and preserves existing files by default. First-run hook setup always merges and requires approval for changes.
 
 Exit codes: `0` capture setup completed, already configured or declined, or draft/activation completed; `2` unsupported/ambiguous environment, noninteractive setup needing approval, missing observations, invalid configuration or file collision; `10` unexpected internal failure.
+
+Local capture identity uses only version-2 `.maida/local.json` with `project_id` and per-provider `enabled` state. Older pointers are never migrated. Move `.maida/local.json` aside and rerun `maida init` to create a new identity; saved evidence remains on disk.

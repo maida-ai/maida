@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from maida.capture.claude_code import (
+from maida.capture.common import (
     _atomic_json,
     _atomic_jsonl,
     _canonical,

@@ -51,6 +51,7 @@ from maida.capture.claude_hook import (
     parse_claude_hook_json,
 )
 from maida.config import MaidaConfig, load_config
+from maida.capture.providers import provider_enabled
 from maida.project_local import installation, onboarding_run
 from maida.first_run import detach_capture, initialize_capture, maida_command
 from maida.constants import LOCAL_DIR_NAME, SPEC_VERSION
@@ -429,7 +430,7 @@ def capture_claude_hook_cmd() -> None:
     try:
         origin = os.environ.get("CLAUDE_PROJECT_DIR")
         local = installation(Path(origin) if origin else Path.cwd())
-        if local and local[1].get("enabled") is False:
+        if local and not provider_enabled(local[1], "claude-code"):
             diagnostic = (
                 f"Maida capture disabled for {local[0]} (enabled: false). "
                 "Reconnect with maida init --agent claude-code."
@@ -1302,7 +1303,7 @@ def check_cmd(
         raise Exit(EXIT_NOT_FOUND)
     try:
         local = installation(Path.cwd(), command=f"{maida_command()} init")
-        if local is None or not local[1].get("enabled", True):
+        if local is None or not provider_enabled(local[1], "claude-code"):
             typer.echo(
                 f"Claude capture is not attached here. Run {maida_command()} init in this repository to attach it.",
                 err=True,

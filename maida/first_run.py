@@ -12,6 +12,7 @@ from pathlib import Path
 
 import typer
 
+from maida.capture.providers import provider_enabled, updated_pointer
 from maida.capture_setup import (
     atomic_replace,
     bound_hook_command,
@@ -115,9 +116,12 @@ def initialize_capture(agent: str | None = None) -> bool:
     project_id = local[1]["project_id"] if local else uuid.uuid4().hex
     pointer_path = root / LOCAL_POINTER
     pointer_before = read_safe(pointer_path)
-    pointer = local[1].copy() if local else {"version": 1, "project_id": project_id, "capture": "claude-code"}
-    if pointer.get("enabled") is False:
-        pointer["enabled"] = True
+    pointer = (
+        local[1].copy()
+        if local
+        else {"version": 2, "project_id": project_id, "providers": {"claude-code": {"enabled": True}}}
+    )
+    pointer = updated_pointer(pointer, "claude-code")
     pointer_after = pointer_before if local and pointer == local[1] else (json.dumps(pointer, indent=2) + "\n").encode()
     if _git(root, "ls-files", "--error-unmatch", "--", str(LOCAL_POINTER)).returncode == 0:
         raise ValueError(
@@ -248,8 +252,10 @@ def detach_capture(agent: str | None = None) -> None:
     if local:
         path = root / LOCAL_POINTER
         before = read_safe(path, command=command)
-        pointer = {**local[1], "enabled": False}
-        after = before if local[1].get("enabled") is False else (json.dumps(pointer, indent=2) + "\n").encode()
+        pointer = updated_pointer(local[1], "claude-code", enabled=False)
+        after = (
+            before if not provider_enabled(local[1], "claude-code") else (json.dumps(pointer, indent=2) + "\n").encode()
+        )
         files.append((path, before, after))
     if not any(before != after for _, before, after in files):
         typer.echo("No active repository Maida hooks to detach.")

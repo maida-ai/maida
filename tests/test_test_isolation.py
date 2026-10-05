@@ -15,7 +15,9 @@ def test_suite_ignores_developer_project_home_and_capture_environment(tmp_path):
     subprocess.run(["git", "init", "--quiet", str(project)], check=True)
     local = project / ".maida/local.json"
     local.parent.mkdir()
-    local.write_text(json.dumps({"version": 1, "project_id": uuid.uuid4().hex, "capture": "claude-code"}))
+    local.write_text(
+        json.dumps({"version": 2, "project_id": uuid.uuid4().hex, "providers": {"claude-code": {"enabled": True}}})
+    )
     before = local.read_bytes()
     home = tmp_path / "developer-home"
     settings = home / ".maida/config.yaml"
