@@ -17,3 +17,7 @@ The newest session must have finished and contain useful evidence. Missing, inco
 This command does not change `maida assert`, bare `maida view` or other SDK/Python read defaults. Use `maida assert TRACE_ID --baseline PATH` for an explicit captured task's baseline gate.
 
 Exit codes: `0` the three checks passed; `1` an observed check failed; `2` setup, capture or format needs repair; `10` an unexpected internal failure. A failing report still prints the selected task and its viewer command.
+
+## Codex and provider selection (unreleased)
+
+In the development stack, `maida check --agent codex` selects the newest started Codex turn; `--agent claude-code` retains Claude session selection. Plain `maida check` selects the newest started task across attached enabled providers. A newer incomplete, interrupted, corrupt or unimportable task never falls back to older success. Codex completion comes from root `Stop` plus paired observed tools; normal `SessionEnd` preserves it, so the canonical flow checks after exiting Codex. Conversation text and transcripts are not persisted; sanitized tool inputs/results are retained. Imported snapshots are immutable. See [coverage and native acceptance](../codex.md).

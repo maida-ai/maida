@@ -76,7 +76,8 @@ def test_run_id_examples_reach_maida_as_arguments():
 @pytest.mark.parametrize("relative", PAGES)
 def test_front_doors_do_not_restore_obsolete_onboarding(relative):
     text = (ROOT / relative).read_text()
-    assert not re.search(r"unreleased|wheel.{0,50}main|main.{0,50}wheel", text, re.I)
+    block = text.split("```bash\n", 1)[1].split("```", 1)[0]
+    assert not re.search(r"codex|unreleased|wheel.{0,50}main|main.{0,50}wheel", block, re.I)
     for obsolete in (
         "onboarding/install_capture",
         "MAIDA_DATA_DIR",
@@ -113,3 +114,19 @@ def test_job_index_keeps_technical_reference_discoverable():
         "sdk.md",
     ):
         assert reference in text
+
+
+@pytest.mark.parametrize("relative", PAGES)
+def test_peer_agents_share_one_flow_without_promising_codex_in_released_install(relative):
+    text = (ROOT / relative).read_text()
+    assert "**Codex is unreleased**" in text
+    assert "published installation example below supports Claude Code" in text
+    assert "| Claude Code | `claude` |" in text
+    assert "| Codex (unreleased) | `codex` |" in text
+    assert "review/trust native Maida hooks when requested" in text
+    assert "exit the agent" in text
+    assert "codex.md" in text
+    assert "chatgpt-work" not in text
+    guide = (ROOT / "docs/codex.md").read_text()
+    assert "Native Windows acceptance remains pending" in guide
+    assert "fixture tests do not establish interactive compatibility" in guide

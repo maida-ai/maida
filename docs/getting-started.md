@@ -4,7 +4,14 @@
 
 ## Try Maida in your repository
 
-Use Python 3.12–3.14 and a Git repository where you use Claude Code:
+Use Python 3.12–3.14 and your own Git repository. Claude Code and Codex follow the same `init → task → exit → check → printed view` flow. **Codex is unreleased**; use a development installation containing this stack before selecting it. The published installation example below supports Claude Code.
+
+| Coding agent | Launch a new session | Setup distinction |
+| --- | --- | --- |
+| Claude Code | `claude` | `maida init --agent claude-code` |
+| Codex (unreleased) | `codex` | `maida init --agent codex`; review/trust native Maida hooks when requested |
+
+Complete one bounded task, exit the agent, then run `maida check` and its exact printed viewer command. See [Codex capture and native acceptance](codex.md) for the development install, coverage and recovery details.
 
 ```bash
 uv tool install "maida-ai==0.6.1"
@@ -26,7 +33,7 @@ For example: `maida view 83aa19e3`. Use the command from your own report.
 
 **Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida. Your coding agent still uses its usual model provider, permissions, and costs.
 
-Already installed Maida in the project's uv environment? Use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the agent; start plain `claude` afterward.
+Already installed Maida in the project's uv environment? Use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the selected agent; launch its command from the table afterward.
 
 ## Investigate a regression
 
@@ -84,7 +91,7 @@ Test the gate on a real PR and again on the new head after intentional acceptanc
 
 ## Setup help and other integrations
 
-Init previews automatic local setup and preserves existing settings and other hooks. If agent detection is ambiguous, use `maida init --agent claude-code`. First-run setup needs an interactive terminal; noninteractive setup previews changes and exits `2`. To upgrade an older standalone install, use `uv tool install --force "maida-ai==0.6.1"`, rerun init, follow its recovery guidance, and restart the agent session. See [init](cli/init.md) for inherited hooks or malformed settings.
+Init previews automatic local setup and preserves existing settings and other hooks. If agent detection is ambiguous, use `maida init --agent claude-code` or, with the unreleased development installation, `maida init --agent codex`. First-run setup needs an interactive terminal; noninteractive setup previews changes and exits `2`. To upgrade an older standalone install, use `uv tool install --force "maida-ai==0.6.1"`, rerun init, follow its recovery guidance, and restart the agent session. See [init](cli/init.md) for inherited hooks or malformed settings.
 
 To stop capture, run `maida detach --agent claude-code`, approve the preview, and restart the agent session. Other hooks and saved evidence are preserved. Reconnect with `maida init --agent claude-code`.
 

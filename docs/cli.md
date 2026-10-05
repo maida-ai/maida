@@ -90,3 +90,5 @@ cli/assert
 cli/diff
 cli/extract
 ```
+
+Codex capture and `init`, `check` and `detach` provider selection are **unreleased** in this development stack. Follow the same task-and-exit flow in [Codex capture](codex.md); the released installation examples above remain Claude-only. The passive receiver is [`maida capture codex-hook`](cli/capture-codex-hook.md).
