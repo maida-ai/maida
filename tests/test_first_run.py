@@ -260,10 +260,10 @@ def test_installed_ambiguity_and_unsupported_project_signal(project, monkeypatch
     assert result.exit_code == 2
     assert "installed commands" in result.output
     assert "Claude Code, Codex" in result.output
-    (project / ".codex").mkdir()
+    (project / "opencode.json").write_text("{}")
     unsupported = runner.invoke(app, ["init"])
     assert unsupported.exit_code == 2
-    assert "Detected Codex" in unsupported.output
+    assert "Detected OpenCode" in unsupported.output
     assert not (project / ".maida").exists()
 
 
