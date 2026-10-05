@@ -1,12 +1,14 @@
-"""Markdown rendering for statistical gate and drift trial reports."""
+"""Text and Markdown rendering for statistical gate and drift trial reports."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from maida._runner.types import TrialRecord, TrialRunReport
-from maida.report import markdown_baseline_provenance, markdown_table_cell
+from maida._report.common import markdown_baseline_provenance, markdown_table_cell
 from maida.statistics import GateVerdict, StatisticalResult
+
+if TYPE_CHECKING:
+    from maida._runner.types import TrialRecord, TrialRunReport
 
 _CHECK_LABELS = {
     "agent_process": "Agent execution",
@@ -311,6 +313,23 @@ def _next_steps(report: TrialRunReport, baseline_path: str | None) -> list[str]:
     else:
         steps.append("- Otherwise fix the agent behavior or policy, then rerun the gate.")
     return steps
+
+
+def render_trial_report_text(report: TrialRunReport) -> str:
+    """Format a trial/drift report as human-readable CLI text."""
+    label = "Window trace" if report.report_kind == "drift" else "Trial"
+    lines = [
+        (
+            f"{label} {trial.trial}/{report.trials_requested}: "
+            f"{'PASS' if trial.passed else 'FAIL'} "
+            f"(trace {trial.trace_id[:8]})"
+        )
+        for trial in report.trials
+    ]
+    if report.abort_reason:
+        lines.append(f"Stopped after {len(report.trials)}/{report.trials_requested}: {report.abort_reason}")
+    lines.extend(["", f"RESULT: {report.verdict.value.upper()}"])
+    return "\n".join(lines)
 
 
 def render_trial_report_markdown(report: TrialRunReport, *, baseline_path: str | None) -> str:

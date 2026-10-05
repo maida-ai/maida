@@ -84,13 +84,6 @@ _ALLOWED_FUNCTION_IMPORTS = {
         "uvicorn",
         ("uvicorn",),
     ),  # Viewer server dependency is only needed for `maida view`.
-    (
-        "maida/_runner/types.py",
-        "to_markdown",
-        "from",
-        "maida._runner.markdown",
-        ("render_trial_report_markdown",),
-    ),  # Markdown rendering imports TrialRunReport; defer to avoid a cycle.
 }
 
 

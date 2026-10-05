@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+from maida._report.trials import render_trial_report_markdown, render_trial_report_text
 from maida.assertions import AssertionReport
 from maida.plan_contract import PlanEvidence
 from maida.schema_versions import REPORT_SCHEMA_VERSION
@@ -140,22 +141,8 @@ class TrialRunReport:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
     def to_text(self) -> str:
-        label = "Window trace" if self.report_kind == "drift" else "Trial"
-        lines = [
-            (
-                f"{label} {trial.trial}/{self.trials_requested}: "
-                f"{'PASS' if trial.passed else 'FAIL'} "
-                f"(trace {trial.trace_id[:8]})"
-            )
-            for trial in self.trials
-        ]
-        if self.abort_reason:
-            lines.append(f"Stopped after {len(self.trials)}/{self.trials_requested}: {self.abort_reason}")
-        lines.extend(["", f"RESULT: {self.verdict.value.upper()}"])
-        return "\n".join(lines)
+        return render_trial_report_text(self)
 
     def to_markdown(self, baseline_path: str | None = None) -> str:
         """Render the compact, GitHub-facing statistical gate report."""
-        from maida._runner.markdown import render_trial_report_markdown
-
         return render_trial_report_markdown(self, baseline_path=baseline_path)
