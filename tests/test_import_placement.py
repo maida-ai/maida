@@ -15,6 +15,13 @@ _ALLOWED_FUNCTION_IMPORTS = {
         ("import_codex_turn",),
     ),  # Normalization uses hook replay helpers; defer to check to avoid a cycle and expensive imports in hooks.
     (
+        "maida/project_local.py",
+        "captured_task",
+        "from",
+        "maida.capture.codex_hook",
+        ("materialize_turn",),
+    ),  # Config imports installation discovery; capture imports config, so select lazily to avoid that cycle.
+    (
         "maida/assertions.py",
         "_run_metric_assertions",
         "from",
