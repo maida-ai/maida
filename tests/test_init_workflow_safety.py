@@ -168,7 +168,7 @@ def test_detach_decline_noninteractive_and_unsupported_leave_settings(project, m
     result = runner.invoke(app, ["detach", "--agent", "claude-code"])
     assert result.exit_code == 2
     assert "interactive terminal" in result.output
-    assert runner.invoke(app, ["detach", "--agent", "codex"], input="y\n").exit_code == 2
+    assert runner.invoke(app, ["detach", "--agent", "other"], input="y\n").exit_code == 2
     assert path.read_bytes() == before
 
 

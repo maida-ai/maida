@@ -252,7 +252,7 @@ for event, extra in (
     assert f"View: uv run maida view {trace_id}" in report.stdout
 
 
-def test_installed_ambiguity_and_unsupported_project_signal(project, monkeypatch):
+def test_installed_ambiguity_and_supported_codex_project_signal(project, monkeypatch):
     monkeypatch.setattr(
         "maida.first_run.shutil.which", lambda name: "/fixture/bin" if name in {"maida", "claude", "codex"} else None
     )
@@ -261,9 +261,9 @@ def test_installed_ambiguity_and_unsupported_project_signal(project, monkeypatch
     assert "installed commands" in result.output
     assert "Claude Code, Codex" in result.output
     (project / ".codex").mkdir()
-    unsupported = runner.invoke(app, ["init"])
-    assert unsupported.exit_code == 2
-    assert "Detected Codex" in unsupported.output
+    declined = runner.invoke(app, ["init"], input="n\n")
+    assert declined.exit_code == 0
+    assert "Detected Codex" in declined.output
     assert not (project / ".maida").exists()
 
 

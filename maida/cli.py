@@ -1563,12 +1563,12 @@ def init_cmd(
     ),
     reason: str | None = typer.Option(None, "--reason", help="Record why the reviewed invariants fit this task"),
     agent_script: Path | None = typer.Option(None, "--agent-script", help="Existing traced Python entrypoint for CI"),
-    agent: str | None = typer.Option(None, "--agent", help="Resolve ambiguous first-run detection: claude-code"),
+    agent: str | None = typer.Option(None, "--agent", help="Capture provider: claude-code, codex, chatgpt-work"),
 ) -> None:
     """Set up local agent capture, or draft and activate reviewed invariants."""
     try:
         if agent is not None and (from_run or reviewed or github):
-            raise ValueError("--agent is for first-run capture setup. Use maida init --agent claude-code separately.")
+            raise ValueError(f"--agent is for first-run capture setup. Use maida init --agent {agent} separately.")
         if from_run and (reviewed or github):
             raise ValueError("Draft first with --from-run; review the candidates before --reviewed or --github")
         if reason is not None and not reviewed:
@@ -1646,7 +1646,7 @@ def init_cmd(
 
 @app.command("detach")
 def detach_cmd(
-    agent: str | None = typer.Option(None, "--agent", help="Agent to detach: claude-code"),
+    agent: str | None = typer.Option(None, "--agent", help="Provider to detach: claude-code, codex, chatgpt-work"),
 ) -> None:
     """Preview and confirm removal of repository Maida capture hooks."""
     try:
