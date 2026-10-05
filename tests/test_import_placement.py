@@ -8,6 +8,13 @@ from pathlib import Path
 
 _ALLOWED_FUNCTION_IMPORTS = {
     (
+        "maida/capture/codex_hook.py",
+        "materialize_turn",
+        "from",
+        "maida.integrations.codex",
+        ("import_codex_turn",),
+    ),  # Normalization uses hook replay helpers; defer to check to avoid a cycle and expensive imports in hooks.
+    (
         "maida/assertions.py",
         "_run_metric_assertions",
         "from",
