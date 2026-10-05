@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import fcntl
 import hashlib
 import json
 import os
@@ -30,6 +29,7 @@ from maida._tracing._redact import (
     _truncate_string,
 )
 from maida.config import MaidaConfig
+from maida._file_lock import file_lock
 from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.events import utc_now_iso_ms_z
 
@@ -553,14 +553,8 @@ _PROCESS_LOCK = threading.RLock()
 
 @contextmanager
 def _capture_lock(root: Path) -> Iterator[None]:
-    root.mkdir(parents=True, exist_ok=True)
-    lock_path = root / ".claude-code.lock"
-    with _PROCESS_LOCK, lock_path.open("a+") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+    with file_lock(root / ".claude-code.lock", _PROCESS_LOCK):
+        yield
 
 
 def _capture_dir(config: MaidaConfig, session_hash: str) -> Path:

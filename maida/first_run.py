@@ -95,7 +95,7 @@ def _git(root: Path, *arguments: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(root), *arguments], text=True, capture_output=True, check=False)
 
 
-def initialize_capture(agent: str | None = None) -> None:
+def initialize_capture(agent: str | None = None) -> bool:
     root = repository_root(Path.cwd())
     if root is None or _git(root, "rev-parse", "--show-toplevel").returncode:
         raise ValueError("No Git repository detected. Run maida init from your Git checkout.")
@@ -150,7 +150,7 @@ def initialize_capture(agent: str | None = None) -> None:
     if not changes:
         typer.echo("Claude Code capture is already ready for this repository.")
         typer.echo("\n" + NEXT_ACTION.format(command=maida_command()))
-        return
+        return True
     typer.echo(f"Repository: {root}")
     if events:
         typer.echo(f"Would add or update observer command in {settings_path}: {observer_command}")
@@ -175,10 +175,11 @@ def initialize_capture(agent: str | None = None) -> None:
         approved = False
     if not approved:
         typer.echo("Setup cancelled. Rerun maida init when ready.")
-        return
+        return False
     _write_previewed(files, "init")
     typer.echo("Claude Code capture is ready for this repository.")
     typer.echo("\n" + NEXT_ACTION.format(command=maida_command()))
+    return True
 
 
 def _write_previewed(files: list[tuple[Path, bytes | None, bytes | None]], action: str) -> None:

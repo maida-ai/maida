@@ -99,7 +99,7 @@ from maida.starter import (
 )
 from maida.server import create_app
 from maida.usage import report_usage
-from maida.onboarding import app as onboarding_app
+from maida.onboarding import app as onboarding_app, record_automatically
 from maida.trace_validation import (
     TraceDiagnostic,
     TraceInputError,
@@ -1327,6 +1327,8 @@ def check_cmd(
                 "complete model-call, token, and latency coverage are outside this check."
             )
         typer.echo(f"Trace: {run_id}\nView: {maida_command()} view {run_id}", err=output_format != "text")
+        record_automatically("own-task-captured", root=local[0])
+        record_automatically("first-report", root=local[0])
         typer.echo(report_usage("pass" if report.passed else "fail"), err=True)
         if not report.passed:
             raise Exit(1)
@@ -1540,7 +1542,8 @@ def init_cmd(
             raise ValueError("--agent-script requires --github")
         if not from_run and not reviewed and not github:
             try:
-                initialize_capture(agent)
+                if initialize_capture(agent):
+                    record_automatically("setup-ready")
             except OSError as exc:
                 raise ValueError(
                     "Cannot read capture setup files or Git metadata. Check permissions for this checkout and rerun maida init."
@@ -1577,6 +1580,8 @@ def init_cmd(
         if review_record is not None:
             targets[STARTER_REVIEW] = json.dumps(review_record, ensure_ascii=False, indent=2) + "\n"
         write_files(targets, force=force, update={STARTER_REVIEW} if review_record else set())
+        if reviewed:
+            record_automatically("gate-configured")
         for path in targets:
             typer.echo(f"Wrote {path}")
         typer.echo("Next: run the same task again, then gate the new observation:")
