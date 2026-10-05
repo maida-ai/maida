@@ -32,6 +32,7 @@ from maida._tracing._otel import (
 )
 from maida.capture.claude_code import _sanitize
 from maida.config import MaidaConfig
+from maida.onboarding import record_completed_capture
 from maida.constants import SPEC_VERSION
 from maida.events import span_to_event_dict
 from maida.loopdetect import detect_loop, pattern_key
@@ -1319,6 +1320,7 @@ def import_claude_capture(
                 f"destination run {run.trace_id} was created concurrently; rerun import"
             ) from exc
         imported = True
+    record_completed_capture(config, run.session_hash, run.segment)
     return ClaudeImportResult(
         trace_id=run.trace_id,
         run_name=run.run_name,

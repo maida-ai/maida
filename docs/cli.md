@@ -37,7 +37,7 @@ machine-readable when you redirect JSON or Markdown output.
 | [`maida init`](cli/init.md) | Set up local capture, then draft and review an observed contract |
 | [`maida check`](cli/check.md) | Check your latest captured task and print its viewer command |
 | [`maida detach`](cli/detach.md) | Remove repository capture hooks after preview and confirmation |
-| [`maida onboarding`](onboarding-measurement.md) | Record activation attempts and human setup/maintenance effort locally |
+| [`maida onboarding`](onboarding-measurement.md) | Measure the local setup-to-first-report funnel and human effort |
 | [`maida view`](cli/view.md) | Open the local execution timeline |
 | [`maida list`](cli/list.md) | List recent local runs |
 
