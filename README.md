@@ -10,133 +10,98 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-78d6a2?labelColor=161916)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-maida.ai-78d6a2?labelColor=161916)](https://maida.ai/docs/)
 
-<img src="docs/assets/viewer-regression.png" alt="The Maida timeline viewer showing a demo support agent run flagged with a loop warning: seven tool calls where the baseline had three, with search_kb repeated five times" width="840">
-
-<sub><b>A real run, caught.</b> The agent returned a normal answer -- and looped <code>search_kb</code> five times to get there.</sub>
-
 </div>
 
----
+Your coding agent returns a plausible answer and the tests pass, but it now loops, skips verification, or rewrites a test to hide a bug. **Maida checks an agent change before merge.** Output tests and evals may pass; Maida also checks how the agent worked.
 
-Your agent still returns the right answer -- but now it calls 3x the tools.
-A retry loop that wasn't there last week. A new tool the baseline has never
-seen. Output evals pass. Review sees a green diff. It ships.
+## Try Maida in your repository
 
-**Maida is the pre-merge behavioral regression gate for AI agents.** It compares
-agent execution traces against checked-in baselines and blocks PRs when
-structural behavior regresses.
-
-🔒 **No cloud or account required. No usage collection by default.** Traces stay
-on your machine or CI runner. [Optional usage counts](docs/usage-ping.md) require
-explicit consent and a configured collector; no collector is configured by default.
-
-## Start with one useful check
-
-Use Python 3.12–3.14. Install the standalone CLI, then run setup inside your Git repository:
+Use Python 3.12–3.14 and a Git repository where you use Claude Code:
 
 ```bash
 uv tool install "maida-ai==0.6.1"
+
+cd my-repo
 maida init
+
+# Run one normal Claude Code task and exit the session.
+
+maida check
+# Then run the exact "View:" command printed by Maida.
 ```
 
-Automatic capture setup and `maida check` are available from v0.6.1. If you already have an older standalone install, upgrade with `uv tool install --force "maida-ai==0.6.1"` before following this flow. See the [changelog](CHANGELOG.md) for upgrade notes.
+Approve init's setup preview, then start a **new** session with `claude`. Complete one normal task and exit normally. **Success looks like `3 active checks passed`**, your task's trace ID, and its viewer command. Open it to see the execution timeline. No agent-code changes or tutorial clone are needed.
 
-Maida detects Claude Code, previews the passive hooks and local setup, and asks for one approval. Existing settings and other hooks are preserved. Start plain `claude` in this repository, run one bounded task such as finding its test command, then exit the session and run:
+For example: `maida view 83aa19e3`. Use the command from your own report.
+
+**Runs on your machine or CI runner. No Maida cloud account required.** Task evidence is not uploaded to Maida; your coding agent still uses its normal provider, permissions, and costs.
+
+If Maida is already installed in the project's uv environment, use `uv run maida init`, `uv run maida check`, and the printed viewer command (for example, `uv run maida view 83aa19e3`). Init connects that installation to the agent, so plain `claude` works afterward.
+
+**[Get your first report →](https://maida.ai/docs/getting-started/)**
+
+## Investigate a regression
+
+**Run the exact `View:` command printed in the report.** See the tool calls and named failure, repair the cause, and repeat the task.
+
+<img src="docs/assets/viewer-regression.png" alt="The Maida timeline viewer showing a demo support agent with seven tool calls and search_kb repeated five times" width="840">
+
+The first `maida check` checks successful completion, recorded loops, and guardrail events. It does not compare a baseline or use an existing policy. Capture observes tool activity and lifecycle, not answer correctness or complete model-call, token, or latency coverage. Missing or unfinished capture gives recovery guidance instead of showing an older task. Keep ordinary correctness tests alongside Maida.
+
+## Protect the next agent change
+
+**Review the behavior you observed, keep a baseline and policy, then check the next change against them.** Instructions, skills, tools, model configuration, harness code, and application code can all change behavior. Maida gates the resulting change whether a human or the agent authored it.
+
+Follow [Protect the next agent change](docs/getting-started.md#protect-the-next-agent-change) to review a small contract, reproduce a safe failure, and repair it without replacing the baseline. The starter requirements are candidates for human review; they do not automatically protect test execution or prevent test rewriting.
+
+Read the comparative verdict: **PASS**, **FAIL**, or **INCONCLUSIVE**. It applies to the observed evidence and selected requirements. Exit `0` includes INCONCLUSIVE, so process success alone is not approval.
+
+## See why green tests are not enough
+
+In the [canonical storefront demo](https://github.com/maida-ai/maida-tutorials/tree/main/demos/pr-gate), a coding agent simplifies shipping, then rewrites the VIP regression test to approve **$15 shipping instead of $0**. All four application tests pass. **Maida fails the agent change** for rewriting the protected test. The same project shows skipped verification and an agent weakening its own instructions.
+
+The deterministic rehearsal uses released Maida v0.6.1 and runs offline after installation. It is optional practice, not a prerequisite for your own repository. For a quick canned report without cloning anything:
 
 ```bash
-maida check
+maida demo --regression
 ```
 
-The report checks your own task's observed completion, loops and guardrail events, and prints the exact `maida view TRACE_ID` command to inspect that task. No policy, baseline, tutorial clone or telemetry receiver setup is required. Task evidence stays outside Git in a repository-specific directory under `~/.maida/projects/`; this is not telemetry sent to Maida. Capture follows your configured redaction settings and observes tool activity and lifecycle, not complete model-call, token or latency coverage. Your agent's normal provider use has its usual permissions and costs.
-
-If Maida is installed in your project environment, use `uv run maida init` and `uv run maida check`. Hooks are bound to that environment and validated before setup reports ready; plain `claude` can run them without a global Maida command. The printed viewer command keeps the `uv run` prefix.
-
-Setup uses local Claude settings and preserves shared team configuration and existing SDK/Python commands. The first check above selects this repository's captured task automatically; ordinary commands and baseline gates keep their existing run selection. To stop capturing, run `maida detach --agent claude-code`: it previews removal and asks once, keeping other hooks and saved evidence. Reconnect with `maida init --agent claude-code`.
-
-**[Protect one coding-agent task →](https://maida.ai/docs/getting-started/)**
-
-The setup target is under five minutes for one bounded task; it is not a measured activation claim. Review a small baseline and policy when the first report is useful; deliberate failure, repair and CI come later. Unsupported or ambiguous environments are explained before configuration changes.
-
-For an offline rehearsal, run `maida demo --regression`: expect a FAIL verdict and PR-comment preview on canned data. No clone or API keys are needed. The demo exits `0` after showing the failing gate; an actual failed check exits `1`.
-
-Building a Python tool-calling agent? Use the secondary [Python walkthrough](docs/python-agent.md), including installation into the project environment.
-
-## What the gate checks
-
-Maida compares the observed execution against your checked-in policy and baseline: tool use, loops, stop conditions, structural counts, and configured cost or latency limits. It does not establish answer correctness or behavior outside the captured evidence. Keep your correctness tests alongside it.
-
-Read the verdict: **PASS**, **FAIL**, or **INCONCLUSIVE**. Exit `0` includes INCONCLUSIVE; consumers must not treat process success as approval.
-
-## Investigate a failed check
-
-Use `maida view` to inspect the local timeline and `maida diff --baseline .maida/baselines/agent.json` to understand the structural change. Repair an unintended regression; review the evidence and reason before accepting an intentional baseline change.
+Expect FAIL and a PR-comment preview. The rehearsal exits `0` when the expected failure is reproduced; an actual failed check exits `1`.
 
 ## Add the PR gate
 
-After the local pass → deliberate failure → repair loop works, follow the [Action setup and protection requirements](https://github.com/maida-ai/maida-assert#blocking-mode-and-required-repository-settings). Use the [init reference](docs/cli/init.md) for your installed version. The workflow needs a real entrypoint, dependencies, a reviewed baseline, and an immutable Action pin.
+Once a local pass → safe failure → repair works, follow the [Action setup and repository protection requirements](https://github.com/maida-ai/maida-assert#add-the-merge-boundary). CI needs a repeatable task, pinned versions, a reviewed baseline and policy, and configured required checks. Test the boundary on an actual PR head and again after intentional acceptance; generating a workflow alone does not establish enforcement.
 
-A generated workflow is setup, not evidence of merge enforcement. Verify required checks on the actual PR head, trusted base policy, workflow protection, and the fresh result after acceptance before relying on that boundary.
+## Integrate another agent/framework
 
-## 🔌 Integrations
+Your coding-agent repository can use any language. Building a Python tool-calling agent? Follow the secondary [Python walkthrough](docs/python-agent.md), including installation into the project environment.
 
-Maida is framework-agnostic at its core -- the SDK works with any Python code.
-Adapters are optional and import-to-enable; the core package works without any
-of them installed.
-
-| Integration | Install | Guide |
+| Integration | Setup | Guide |
 |---|---|---|
-| 🦜 LangChain / LangGraph | `maida-ai[langchain]` | [Guide](https://maida.ai/docs/integrations/langchain-langgraph/) |
-| 🤖 OpenAI Agents SDK | `maida-ai[openai]` | [Guide](https://maida.ai/docs/integrations/openai-agents/) |
-| 🛶 CrewAI | unsupported after v0.5.3 | [Guide](https://maida.ai/docs/integrations/crewai/) |
-| 📊 Langfuse import | built in | [Guide](https://maida.ai/docs/langfuse/) |
-| 🖥️ Claude Code capture | built in | [Guide](https://maida.ai/docs/claude-code/) |
-| 🧾 Any emitter (no SDK) | built in | [Emitter guide](https://maida.ai/docs/reference/trace-emitter/) |
+| Claude Code | `maida init` | [Capture and recovery](docs/claude-code.md) |
+| LangChain / LangGraph | `maida-ai[langchain]==0.6.1` | [Guide](docs/integrations/langchain-langgraph.md) |
+| OpenAI Agents SDK | `maida-ai[openai]==0.6.1` | [Guide](docs/integrations/openai-agents.md) |
+| CrewAI | Unsupported installation path; adapter retained | [Compatibility](docs/integrations/crewai.md) |
+| Langfuse import | Built in, read-only | [Guide](docs/langfuse.md) |
+| Another native emitter | `maida validate-trace` | [Emitter guide](docs/reference/trace-emitter.md) |
 
-Systems that write native traces directly can check them with
-`maida validate-trace` before handing them to the gate -- no SDK required.
+Adapters are optional; the core works without a framework installed. See the [integration overview](docs/integrations.md) for coverage and setup.
 
-> **Langfuse tells you what happened; Maida tells you whether it changed.**
+## Documentation and reference
 
-## 📚 Documentation
+Start at **[maida.ai/docs](https://maida.ai/docs/)** or the [local documentation index](docs/index.md).
 
-Full documentation lives at **[maida.ai/docs](https://maida.ai/docs/)**.
+- [Check an agent change](docs/getting-started.md) and [regression testing](docs/regression-testing.md).
+- [Investigate a regression](docs/viewer.md) and [protect the next change](docs/cli/init.md#keep-a-reviewed-contract-later).
+- [CLI reference](docs/cli.md), [SDK](docs/sdk.md), and [policy](docs/reference/policy.md).
+- [Trace format](docs/reference/trace-format.md), [configuration](docs/reference/config.md), [guardrails](docs/guardrails.md), and [architecture](docs/architecture.md).
+- [Runnable tutorials and examples](https://github.com/maida-ai/maida-tutorials).
 
-| | |
-|---|---|
-| 🚀 [Getting started](https://maida.ai/docs/getting-started/) | Install, first trace, first baseline |
-| 🛡️ [Regression testing](https://maida.ai/docs/regression-testing/) | The end-to-end gate workflow |
-| ⌨️ [CLI reference](https://maida.ai/docs/cli/) | Every command, option, and exit code |
-| 🐍 [SDK reference](https://maida.ai/docs/sdk/) | `@trace`, recorders, contexts |
-| 📜 [Policy reference](https://maida.ai/docs/reference/policy/) | `.maida/policy.yaml`, policy v2 |
-| 🚧 [Guardrails](https://maida.ai/docs/guardrails/) | Stop runaway runs mid-flight |
-| 🔍 [Viewer](https://maida.ai/docs/viewer/) | The local timeline UI |
-| 🗄️ [Trace format](https://maida.ai/docs/reference/trace-format/) | The versioned data contract |
-| ⚙️ [Configuration](https://maida.ai/docs/reference/config/) | Env vars, YAML precedence, redaction |
-| 🏗️ [Architecture](https://maida.ai/docs/architecture/) | Schema, storage, loop detection |
+## Setup help and privacy
 
-Step-by-step notebooks live in
-[maida-ai/maida-tutorials](https://github.com/maida-ai/maida-tutorials) -- all
-runnable without API keys.
+Init previews automatic local capture setup and preserves existing settings and other hooks. If detection is ambiguous, use `maida init --agent claude-code`. Upgrade an older standalone install with `uv tool install --force "maida-ai==0.6.1"`, rerun init, and follow its recovery guidance. To stop capture, use `maida detach --agent claude-code`; restart the agent session after setup or detach. Saved evidence is preserved. See the [init reference](docs/cli/init.md) for detailed setup and upgrade handling.
 
-## 🔒 Privacy and local-first guarantees
-
-Redaction is **on by default**: values for keys matching `api_key`, `token`,
-`authorization`, `cookie`, `secret`, and `password` are scrubbed before
-anything is written to disk, and large fields are truncated.
-
-Runs are plain files you can inspect or delete:
-
-```
-~/.maida/runs/<trace_id>/
-├── meta.json     # run metadata (status, counts, timing)
-└── spans.jsonl   # append-only OpenTelemetry span records
-```
-
-No prompt, response, tool payload, secret, or environment variable leaves your
-machine or CI runner unless you explicitly configure it. Set `MAIDA_DATA_DIR` to
-move storage elsewhere.
-
-📖 [Configuration reference](https://maida.ai/docs/reference/config/)
+Redaction is on by default and large fields are truncated. [Configuration](docs/reference/config.md) explains storage and redaction settings. No task evidence is uploaded to Maida by default. Capture integrations may use a local telemetry receiver; that is not telemetry to Maida. [Optional usage counts](docs/usage-ping.md) require explicit consent and a configured collector; none is configured by default.
 
 ## 🧪 Development
 
