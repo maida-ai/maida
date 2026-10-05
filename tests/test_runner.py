@@ -115,8 +115,8 @@ def test_run_trials_shares_budget_and_checks_final_processing(agent_repo, temp_d
             clock[0] = 2.0
         return result
 
-    monkeypatch.setattr("maida.runner_v2.time.monotonic", lambda: clock[0])
-    monkeypatch.setattr("maida.runner_v2.subprocess.run", run_and_consume_budget)
+    monkeypatch.setattr("maida._runner.trials.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("maida._runner.trials.subprocess.run", run_and_consume_budget)
     with pytest.raises(TimeoutError, match="wall-time cap"):
         run_trials(
             agent_repo / "agent.py",

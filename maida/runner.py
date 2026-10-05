@@ -1,11 +1,11 @@
 """Compatibility facade for the tier-aware fixed-budget runner."""
 
-from maida.runner_v2 import (
+from maida._runner.trials import run_trials
+from maida._runner.types import (
     REPORT_VERSION,
     RunExecutionError,
     TrialRecord,
     TrialRunReport,
-    run_trials,
 )
 
 __all__ = [
