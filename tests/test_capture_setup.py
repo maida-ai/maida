@@ -1,14 +1,13 @@
 """Safe, additive installation of passive Claude observers."""
 
+from tests.support.paths import REPO_ROOT
 import json
 import os
 import shlex
 import subprocess
 import sys
 from pathlib import Path
-
 import pytest
-
 from maida.capture_setup import (
     COMMAND,
     EVENTS,
@@ -152,7 +151,7 @@ def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch, symlink
     import venv
 
     from maida.config import load_config
-    from tests.test_project_capture import initialized
+    from tests.support.capture import initialized
 
     dependencies = sysconfig.get_path("purelib")
     environment = tmp_path / "python-environment"
@@ -175,7 +174,7 @@ def test_bound_hook_runs_a_user_site_installation(tmp_path, monkeypatch, symlink
     user_site.mkdir(parents=True)
     # Install real Maida in the isolated HOME's user site; reuse only its already
     # installed dependencies through the new environment's ordinary site path.
-    user_site.joinpath("maida").symlink_to(Path(__file__).resolve().parents[1] / "maida", target_is_directory=True)
+    user_site.joinpath("maida").symlink_to(REPO_ROOT / "maida", target_is_directory=True)
     environment_site.joinpath("dependencies.pth").write_text(dependencies + "\n")
     project = tmp_path / "repo"
     initialized(project)

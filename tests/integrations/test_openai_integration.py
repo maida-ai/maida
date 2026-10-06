@@ -11,9 +11,7 @@ import secrets
 import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
-
 import pytest
-
 from maida import trace
 from maida.baseline import extract_run_metrics
 from maida.config import load_config
@@ -21,7 +19,7 @@ from maida.constants import REDACTED_MARKER, TRUNCATED_MARKER
 from maida.events import EventType
 from maida.integrations._error import MissingOptionalDependencyError
 from maida.storage import list_runs, load_run_for_analysis
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 def _drop_openai_agents_integration_modules() -> None:

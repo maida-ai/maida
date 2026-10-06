@@ -1,10 +1,9 @@
 """Tests for maida.policy: YAML loading and CLI merge."""
 
+from tests.support.paths import REPO_ROOT
 import pytest
-
 from maida.assertions import AssertionPolicy
 from maida.policy import load_policy, merge_policy
-
 
 # ---------------------------------------------------------------------------
 # load_policy
@@ -258,10 +257,9 @@ def test_no_new_tools_is_enforced_in_every_trial(tmp_path):
 
 def test_no_new_tools_schema_matches_loader(tmp_path):
     import json
-    from pathlib import Path
     import jsonschema
 
-    schema = json.loads((Path(__file__).parents[1] / "schemas/policy.schema.json").read_text())
+    schema = json.loads((REPO_ROOT / "schemas/policy.schema.json").read_text())
     valid = {
         "version": 2,
         "metrics": {"no_new_tools": {"kind": "invariant", "require": True}},

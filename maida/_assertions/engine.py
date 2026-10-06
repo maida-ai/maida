@@ -11,6 +11,8 @@ from maida._assertions.types import (
     AssertionResult,
     RegressionReasonCode,
 )
+from maida.baseline_bind import validate_policy_against_baseline
+from maida.gate import aggregate_metrics, invariant_outcomes, numeric_metrics
 from maida.baseline import extract_run_metrics
 from maida.config import MaidaConfig, load_config
 from maida.policy_types import MetricKind, PLAN_METRIC_NAMES
@@ -120,9 +122,6 @@ def _run_metric_assertions(
     report: AssertionReport,
 ) -> AssertionReport:
     """Evaluate the single-observation policy tiers with the shared gate engine."""
-    # Gate and baseline binding import AssertionPolicy; defer to avoid a cycle.
-    from maida.baseline_bind import validate_policy_against_baseline
-    from maida.gate import aggregate_metrics, invariant_outcomes, numeric_metrics
 
     unsupported = [
         name

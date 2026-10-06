@@ -4,12 +4,11 @@ import json
 import os
 import subprocess
 from pathlib import Path
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.cli import app
 from maida.config import load_config
+
 
 runner = CliRunner()
 
@@ -107,7 +106,7 @@ def test_detach_permission_error_preserves_provider_selection(project, monkeypat
     def fail(_agent):
         raise OSError("unreadable fixture")
 
-    monkeypatch.setattr("maida.cli.detach_capture", fail)
+    monkeypatch.setattr("maida._cli.setup.detach_capture", fail)
     args = ["detach", *(["--agent", agent] if agent else [])]
     result = runner.invoke(app, args)
     assert result.exit_code == 2

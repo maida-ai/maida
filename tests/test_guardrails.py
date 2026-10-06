@@ -6,15 +6,13 @@ use patched time.
 """
 
 import pytest
-
 from maida import record_llm_call, record_tool_call, record_state, trace, traced_run
 from maida.config import load_config
 from maida.events import EventType
 from maida.exceptions import GuardrailExceeded, LoopAbort
 from maida.events import spans_to_events
 from maida.storage import load_run_meta, load_spans
-from tests.conftest import get_latest_run_id
-
+from tests.support.runs import get_latest_run_id
 
 # ---------------------------------------------------------------------------
 # stop_on_loop

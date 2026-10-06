@@ -1,11 +1,10 @@
 """Golden trace fixture coverage for deterministic OTel storage examples."""
 
+from tests.support.paths import FIXTURES_ROOT
 import json
 import shutil
 from pathlib import Path
-
 import pytest
-
 from maida.assertions import AssertionPolicy, run_assertions
 from maida.baseline import create_baseline
 from maida.config import load_config
@@ -21,7 +20,8 @@ from maida.storage import (
     load_validated_run,
 )
 
-FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "traces"
+
+FIXTURE_ROOT = FIXTURES_ROOT / "traces"
 
 CURRENT_FIXTURES = {
     "normal": "10000000000000000000000000000001",

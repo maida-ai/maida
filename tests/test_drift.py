@@ -1,15 +1,13 @@
 """Windowed scheduled behavioral regression checks."""
 
 from __future__ import annotations
-
+from tests.support.paths import REPO_ROOT
 import json
 import shutil
 from hashlib import sha256
 from pathlib import Path
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.assertions import AssertionPolicy
 from maida.baseline import create_baseline, save_baseline
 from maida.cli import app
@@ -21,7 +19,7 @@ from maida.statistics import GateVerdict
 from maida.trace_validation import validate_trace_path
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = REPO_ROOT
 FIXTURES = ROOT / "tests" / "fixtures" / "traces" / "current"
 EXTERNAL_EMITTER_FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 runner = CliRunner()
@@ -571,7 +569,7 @@ def test_drift_cli_maps_unexpected_failures_to_internal_error(tmp_path: Path, mo
         del args, kwargs
         raise RuntimeError("unexpected evaluator failure")
 
-    monkeypatch.setattr("maida.cli.run_drift", fail)
+    monkeypatch.setattr("maida._cli.execution.run_drift", fail)
     result = runner.invoke(
         app,
         [

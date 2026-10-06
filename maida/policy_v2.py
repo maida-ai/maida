@@ -9,7 +9,7 @@ from pathlib import Path
 from statistics import NormalDist
 from typing import Any
 
-from maida.assertions import AssertionPolicy
+from maida._assertions.types import AssertionPolicy
 from maida.policy_types import (
     CANONICAL_METRIC_NAMES,
     INVARIANT_METRIC_NAMES,

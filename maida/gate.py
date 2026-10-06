@@ -7,7 +7,7 @@ from dataclasses import replace
 from statistics import median
 from typing import Any, Iterable
 
-from maida.assertions import AssertionPolicy
+from maida._assertions.types import AssertionPolicy
 from maida.policy import minimum_trials_for_pass
 from maida.policy_types import MetricDirection, MetricKind, MetricMode, MetricPolicy
 from maida.policy_types import PLAN_METRIC_NAMES

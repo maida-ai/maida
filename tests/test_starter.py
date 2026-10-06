@@ -3,16 +3,14 @@
 import json
 import subprocess
 from pathlib import Path, PureWindowsPath
-
 import pytest
 import yaml
 from typer.testing import CliRunner
-
 from maida import record_tool_call, traced_run
 from maida.cli import app
 from maida.config import load_config
 from maida.policy import load_policy
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 runner = CliRunner()
@@ -181,7 +179,7 @@ def test_github_scaffold_uses_real_entrypoint_and_reviewed_baseline(
     temp_data_dir, tmp_path, monkeypatch, baseline_path
 ):
     # The generated workflow runs on Ubuntu, including when init runs on Windows.
-    monkeypatch.setattr("maida.cli.ACTIVE_BASELINE", baseline_path)
+    monkeypatch.setattr("maida._cli.setup.ACTIVE_BASELINE", baseline_path)
     monkeypatch.chdir(tmp_path)
     subprocess.run(["git", "init", "-q"], check=True)
     Path("agent.py").write_text("from maida import traced_run\nwith traced_run(name='repo-agent'): pass\n")

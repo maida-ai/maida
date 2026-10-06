@@ -2,15 +2,13 @@
 
 import json
 import subprocess
-
 import pytest
-
 from typer.testing import CliRunner
-
 from maida.cli import app
 from maida.capture.providers import updated_pointer
 from maida.config import load_config
-from tests.test_project_capture import initialized, task
+from tests.support.capture import initialized, task
+
 
 runner = CliRunner()
 

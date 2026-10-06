@@ -1,8 +1,7 @@
+from tests.support.paths import REPO_ROOT
 import json
-
 import pytest
 from fastapi.testclient import TestClient
-
 from maida import usage
 
 
@@ -133,10 +132,9 @@ def test_receiver_schema_rejects_invalid_values(tmp_path, field, value):
 
 
 def test_published_schema_matches_payloads():
-    from pathlib import Path
     from jsonschema import Draft202012Validator, FormatChecker
 
-    schema = json.loads((Path(__file__).parents[1] / "schemas/usage-ping.v1.schema.json").read_text())
+    schema = json.loads((REPO_ROOT / "schemas/usage-ping.v1.schema.json").read_text())
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     for verdict in ("pass", "fail", "inconclusive"):
         payload = usage.make_payload(verdict, "a" * 64, False)

@@ -7,7 +7,7 @@ from typing import Any
 
 from maida.guardrails import GuardrailParams
 from maida.constants import LOCAL_DIR_NAME
-from maida.project_local import installation
+from maida._project_installation import installation
 
 try:
     import yaml

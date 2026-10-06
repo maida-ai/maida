@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from maida.assertions import AssertionPolicy
+from maida._assertions.types import AssertionPolicy
 from maida.gate import baseline_tool_path, baseline_values
 from maida.policy_types import MetricKind, MetricMode
 from maida.statistics import distributional_minimum_baseline_trials

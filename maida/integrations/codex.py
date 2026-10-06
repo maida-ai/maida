@@ -17,7 +17,7 @@ from maida._tracing.attributes import (
     MAIDA_TOOL_COUNT,
 )
 from maida.capture.common import _atomic_json, _canonical, _capture_lock, _session_hash
-from maida.capture.codex_hook import (
+from maida.capture.codex_state import (
     CodexHookInputError,
     _completion,
     _read_state,

@@ -2,16 +2,15 @@
 
 import json
 import shlex
-
 import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
-
 from maida.cli import app
 from maida.config import load_config
 from maida.demo import run_good_agent
 from maida.storage import load_run_for_analysis, resolve_latest_run_id
-from tests.test_project_capture import deliver, initialized, task
+from tests.support.capture import deliver, initialized, task
+
 
 runner = CliRunner()
 ASSERT_FLAGS = ["--expect-status", "ok", "--no-loops", "--no-guardrails"]
@@ -168,7 +167,7 @@ def test_check_expected_access_and_internal_errors_have_recovery(project, monkey
     def broken(*args, **kwargs):
         raise error
 
-    monkeypatch.setattr("maida.cli.run_assertions", broken)
+    monkeypatch.setattr("maida._cli.gating.run_assertions", broken)
     result = runner.invoke(app, ["check"])
     assert result.exit_code == code, result.output
     assert recovery in result.stderr

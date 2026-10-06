@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from maida.assertions import AssertionPolicy
+from maida._assertions.types import AssertionPolicy
 from maida.evaluation import StoredRunEvaluation
 
 
