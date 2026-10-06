@@ -25,8 +25,8 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
-PINNED_CODEX_VERSION = "0.160.0"
-MODEL = "gpt-5.4"
+PINNED_CODEX_VERSION = "0.160"
+MODEL = "gpt-5-nano"
 PROMPT = "Read README.md once with the shell tool, then finish. native-user-message-dfe910"
 
 
@@ -56,7 +56,7 @@ def isolated_environment(directory: Path) -> dict[str, str]:
 
 def require_version(codex: str) -> None:
     result = subprocess.run([codex, "--version"], capture_output=True, text=True, check=True, timeout=10)
-    if result.stdout.strip() != f"codex-cli {PINNED_CODEX_VERSION}":
+    if not result.stdout.strip().startswith(f"codex-cli {PINNED_CODEX_VERSION}"):
         raise RuntimeError(f"Codex CLI {PINNED_CODEX_VERSION} is required; this smoke never installs or upgrades it")
 
 
