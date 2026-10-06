@@ -1,7 +1,6 @@
 """CLI imports and local locks must work without a POSIX-only dependency."""
 
 from tests.support.paths import REPO_ROOT
-
 import os
 import errno
 import subprocess
@@ -9,9 +8,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 from types import SimpleNamespace
-
 import pytest
-
 from maida import _file_lock
 
 

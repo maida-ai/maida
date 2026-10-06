@@ -57,9 +57,11 @@ Fast unit CI runs on Ubuntu and Windows with Python 3.12–3.14, including optio
 
 Run a specific file or test:
 
+Tests mirror the implementation packages, including private package names. See [test organization](tests/README.md) for shared helpers, fixtures, and repository checks.
+
 ```bash
-uv run pytest tests/tracing/test_tracing.py
-uv run pytest tests/tracing/test_tracing.py -k "test_trace_success"
+uv run pytest tests/_tracing/test_tracing.py
+uv run pytest tests/_tracing/test_tracing.py -k "test_trace_success"
 ```
 
 ---

@@ -3,11 +3,9 @@
 import json
 import subprocess
 from pathlib import Path, PureWindowsPath
-
 import pytest
 import yaml
 from typer.testing import CliRunner
-
 from maida import record_tool_call, traced_run
 from maida.cli import app
 from maida.config import load_config

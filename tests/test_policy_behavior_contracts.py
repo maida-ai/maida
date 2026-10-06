@@ -6,17 +6,13 @@ A missing check is a failure even if some other check still blocks the run.
 """
 
 from __future__ import annotations
-
 from tests.support.paths import FIXTURES_ROOT
-
 import json
 import shutil
 import subprocess
 from pathlib import Path
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.cli import app
 
 

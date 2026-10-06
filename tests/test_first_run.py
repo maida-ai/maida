@@ -1,19 +1,17 @@
 """The default init journey needs no tutorial checkout or policy knowledge."""
 
 from tests.support.fixtures import project as project
-
 import json
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.cli import app
 from maida.config import load_config
+
 
 runner = CliRunner()
 UV_EXECUTABLE = shutil.which("uv")

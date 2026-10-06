@@ -4,12 +4,11 @@ import json
 import os
 import subprocess
 from pathlib import Path
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.cli import app
 from maida.config import load_config
+
 
 runner = CliRunner()
 

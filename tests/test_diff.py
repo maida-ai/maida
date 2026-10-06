@@ -1,9 +1,7 @@
 """Tests for maida.diff: structural run comparison."""
 
 import json
-
 import pytest
-
 from maida import record_llm_call, record_tool_call, traced_run
 from maida.baseline import create_baseline
 from maida.config import load_config

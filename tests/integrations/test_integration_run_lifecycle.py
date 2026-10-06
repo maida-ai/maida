@@ -6,7 +6,6 @@ nested @trace or traced_run do not invoke them again. Exit receives exception in
 """
 
 import pytest
-
 from maida import record_tool_call, trace, traced_run
 from maida._integration_utils import (
     _clear_test_run_lifecycle_registry,

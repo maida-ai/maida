@@ -1,7 +1,6 @@
 """Tests for maida.baseline: create, save, load, and metric extraction."""
 
 import pytest
-
 from maida import record_llm_call, record_tool_call, traced_run
 from maida.baseline import (
     _BASELINE_SCHEMA_VERSION,

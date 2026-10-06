@@ -1,15 +1,13 @@
 """Initialized projects must never report another repository's evidence."""
 
 from tests.support.capture import deliver as deliver, initialized as initialized, task as task
-
 import json
 import subprocess
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.cli import app
 from maida.config import load_config
+
 
 runner = CliRunner()
 

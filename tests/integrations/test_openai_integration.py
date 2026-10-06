@@ -11,9 +11,7 @@ import secrets
 import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
-
 import pytest
-
 from maida import trace
 from maida.baseline import extract_run_metrics
 from maida.config import load_config

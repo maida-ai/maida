@@ -7,10 +7,8 @@ import logging
 import secrets
 import sys
 from types import SimpleNamespace
-
 import pytest
 from tests.support.runs import get_latest_run_id
-
 from maida import trace
 from maida.baseline import extract_run_metrics
 from maida.config import load_config
@@ -22,6 +20,7 @@ from maida.exceptions import (
     _MaidaAbortSignal,
 )
 from maida.storage import list_runs, load_run_for_analysis, load_spans
+
 
 try:
     from maida.integrations.langchain import LangChainCallbackHandler

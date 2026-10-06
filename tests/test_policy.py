@@ -1,12 +1,9 @@
 """Tests for maida.policy: YAML loading and CLI merge."""
 
 from tests.support.paths import REPO_ROOT
-
 import pytest
-
 from maida.assertions import AssertionPolicy
 from maida.policy import load_policy, merge_policy
-
 
 # ---------------------------------------------------------------------------
 # load_policy

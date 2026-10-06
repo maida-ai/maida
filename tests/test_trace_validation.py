@@ -1,9 +1,7 @@
 from tests.support.paths import REPO_ROOT
 import json
 from pathlib import Path
-
 import pytest
-
 from maida.assertions import AssertionPolicy, run_assertions
 from maida.baseline import create_baseline
 from maida.config import load_config

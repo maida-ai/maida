@@ -1,17 +1,13 @@
 """Windowed scheduled behavioral regression checks."""
 
 from __future__ import annotations
-
 from tests.support.paths import REPO_ROOT
-
 import json
 import shutil
 from hashlib import sha256
 from pathlib import Path
-
 import pytest
 from typer.testing import CliRunner
-
 from maida.assertions import AssertionPolicy
 from maida.baseline import create_baseline, save_baseline
 from maida.cli import app

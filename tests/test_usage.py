@@ -1,9 +1,7 @@
 from tests.support.paths import REPO_ROOT
 import json
-
 import pytest
 from fastapi.testclient import TestClient
-
 from maida import usage
 
 

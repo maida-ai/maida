@@ -1,16 +1,13 @@
 """Safe, additive installation of passive Claude observers."""
 
 from tests.support.paths import REPO_ROOT
-
 import json
 import os
 import shlex
 import subprocess
 import sys
 from pathlib import Path
-
 import pytest
-
 from maida.capture_setup import (
     COMMAND,
     EVENTS,

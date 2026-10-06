@@ -1,18 +1,14 @@
 """Reviewable gate-draft extraction from native trace windows."""
 
 from __future__ import annotations
-
 from tests.support.traces import _copy_trace as _copy_trace
 from tests.support.paths import REPO_ROOT
-
 import json
 from hashlib import sha256
 from pathlib import Path
-
 import jsonschema
 import pytest
 import yaml
-
 from maida.baseline import load_baseline
 from maida.config import load_config
 from maida.drift import NativeTraceWindowSource, run_drift

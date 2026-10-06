@@ -3,7 +3,6 @@
 import json
 from collections.abc import Callable
 from typing import Any
-
 from maida import record_state, record_tool_call, traced_run
 from maida.assertions import AssertionPolicy, RegressionReasonCode, run_assertions
 from maida.baseline import create_baseline
