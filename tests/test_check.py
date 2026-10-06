@@ -168,7 +168,7 @@ def test_check_expected_access_and_internal_errors_have_recovery(project, monkey
     def broken(*args, **kwargs):
         raise error
 
-    monkeypatch.setattr("maida.cli.run_assertions", broken)
+    monkeypatch.setattr("maida._cli.gating.run_assertions", broken)
     result = runner.invoke(app, ["check"])
     assert result.exit_code == code, result.output
     assert recovery in result.stderr

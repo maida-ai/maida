@@ -80,11 +80,11 @@ def test_gate_exit_code_contract_keeps_inconclusive_neutral(tmp_path, monkeypatc
             to_markdown=lambda: verdict.value,
         )
 
-    monkeypatch.setattr("maida.cli.run_trials", lambda *args, **kwargs: fake(GateVerdict.INCONCLUSIVE))
+    monkeypatch.setattr("maida._cli.execution.run_trials", lambda *args, **kwargs: fake(GateVerdict.INCONCLUSIVE))
     neutral = runner.invoke(app, ["run", str(script)])
     assert neutral.exit_code == 0
 
-    monkeypatch.setattr("maida.cli.run_trials", lambda *args, **kwargs: fake(GateVerdict.FAIL))
+    monkeypatch.setattr("maida._cli.execution.run_trials", lambda *args, **kwargs: fake(GateVerdict.FAIL))
     failed = runner.invoke(app, ["run", str(script)])
     assert failed.exit_code == 1
 
@@ -94,7 +94,7 @@ def test_gate_exit_code_contract_keeps_inconclusive_neutral(tmp_path, monkeypatc
     def explode(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("maida.cli.run_trials", explode)
+    monkeypatch.setattr("maida._cli.execution.run_trials", explode)
     internal = runner.invoke(app, ["run", str(script)])
     assert internal.exit_code == 10
 
@@ -112,8 +112,8 @@ def test_run_markdown_forwards_baseline_path(tmp_path, monkeypatch) -> None:
             seen["baseline_path"] = baseline_path
             return "markdown"
 
-    monkeypatch.setattr("maida.cli.load_baseline", lambda path: {"path": str(path)})
-    monkeypatch.setattr("maida.cli.run_trials", lambda *args, **kwargs: FakeReport())
+    monkeypatch.setattr("maida._cli.execution.load_baseline", lambda path: {"path": str(path)})
+    monkeypatch.setattr("maida._cli.execution.run_trials", lambda *args, **kwargs: FakeReport())
 
     result = runner.invoke(
         app,

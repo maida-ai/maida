@@ -64,7 +64,7 @@ _ALLOWED_FUNCTION_IMPORTS = {
         ("opentelemetry.trace",),
     ),  # Reset OTel module internals for test isolation.
     (
-        "maida/cli.py",
+        "maida/_cli/inspection.py",
         "view_cmd",
         "import",
         "uvicorn",

@@ -256,7 +256,7 @@ def test_capture_diff_ingestion_and_runtime_failures_are_exit_ten(monkeypatch, t
     def fail_import(*args, **kwargs):
         raise ClaudeCaptureImportError("ingestion failed")
 
-    monkeypatch.setattr("maida.cli.import_claude_capture", fail_import)
+    monkeypatch.setattr("maida._cli.inspection.import_claude_capture", fail_import)
     ingestion = runner.invoke(
         app,
         [
@@ -276,7 +276,7 @@ def test_capture_diff_ingestion_and_runtime_failures_are_exit_ten(monkeypatch, t
     def fail_evaluation(*args, **kwargs):
         raise RunValidationError("a" * 32, "evaluation failed")
 
-    monkeypatch.setattr("maida.cli.evaluate_stored_run_against_baseline", fail_evaluation)
+    monkeypatch.setattr("maida._cli.inspection.evaluate_stored_run_against_baseline", fail_evaluation)
     runtime = runner.invoke(
         app,
         [

@@ -170,7 +170,7 @@ def test_extract_cli_unexpected_failure_exits_ten_and_keeps_json_stdout_clean(
     def fail(*args: object, **kwargs: object) -> None:
         raise OSError("persistence failed")
 
-    monkeypatch.setattr("maida.cli.extract_window", fail)
+    monkeypatch.setattr("maida._cli.execution.extract_window", fail)
     result = runner.invoke(
         app,
         [

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-import maida.cli as cli
+from maida._cli import common as validation_cli
 from maida.cli import app
 
 
@@ -89,7 +89,7 @@ def test_validate_trace_internal_failure_exits_ten(monkeypatch) -> None:
     def fail(_path):
         raise RuntimeError("sk-test-DO-NOT-LEAK")
 
-    monkeypatch.setattr(cli, "validate_trace_path", fail)
+    monkeypatch.setattr(validation_cli, "validate_trace_path", fail)
 
     result = runner.invoke(app, ["validate-trace", str(FIXTURE), "--json"])
 

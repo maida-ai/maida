@@ -348,8 +348,8 @@ def test_view_opens_browser_only_after_wait_succeeds(monkeypatch, empty_data_dir
         assert "wait" in call_log, "webbrowser.open called before readiness wait"
         call_log.append("browser")
 
-    monkeypatch.setattr("maida.cli._wait_for_port", fake_wait_for_port)
-    monkeypatch.setattr("maida.cli.webbrowser.open", fake_webbrowser_open)
+    monkeypatch.setattr("maida._cli.inspection._wait_for_port", fake_wait_for_port)
+    monkeypatch.setattr("maida._cli.inspection.webbrowser.open", fake_webbrowser_open)
 
     def fake_uvicorn_run(**kwargs) -> None:
         time.sleep(0.1)
@@ -367,8 +367,8 @@ def test_view_server_stays_running_until_interrupt(monkeypatch, empty_data_dir):
     def fake_uvicorn_run(**kwargs):
         block_event.wait(timeout=3)
 
-    monkeypatch.setattr("maida.cli._wait_for_port", lambda *a, **kw: True)
-    monkeypatch.setattr("maida.cli.webbrowser.open", lambda *a, **kw: None)
+    monkeypatch.setattr("maida._cli.inspection._wait_for_port", lambda *a, **kw: True)
+    monkeypatch.setattr("maida._cli.inspection.webbrowser.open", lambda *a, **kw: None)
     monkeypatch.setattr("uvicorn.run", fake_uvicorn_run)
 
     view_result = {"done": False, "exit_code": None}
@@ -1022,7 +1022,7 @@ def test_assert_exit_ten_on_internal_error(monkeypatch, empty_data_dir):
     def raise_internal_error(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("maida.cli.run_assertions", raise_internal_error)
+    monkeypatch.setattr("maida._cli.gating.run_assertions", raise_internal_error)
 
     result = runner.invoke(app, ["assert", run_id, "--max-steps", "10"])
 
@@ -1045,7 +1045,7 @@ def test_assert_markdown_uses_report_formatter(monkeypatch, empty_data_dir):
         seen["baseline_path"] = baseline_path
         return "CLI markdown report"
 
-    monkeypatch.setattr("maida.cli.format_report_markdown", fake_format_report_markdown)
+    monkeypatch.setattr("maida._cli.gating.format_report_markdown", fake_format_report_markdown)
 
     result = runner.invoke(app, ["assert", run_id, "--max-steps", "10", "--format", "markdown"])
 
@@ -1322,7 +1322,7 @@ def test_demo_plan_renders_a_pre_execution_refusal(monkeypatch, tmp_path):
             }
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
+    monkeypatch.setattr("maida._cli.demo.import_module", lambda name: DemoBackend)
 
     result = runner.invoke(app, ["demo", "--plan"])
 
@@ -1359,7 +1359,7 @@ def test_demo_plan_discovers_printed_policy_recovery_path(
             }
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
+    monkeypatch.setattr("maida._cli.demo.import_module", lambda name: DemoBackend)
 
     first = runner.invoke(app, ["demo", "--plan"])
 
@@ -1405,7 +1405,7 @@ def test_demo_plan_explicit_policy_wins_over_discovered_default(
             }
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("maida.cli.import_module", lambda name: DemoBackend)
+    monkeypatch.setattr("maida._cli.demo.import_module", lambda name: DemoBackend)
     default_policy = tmp_path / ".maida" / "policy.yaml"
     default_policy.parent.mkdir()
     default_policy.write_text("version: 2.1\nmetrics: {}\n", encoding="utf-8")
@@ -1431,7 +1431,7 @@ def test_demo_plan_missing_optional_backend_uses_canonical_install_instruction(
     def missing_backend(name):
         raise ModuleNotFoundError("No module named 'maida.workflows'", name="maida.workflows")
 
-    monkeypatch.setattr("maida.cli.import_module", missing_backend)
+    monkeypatch.setattr("maida._cli.demo.import_module", missing_backend)
 
     result = runner.invoke(app, ["demo", "--plan"])
 

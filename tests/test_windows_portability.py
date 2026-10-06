@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from maida import cli, capture_setup
+from maida._cli import capture as capture_cli
 from maida._scenario import executor as scenario
 
 
@@ -63,9 +64,9 @@ def test_capture_hook_reads_utf8_json_from_legacy_stdin(monkeypatch, invalid):
     payload = {"session_id": "fixture", "cwd": "C:/Users/café/😀"}
     data = b"\xff" if invalid else json.dumps(payload, ensure_ascii=False).encode("utf-8")
     monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(data), encoding="cp1252"))
-    monkeypatch.setattr(cli, "installation", lambda _: None)
+    monkeypatch.setattr(capture_cli, "installation", lambda _: None)
     received = []
-    monkeypatch.setattr(cli, "parse_claude_hook_json", lambda raw, _: received.append(json.loads(raw)))
+    monkeypatch.setattr(capture_cli, "parse_claude_hook_json", lambda raw, _: received.append(json.loads(raw)))
     if invalid:
         with pytest.raises(cli.Exit) as caught:
             cli.capture_claude_hook_cmd()

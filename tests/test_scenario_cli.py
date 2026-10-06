@@ -28,7 +28,7 @@ def test_scenario_cli_preserves_report_exit_and_stdout(monkeypatch, exit_code):
             )
         ]
     )
-    monkeypatch.setattr("maida.cli.run_scenario_file", lambda *args, **kwargs: report)
+    monkeypatch.setattr("maida._cli.execution.run_scenario_file", lambda *args, **kwargs: report)
 
     result = CliRunner().invoke(
         app,
@@ -48,7 +48,7 @@ def test_scenario_cli_defaults_manifest_and_maps_preflight_to_exit_two(monkeypat
         observed.update(kwargs)
         raise ScenarioInputError("Claude Code version mismatch")
 
-    monkeypatch.setattr("maida.cli.run_scenario_file", fail)
+    monkeypatch.setattr("maida._cli.execution.run_scenario_file", fail)
     result = CliRunner().invoke(app, ["scenario", "run"])
 
     assert result.exit_code == 2
@@ -60,7 +60,7 @@ def test_scenario_cli_defaults_manifest_and_maps_preflight_to_exit_two(monkeypat
 
 def test_scenario_cli_invalid_format_is_exit_two(monkeypatch):
     monkeypatch.setattr(
-        "maida.cli.run_scenario_file",
+        "maida._cli.execution.run_scenario_file",
         lambda *args, **kwargs: pytest.fail("runner should not be called"),
     )
     result = CliRunner().invoke(app, ["scenario", "run", "--format", "xml"])

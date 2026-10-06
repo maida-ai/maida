@@ -571,7 +571,7 @@ def test_drift_cli_maps_unexpected_failures_to_internal_error(tmp_path: Path, mo
         del args, kwargs
         raise RuntimeError("unexpected evaluator failure")
 
-    monkeypatch.setattr("maida.cli.run_drift", fail)
+    monkeypatch.setattr("maida._cli.execution.run_drift", fail)
     result = runner.invoke(
         app,
         [
