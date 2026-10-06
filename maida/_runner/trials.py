@@ -11,7 +11,8 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from maida.assertions import AssertionPolicy, AssertionReport, AssertionResult, run_assertions
+from maida._assertions.types import AssertionPolicy, AssertionReport, AssertionResult
+from maida._assertions.engine import run_assertions
 from maida.baseline import extract_run_metrics
 from maida.baseline_bind import validate_policy_against_baseline
 from maida.config import MaidaConfig

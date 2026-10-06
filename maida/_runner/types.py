@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from maida._report.trials import render_trial_report_markdown, render_trial_report_text
-from maida.assertions import AssertionReport
+from maida._assertions.types import AssertionReport
 from maida.plan_contract import PlanEvidence
 from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict, StatisticalResult, aggregate_verdict

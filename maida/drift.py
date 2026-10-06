@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Protocol
 
 import maida.storage as storage
-from maida.assertions import AssertionPolicy, run_assertions
+from maida._assertions.types import AssertionPolicy
+from maida._assertions.engine import run_assertions
 from maida.baseline import extract_run_metrics
 from maida.baseline_bind import validate_policy_against_baseline
 from maida.config import MaidaConfig

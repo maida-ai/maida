@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from maida.assertions import AssertionPolicy
+from maida._assertions.types import AssertionPolicy
 from maida.config import load_config
 from maida.runner import run_trials
 from maida.statistics import GateVerdict

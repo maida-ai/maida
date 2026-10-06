@@ -19,7 +19,7 @@ from maida._scenario.types import (
     ScenarioManifest,
     WorkspaceFixture,
 )
-from maida.assertions import AssertionPolicy
+from maida._assertions.types import AssertionPolicy
 from maida.baseline import load_baseline
 from maida.policy import load_policy
 

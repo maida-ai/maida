@@ -10,11 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from maida.assertions import (
-    AssertionPolicy,
-    AssertionReport,
-    run_assertions,
-)
+from maida._assertions.types import AssertionPolicy, AssertionReport
+from maida._assertions.engine import run_assertions
 from maida.config import MaidaConfig, load_config
 from maida.diff import RunDiff, compute_diff
 from maida.report import format_report_json, format_report_markdown, format_report_text

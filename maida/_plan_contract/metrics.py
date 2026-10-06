@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Mapping
 from maida._plan_contract.artifact import PlanArtifact
 
 if TYPE_CHECKING:
-    from maida.assertions import AssertionPolicy
+    from maida._assertions.types import AssertionPolicy
     from maida.policy_types import MetricPolicy
 
 
