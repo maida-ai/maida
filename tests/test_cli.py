@@ -20,6 +20,8 @@ import yaml
 import pytest
 from packaging.requirements import Requirement
 from typer.testing import CliRunner
+from typer.main import get_command
+from maida.cli import capture_app, import_app, scenario_app
 
 from maida import record_llm_call, record_tool_call, traced_run
 from maida.cli import _PLAN_BACKEND_INSTALL_COMMAND, _wait_for_port, app
@@ -1693,3 +1695,32 @@ def test_run_rejects_unsupported_policy_before_executing_agent(tmp_path, monkeyp
     assert "version: 2" in result.stderr
     assert "deprecated" not in result.stderr.lower()
     assert "agent must not execute" not in result.output
+
+
+def test_public_cli_registers_all_command_groups():
+    command = get_command(app)
+    assert set(command.commands) == {
+        "accept",
+        "assert",
+        "baseline",
+        "capture",
+        "check",
+        "demo",
+        "detach",
+        "diff",
+        "drift",
+        "export",
+        "extract",
+        "import",
+        "init",
+        "list",
+        "onboarding",
+        "run",
+        "scenario",
+        "validate-trace",
+        "view",
+    }
+    assert set(get_command(capture_app).commands) == {"claude-code", "claude-hook", "codex-hook"}
+    assert set(get_command(import_app).commands) == {"claude-code", "langfuse"}
+    assert set(command.commands["scenario"].commands) == {"run"}
+    assert [registered.name for registered in scenario_app.registered_commands] == ["run"]
