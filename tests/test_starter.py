@@ -12,7 +12,7 @@ from maida import record_tool_call, traced_run
 from maida.cli import app
 from maida.config import load_config
 from maida.policy import load_policy
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 runner = CliRunner()

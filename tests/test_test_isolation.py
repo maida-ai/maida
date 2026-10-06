@@ -1,15 +1,16 @@
 """Developer onboarding and configuration must not affect the test suite."""
 
+from tests.support.paths import REPO_ROOT
+
 import json
 import os
 import subprocess
 import sys
 import uuid
-from pathlib import Path
 
 
 def test_suite_ignores_developer_project_home_and_capture_environment(tmp_path):
-    root = Path(__file__).resolve().parents[1]
+    root = REPO_ROOT
     project = tmp_path / "initialized-project"
     project.mkdir()
     subprocess.run(["git", "init", "--quiet", str(project)], check=True)

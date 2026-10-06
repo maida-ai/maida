@@ -1,7 +1,8 @@
 """The shell smoke check must reject server errors and preserve attack paths."""
 
+from tests.support.paths import REPO_ROOT
+
 import os
-from pathlib import Path
 import subprocess
 
 import pytest
@@ -30,7 +31,7 @@ def run_smoke(tmp_path, status):
     curl.chmod(0o755)
     completed = subprocess.run(
         ["bash", "scripts/smoke_path_traversal.sh", "http://127.0.0.1:8712"],
-        cwd=Path(__file__).parents[1],
+        cwd=REPO_ROOT,
         env={
             **os.environ,
             "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],

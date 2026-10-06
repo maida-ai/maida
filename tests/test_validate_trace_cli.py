@@ -1,3 +1,4 @@
+from tests.support.paths import REPO_ROOT
 import json
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from maida._cli import common as validation_cli
 from maida.cli import app
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 runner = CliRunner()
 

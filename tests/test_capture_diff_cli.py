@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.support.paths import FIXTURES_ROOT
+
 import hashlib
 import json
 import shutil
@@ -20,7 +22,7 @@ from maida.integrations.claude_code import (
 from maida.storage import RunValidationError
 
 
-FIXTURES = Path(__file__).parent / "fixtures" / "traces" / "claude-code" / "2.1.220"
+FIXTURES = FIXTURES_ROOT / "traces" / "claude-code" / "2.1.220"
 SESSIONS = {
     "normal": "fixture-normal",
     "regression": "fixture-regression",

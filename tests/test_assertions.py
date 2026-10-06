@@ -18,7 +18,7 @@ from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.events import EventType
 from maida.report import format_report_json, format_report_markdown, format_report_text
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 def test_regression_reason_code_vocabulary_is_stable():

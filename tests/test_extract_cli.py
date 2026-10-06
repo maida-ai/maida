@@ -10,7 +10,7 @@ from click import unstyle
 from typer.testing import CliRunner
 
 from maida.cli import app
-from tests.test_extract import _copy_trace
+from tests.support.traces import _copy_trace
 
 
 runner = CliRunner()

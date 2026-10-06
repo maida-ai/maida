@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import hashlib
+from tests.support.claude_code import _install_fixture as _install_fixture, _source_meta as _source_meta
+from tests.support.paths import FIXTURES_ROOT
+
 import json
-import shutil
 from copy import deepcopy
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -26,26 +26,13 @@ from maida.storage import install_validated_run, load_validated_run
 from maida.loopdetect import compute_signature
 
 
-FIXTURES = Path(__file__).parents[1] / "fixtures" / "traces" / "claude-code" / "2.1.220"
+FIXTURES = FIXTURES_ROOT / "traces" / "claude-code" / "2.1.220"
 SESSIONS = {
     "normal": "fixture-normal",
     "regression": "fixture-regression",
     "log-only": "fixture-log-only",
     "malformed": "fixture-malformed",
 }
-
-
-def _install_fixture(name: str, data_dir: Path) -> Path:
-    session_id = SESSIONS[name]
-    session_hash = hashlib.sha256(session_id.encode()).hexdigest()
-    destination = data_dir / "captures" / "claude-code" / session_hash / "0001"
-    shutil.copytree(FIXTURES / name, destination)
-    return destination
-
-
-def _source_meta(span: dict) -> dict:
-    raw = span.get("attributes", {}).get("maida.meta")
-    return json.loads(raw)["claude_code"] if raw else {}
 
 
 def test_normalize_prefers_trace_topology_and_enriches_without_duplicates(

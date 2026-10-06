@@ -10,12 +10,11 @@ from typer.testing import CliRunner
 
 from maida.cli import app
 from maida.config import load_config
-from tests import test_first_run
-from tests.test_onboarding import v1_payload
-from tests.test_project_capture import deliver, task
+from tests.support.fixtures import project as project
+from tests.support.onboarding import v1_payload
+from tests.support.capture import deliver, task
 
 runner = CliRunner()
-project = test_first_run.project  # Shared isolated first-run fixture.
 
 
 def invoke(*args, **kwargs):

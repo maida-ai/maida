@@ -13,7 +13,7 @@ from maida.events import EventType
 from maida.exceptions import GuardrailExceeded, LoopAbort
 from maida.events import spans_to_events
 from maida.storage import load_run_meta, load_spans
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 # ---------------------------------------------------------------------------

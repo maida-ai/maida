@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -29,7 +30,7 @@ def test_script_completes_measurement_and_writes_report(tmp_path, probability, v
             "--json-out",
             str(output),
         ],
-        cwd=Path(__file__).parents[1],
+        cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         timeout=30,
@@ -143,9 +144,7 @@ def test_wall_time_cap_checks_the_final_gate(tmp_path, monkeypatch):
 
 
 def test_nightly_workflow_is_opt_in_but_manual_dispatch_is_available() -> None:
-    workflow = (Path(__file__).parents[1] / ".github" / "workflows" / "statistical-burn-in.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow = (REPO_ROOT / ".github" / "workflows" / "statistical-burn-in.yml").read_text(encoding="utf-8")
 
     assert "schedule:" in workflow
     assert "workflow_dispatch:" in workflow

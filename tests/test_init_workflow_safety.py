@@ -12,7 +12,7 @@ from maida.cli import _normalize_demo_trace_duration, app
 from maida.config import load_config
 from maida.demo._agents import run_good_agent
 from maida.storage import resolve_latest_run_id
-from tests.test_project_capture import initialized, task
+from tests.support.capture import initialized, task
 
 runner = CliRunner()
 

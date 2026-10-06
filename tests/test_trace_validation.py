@@ -1,3 +1,4 @@
+from tests.support.paths import REPO_ROOT
 import json
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from maida.trace_validation import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 TRACE_ID = "80000000000000000000000000000001"
 

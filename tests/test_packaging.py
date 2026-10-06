@@ -1,12 +1,13 @@
 """Packaging checks that stay valid across version bumps and README edits."""
 
+from tests.support.paths import REPO_ROOT
+
 import importlib.util
 import re
 import subprocess
 import zipfile
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 _HOOK_PATH = ROOT / "scripts" / "hatch_hooks" / "readme_links_rewrite.py"
 _SPEC = importlib.util.spec_from_file_location("readme_links_rewrite", _HOOK_PATH)
 assert _SPEC is not None and _SPEC.loader is not None

@@ -1,6 +1,7 @@
 """Executable package dependencies must remain acyclic."""
 
-from pathlib import Path
+from tests.support.paths import REPO_ROOT
+
 import subprocess
 import sys
 import pytest
@@ -37,7 +38,7 @@ def test_dependency_check_allows_annotations_but_checks_else_branch(tmp_path):
 
 
 def test_production_executable_imports_are_acyclic():
-    package = Path(__file__).resolve().parents[1] / "maida"
+    package = REPO_ROOT / "maida"
     edges = cyclic_edges(dependency_graph(package))
     assert not edges, "Executable dependency cycles:\n" + "\n".join(f"{a} -> {b}" for a, b in edges)
 

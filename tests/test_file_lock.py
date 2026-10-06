@@ -1,11 +1,12 @@
 """CLI imports and local locks must work without a POSIX-only dependency."""
 
+from tests.support.paths import REPO_ROOT
+
 import os
 import errno
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from threading import RLock
 from types import SimpleNamespace
 
@@ -15,7 +16,7 @@ from maida import _file_lock
 
 
 def test_cli_import_without_posix_locking_module():
-    root = Path(__file__).resolve().parents[1]
+    root = REPO_ROOT
     result = subprocess.run(
         [sys.executable, "-c", "import sys; sys.modules['fcntl'] = None; import maida.cli"],
         cwd=root,
@@ -29,7 +30,7 @@ def test_cli_import_without_posix_locking_module():
 def test_journal_updates_serialize_across_processes(tmp_path):
     from maida._onboarding.utils import _load
 
-    root = Path(__file__).resolve().parents[1]
+    root = REPO_ROOT
     path = tmp_path / "journal.json"
     path.write_text('{"journal_version": 2, "attempts": []}')
     script = """import json, sys, time

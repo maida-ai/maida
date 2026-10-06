@@ -1,14 +1,15 @@
 """Keep the first report reachable without learning capture internals."""
 
+from tests.support.paths import REPO_ROOT
+
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 PAGES = ("README.md", "docs/getting-started.md", "docs/index.md")
 CONTRACT = json.loads((ROOT / "contracts/current-main.json").read_text())
 RELEASE = CONTRACT["engine_ref"].removeprefix("v")

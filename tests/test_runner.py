@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import json
 import subprocess
 from pathlib import Path
@@ -15,7 +17,7 @@ from maida.config import load_config
 from maida.runner import RunExecutionError, run_trials
 from maida.schema_versions import REPORT_SCHEMA_VERSION
 from maida.statistics import GateVerdict
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 def _git(*args: str, cwd: Path) -> None:
@@ -271,9 +273,7 @@ with traced_run(name="candidate"):
 
 
 def test_statistical_report_schema_pins_three_verdict_contract() -> None:
-    schema = json.loads(
-        (Path(__file__).parents[1] / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads((REPO_ROOT / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8"))
 
     assert schema["properties"]["report_version"]["const"] == REPORT_SCHEMA_VERSION
     assert schema["properties"]["verdict"]["enum"] == [

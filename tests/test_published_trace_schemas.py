@@ -1,10 +1,11 @@
+from tests.support.paths import REPO_ROOT
 import json
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 SCHEMA_DIR = ROOT / "schemas" / "trace" / "0.2.0"
 FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 

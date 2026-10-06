@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import json
 import shutil
 from hashlib import sha256
@@ -21,7 +23,7 @@ from maida.statistics import GateVerdict
 from maida.trace_validation import validate_trace_path
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = REPO_ROOT
 FIXTURES = ROOT / "tests" / "fixtures" / "traces" / "current"
 EXTERNAL_EMITTER_FIXTURE = ROOT / "tests" / "fixtures" / "traces" / "external" / "emitter" / "current" / "multithread"
 runner = CliRunner()

@@ -1,5 +1,7 @@
 """Local attempt measurement keeps incomplete and assisted attempts visible."""
 
+from tests.support.onboarding import v1_payload as v1_payload
+
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -155,25 +157,6 @@ def test_invalid_nested_journal_is_rejected_without_rewriting(temp_data_dir, tmp
         assert result.exit_code == 2
         assert "journal" in result.output
         assert journal.read_bytes() == before
-
-
-def v1_payload():
-    stages = ("captured", "baseline-reviewed", "gate-pass", "regression-caught", "repair-pass", "ci-verified")
-    attempt = {
-        "id": "a" * 32,
-        "started_at": "2026-09-28T12:00:00+00:00",
-        "engine_version": "0.6.0",
-        "task_kind": "coding-agent",
-        "assistance": "none",
-        "outcome": "activated",
-        "events": [
-            {"at": f"2026-09-28T12:0{i + 1}:00+00:00", "actor": "user", "milestone": stage}
-            for i, stage in enumerate(stages)
-        ],
-        "activated_at": "2026-09-28T12:05:00+00:00",
-        "activation_assistance": "none",
-    }
-    return {"journal_version": 1, "attempts": [attempt]}
 
 
 @pytest.mark.parametrize("version", [1, 3, None])

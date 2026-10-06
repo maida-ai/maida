@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import importlib.util
 import json
 import os
@@ -23,7 +25,7 @@ from maida.capture_setup import bound_hook_command, hook_arguments, validate_hoo
 from maida.codex_setup import EVENTS, merged_hooks
 from maida.config import load_config
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 SPEC = importlib.util.spec_from_file_location("codex_capture_smoke", ROOT / "scripts/codex_capture_smoke.py")
 assert SPEC and SPEC.loader
 smoke = importlib.util.module_from_spec(SPEC)

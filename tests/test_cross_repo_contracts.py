@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import copy
 import json
 import re
@@ -29,7 +31,7 @@ from maida.schema_versions import (
 from maida.trace_validation import TraceValidationError, validate_trace_payload
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 CONTRACTS = ROOT / "contracts"
 
 

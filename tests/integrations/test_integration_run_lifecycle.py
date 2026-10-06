@@ -16,7 +16,7 @@ from maida._integration_utils import (
 from maida.config import load_config
 from maida.events import EventType, spans_to_events
 from maida.storage import load_spans
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 @pytest.fixture(autouse=True)

@@ -1,6 +1,6 @@
+from tests.support.paths import REPO_ROOT
 import json
 import re
-from pathlib import Path
 
 from packaging.requirements import Requirement
 from packaging.version import Version
@@ -12,7 +12,7 @@ from maida.scaffold import (
     render_workflow,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 
 
 def read_docs(*relatives: str) -> str:

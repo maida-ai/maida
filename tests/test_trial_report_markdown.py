@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import json
-from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -369,9 +370,7 @@ def test_trial_report_baseline_acceptance_is_additive_json() -> None:
 
 
 def test_statistical_report_schema_accepts_optional_baseline_acceptance() -> None:
-    schema = json.loads(
-        (Path(__file__).parents[1] / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads((REPO_ROOT / "schemas" / "statistical-gate-report.schema.json").read_text(encoding="utf-8"))
 
     assert "baseline_acceptance" not in schema["required"]
     assert schema["properties"]["baseline_acceptance"]["type"] == [

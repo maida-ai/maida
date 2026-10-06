@@ -8,7 +8,7 @@ from maida import record_state, record_tool_call, traced_run
 from maida.assertions import AssertionPolicy, RegressionReasonCode, run_assertions
 from maida.baseline import create_baseline
 from maida.config import load_config
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 def _patch_run_meta(config, trace_id: str, **updates: Any) -> None:

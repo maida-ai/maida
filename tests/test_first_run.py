@@ -1,5 +1,7 @@
 """The default init journey needs no tutorial checkout or policy knowledge."""
 
+from tests.support.fixtures import project as project
+
 import json
 import os
 import shutil
@@ -15,27 +17,6 @@ from maida.config import load_config
 
 runner = CliRunner()
 UV_EXECUTABLE = shutil.which("uv")
-
-
-@pytest.fixture
-def project(tmp_path, monkeypatch):
-    root = tmp_path / "repo"
-    root.mkdir()
-    subprocess.run(["git", "init", "--quiet", str(root)], check=True)
-    home = tmp_path / "home"
-    home.mkdir()
-    monkeypatch.chdir(root)
-    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
-    monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.delenv("MAIDA_DATA_DIR", raising=False)
-    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
-    monkeypatch.setattr("maida.first_run.is_interactive", lambda: True)
-    monkeypatch.setattr(
-        "maida.first_run.shutil.which",
-        lambda name: str(Path(sys.executable).parent / name) if name in {"claude", "maida"} else None,
-    )
-    return root
 
 
 def test_fresh_preview_approval_and_repeat(project):
@@ -379,7 +360,7 @@ def test_cancelled_input_and_io_failure_are_actionable(project, monkeypatch):
 
 
 def test_existing_review_flow_after_first_run_setup(project):
-    from tests.test_project_capture import task
+    from tests.support.capture import task
 
     assert runner.invoke(app, ["init"], input="y\n").exit_code == 0
     task(project, "first-task")

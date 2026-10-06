@@ -6,7 +6,7 @@ import pytest
 
 from maida.config import load_config
 from maida.project_local import installation
-from tests.test_project_capture import initialized
+from tests.support.capture import initialized
 
 
 @pytest.mark.parametrize(

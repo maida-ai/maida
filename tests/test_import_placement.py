@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import ast
 from pathlib import Path
 
@@ -103,7 +105,7 @@ def test_function_scoped_imports_are_explicitly_justified() -> None:
     """Keep imports at module top unless a local import is intentional."""
     unexpected: list[tuple[str, str, str, str, tuple[str, ...]]] = []
 
-    root = Path(__file__).resolve().parents[1]
+    root = REPO_ROOT
     sources = sorted((root / "maida").rglob("*.py"))
     assert sources, "Production source scan must not depend on the test working directory"
     for path in sources:

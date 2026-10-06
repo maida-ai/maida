@@ -11,7 +11,7 @@ from maida.baseline import (
 )
 from maida.config import load_config
 from maida.events import EventType
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 def _make_run(config, *, name="test_run", events=None, status="ok"):

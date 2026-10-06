@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import copy
 import json
-from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -35,7 +36,7 @@ from maida.schema_versions import (
 from maida.statistics import GateVerdict
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = REPO_ROOT
 
 
 def _published_schema(name: str) -> dict:

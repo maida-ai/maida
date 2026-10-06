@@ -9,7 +9,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 from maida import trace
 from maida.baseline import extract_run_metrics

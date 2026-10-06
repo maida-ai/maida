@@ -4,6 +4,14 @@ Every test uses temp dir via MAIDA_DATA_DIR (fixture restores env).
 Covers: list, export, view, baseline, assert, diff commands.
 """
 
+from tests.support.cli import (
+    _make_run as _make_run,
+    _write_run as _write_run,
+    _write_run_with_malformed_span as _write_run_with_malformed_span,
+    _write_trace_run as _write_trace_run,
+)
+from tests.support.paths import REPO_ROOT
+
 import json
 import os
 import shlex
@@ -23,7 +31,7 @@ from typer.testing import CliRunner
 from typer.main import get_command
 from maida.cli import capture_app, import_app, scenario_app
 
-from maida import record_llm_call, record_tool_call, traced_run
+from maida import record_tool_call, traced_run
 from maida.cli import _PLAN_BACKEND_INSTALL_COMMAND, _wait_for_port, app
 from maida.config import load_config
 from maida.events import EventType
@@ -36,47 +44,9 @@ from maida.scaffold import (
     WORKFLOW_TEMPLATE,
 )
 from maida.storage import list_runs
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 runner = CliRunner()
-
-
-def _make_run(config, *, name="test_run", events=None, status="ok"):
-    """Helper: create a run via traced_run + recorders, return run_id."""
-    if status == "error":
-        with pytest.raises(RuntimeError):
-            with traced_run(name=name):
-                for ev_type, ev_name, payload in events or []:
-                    if ev_type == EventType.TOOL_CALL:
-                        record_tool_call(
-                            ev_name,
-                            args=payload.get("args", {}),
-                            result=payload.get("result"),
-                        )
-                    elif ev_type == EventType.LLM_CALL:
-                        record_llm_call(
-                            ev_name,
-                            prompt="p",
-                            response="r",
-                            usage=payload.get("usage"),
-                        )
-                    elif ev_type == EventType.LOOP_WARNING:
-                        record_tool_call(ev_name, args={}, result=None)
-                raise RuntimeError("simulated error")
-    else:
-        with traced_run(name=name):
-            for ev_type, ev_name, payload in events or []:
-                if ev_type == EventType.TOOL_CALL:
-                    record_tool_call(
-                        ev_name,
-                        args=payload.get("args", {}),
-                        result=payload.get("result"),
-                    )
-                elif ev_type == EventType.LLM_CALL:
-                    record_llm_call(ev_name, prompt="p", response="r", usage=payload.get("usage"))
-                elif ev_type == EventType.LOOP_WARNING:
-                    record_tool_call(ev_name, args={}, result=None)
-    return get_latest_run_id(config)
 
 
 @pytest.fixture
@@ -96,40 +66,6 @@ def test_export_missing_run_exit_two(empty_data_dir):
     tmpfile = empty_data_dir / "out.json"
     result = runner.invoke(app, ["export", "missing_run", "--out", str(tmpfile)])
     assert result.exit_code == 2
-
-
-def _write_run(temp_data_dir, trace_id, run_name):
-    """Write meta.json + spans.jsonl for a minimal run."""
-    config = load_config()
-    runs_base = config.data_dir / "runs"
-    run_dir = runs_base / trace_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    meta = {
-        "spec_version": "0.2",
-        "trace_id": trace_id,
-        "run_name": run_name,
-        "started_at": "2026-01-01T00:00:00.000Z",
-        "ended_at": "2026-01-01T00:00:01.000Z",
-        "duration_ms": 1000,
-        "status": "ok",
-        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
-    }
-    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    root_span = {
-        "trace_id": trace_id,
-        "span_id": "0" * 16,
-        "parent_span_id": None,
-        "name": run_name,
-        "kind": "INTERNAL",
-        "start_time": "2026-01-01T00:00:00.000Z",
-        "end_time": "2026-01-01T00:00:01.000Z",
-        "duration_ms": 1000,
-        "attributes": {"maida.run_name": run_name},
-        "events": [],
-        "status_code": "OK",
-        "status_description": "",
-    }
-    (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
 
 
 def test_export_accepts_run_id_prefix(empty_data_dir):
@@ -163,59 +99,6 @@ def test_export_success_path_writes_run_and_events(empty_data_dir):
     tool_events = [e for e in data["events"] if e.get("event_type") == EventType.TOOL_CALL.value]
     assert len(tool_events) == 1
     assert tool_events[0].get("payload", {}).get("tool_name") == "test_tool"
-
-
-def _write_trace_run(temp_data_dir, trace_id, run_name):
-    config = load_config()
-    run_dir = config.data_dir / "runs" / trace_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    meta = {
-        "spec_version": "0.2",
-        "trace_id": trace_id,
-        "run_name": run_name,
-        "started_at": "2026-01-01T00:00:00.000Z",
-        "ended_at": "2026-01-01T00:00:01.000Z",
-        "duration_ms": 1000,
-        "status": "ok",
-        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
-    }
-    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    root_span = {
-        "trace_id": trace_id,
-        "span_id": "0" * 16,
-        "parent_span_id": None,
-        "name": run_name,
-        "kind": "INTERNAL",
-        "start_time": "2026-01-01T00:00:00.000Z",
-        "end_time": "2026-01-01T00:00:01.000Z",
-        "duration_ms": 1000,
-        "attributes": {"maida.run_name": run_name},
-        "events": [],
-        "status_code": "OK",
-        "status_description": "",
-    }
-    (run_dir / "spans.jsonl").write_text(json.dumps(root_span) + "\n", encoding="utf-8")
-
-
-def _write_run_with_malformed_span(temp_data_dir, trace_id, run_name="bad"):
-    config = load_config()
-    run_dir = config.data_dir / "runs" / trace_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    meta = {
-        "spec_version": "0.2",
-        "trace_id": trace_id,
-        "run_name": run_name,
-        "started_at": "2026-01-01T00:00:00.000Z",
-        "ended_at": "2026-01-01T00:00:01.000Z",
-        "duration_ms": 1000,
-        "status": "ok",
-        "counts": {"llm_calls": 0, "tool_calls": 0, "errors": 0, "loop_warnings": 0},
-    }
-    (run_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    (run_dir / "spans.jsonl").write_text(
-        '{"api_key":"sk-test-DO-NOT-LEAK",\n',
-        encoding="utf-8",
-    )
 
 
 def test_list_json_outputs_valid_json_spec_version_and_runs(empty_data_dir):
@@ -968,7 +851,7 @@ def test_assert_exit_zero_on_pass(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
         record_tool_call("t", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -982,7 +865,7 @@ def test_assert_exit_one_on_fail(empty_data_dir):
     with traced_run(name="assert_test"):
         for i in range(5):
             record_tool_call(f"t{i}", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -995,7 +878,7 @@ def test_assert_exit_two_missing_baseline(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
         pass
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -1017,7 +900,7 @@ def test_assert_exit_ten_on_internal_error(monkeypatch, empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
         record_tool_call("t", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -1036,7 +919,7 @@ def test_assert_markdown_uses_report_formatter(monkeypatch, empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
         record_tool_call("t", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
     seen = {}
@@ -1060,7 +943,7 @@ def test_assert_json_format(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
         pass
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -1075,7 +958,7 @@ def test_assert_markdown_format(empty_data_dir):
     config = load_config()
     with traced_run(name="assert_test"):
         pass
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -1089,7 +972,7 @@ def test_assert_with_baseline(empty_data_dir):
     with traced_run(name="baseline_run"):
         for _ in range(5):
             record_tool_call("t", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     bl_run = get_latest_run_id(config)
 
@@ -1121,7 +1004,7 @@ def test_assert_no_loops_flag(empty_data_dir):
     config = load_config()
     with traced_run(name="loop_test"):
         record_tool_call("t", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -1133,7 +1016,7 @@ def test_assert_ignore_check_flag(empty_data_dir):
     config = load_config()
     events = [(EventType.TOOL_CALL, f"t{i}", {}) for i in range(100)]
     _make_run(config, name="check", events=events)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     run_id = get_latest_run_id(config)
 
@@ -1166,7 +1049,7 @@ def test_diff_two_runs(empty_data_dir):
     config = load_config()
     with traced_run(name="a"):
         record_tool_call("search", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     rid_a = get_latest_run_id(config)
 
@@ -1183,7 +1066,7 @@ def test_diff_with_baseline(empty_data_dir):
     config = load_config()
     with traced_run(name="bl"):
         record_tool_call("t", args={}, result=None)
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     bl_run = get_latest_run_id(config)
 
@@ -1204,7 +1087,7 @@ def test_diff_missing_args(empty_data_dir):
     config = load_config()
     with traced_run(name="test"):
         pass
-    from tests.conftest import get_latest_run_id
+    from tests.support.runs import get_latest_run_id
 
     rid = get_latest_run_id(config)
 
@@ -1456,7 +1339,7 @@ def test_demo_plan_install_instruction_has_lower_bounds_aligned_with_contract():
     assert has_lower_bound(requirements["maida-ai"])
     assert has_lower_bound(requirements["maida-workflows"])
 
-    contract = json.loads((Path(__file__).parents[1] / "contracts" / "current-main.json").read_text(encoding="utf-8"))
+    contract = json.loads((REPO_ROOT / "contracts" / "current-main.json").read_text(encoding="utf-8"))
     assert str(requirements["maida-ai"]) == contract["install_requirement"]
 
 

@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from maida.cli import app
 from maida.config import load_config
-from tests.test_project_capture import initialized
+from tests.support.capture import initialized
 
 runner = CliRunner()
 

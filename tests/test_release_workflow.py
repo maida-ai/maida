@@ -1,9 +1,10 @@
 """Exercise release preparation without creating releases or signing remotely."""
 
+from tests.support.paths import REPO_ROOT
+
 import hashlib
 import json
 import os
-from pathlib import Path
 import subprocess
 import tarfile
 
@@ -12,7 +13,7 @@ import yaml
 
 pytestmark = pytest.mark.skipif(os.name == "nt", reason="Tests POSIX shell scripts used by Linux CI")
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
 RELEASE_TAG = json.loads((ROOT / "contracts/current-main.json").read_text())["engine_ref"]
 PRERELEASE_TAG = f"{RELEASE_TAG}rc1"

@@ -1,3 +1,4 @@
+from tests.support.paths import FIXTURES_ROOT
 import hashlib
 import json
 import shutil
@@ -8,7 +9,7 @@ from typer.testing import CliRunner
 from maida.cli import app
 
 
-FIXTURES = Path(__file__).parent / "fixtures" / "traces" / "claude-code" / "2.1.220"
+FIXTURES = FIXTURES_ROOT / "traces" / "claude-code" / "2.1.220"
 
 
 def _install_fixture(name: str, session_id: str, data_dir: Path) -> Path:

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import json
 import re
-from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -87,7 +88,7 @@ def test_capture_claude_hook_never_emits_a_policy_decision(temp_data_dir):
 
 
 def test_documented_project_hook_configuration_is_valid_and_compact():
-    docs = (Path(__file__).parents[1] / "docs" / "claude-code.md").read_text()
+    docs = (REPO_ROOT / "docs" / "claude-code.md").read_text()
     match = re.search(
         r"## Command-hook fallback.*?```json\n(?P<config>.*?)\n```",
         docs,

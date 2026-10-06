@@ -8,7 +8,7 @@ from maida.baseline import create_baseline
 from maida.config import load_config
 from maida.evaluation import evaluate_stored_run_against_baseline
 from maida.report import format_report_json, format_report_markdown, format_report_text
-from tests.conftest import get_latest_run_id
+from tests.support.runs import get_latest_run_id
 
 
 def test_evaluate_stored_run_returns_report_diff_and_formatter_parity(temp_data_dir):

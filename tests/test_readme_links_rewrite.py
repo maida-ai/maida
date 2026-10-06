@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from tests.support.paths import REPO_ROOT
+
 import importlib.util
-from pathlib import Path
 
 import pytest
 
-_HOOK_PATH = Path(__file__).resolve().parents[1] / "scripts" / "hatch_hooks" / "readme_links_rewrite.py"
+_HOOK_PATH = REPO_ROOT / "scripts" / "hatch_hooks" / "readme_links_rewrite.py"
 _SPEC = importlib.util.spec_from_file_location("readme_links_rewrite", _HOOK_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
 _HOOK = importlib.util.module_from_spec(_SPEC)
