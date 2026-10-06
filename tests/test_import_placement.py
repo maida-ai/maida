@@ -13,7 +13,7 @@ _ALLOWED_FUNCTION_IMPORTS = {
         "from",
         "maida.capture.codex_hook",
         ("materialize_turn",),
-    ),  # Avoid configuration import cycle; materialize selected task only.
+    ),  # Materialize selected task only; configuration discovery stays independent.
     (
         "maida/capture/codex_hook.py",
         "materialize_turn",
