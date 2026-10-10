@@ -28,7 +28,7 @@ jobs:
           --json-out burn-in-report.json
       - name: Upload burn-in report
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: statistical-burn-in-report
           path: burn-in-report.json
